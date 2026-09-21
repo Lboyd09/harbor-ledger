@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "@tanstack/react-router";
 import { parseCsvText, remapPreview } from "@/lib/budget/csv";
 import { formatMoney } from "@/lib/budget/money";
 import type { ColumnRole, CsvPreview } from "@/lib/budget/types";
@@ -165,11 +166,26 @@ export function ImportWizard() {
       ) : null}
 
       {result ? (
-        <p className="rounded-md bg-chip px-3 py-2 text-sm">
-          Added {result.added} new transaction{result.added === 1 ? "" : "s"} ({result.categorized} auto-categorized,{" "}
-          {result.uncategorized} still open). Skipped {result.skipped} duplicate or unreadable row
-          {result.skipped === 1 ? "" : "s"}.
-        </p>
+        <div className="space-y-2 rounded-md bg-chip px-3 py-3 text-sm">
+          <p>
+            Added {result.added} new transaction{result.added === 1 ? "" : "s"} ({result.categorized} auto-categorized,{" "}
+            {result.uncategorized} still open). Skipped {result.skipped} duplicate or unreadable row
+            {result.skipped === 1 ? "" : "s"}.
+          </p>
+          <div className="flex flex-wrap gap-3">
+            {result.uncategorized > 0 ? (
+              <Link to="/categories" className="text-primary underline-offset-2 hover:underline">
+                Categorize repeating merchants
+              </Link>
+            ) : null}
+            <Link to="/year" className="text-primary underline-offset-2 hover:underline">
+              Open the year sheet
+            </Link>
+            <Link to="/" className="text-primary underline-offset-2 hover:underline">
+              Year outlook
+            </Link>
+          </div>
+        </div>
       ) : null}
 
       {batches.length ? (

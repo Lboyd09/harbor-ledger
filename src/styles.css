@@ -66,3 +66,27 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+.sheet-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  max-height: 70vh;
+}
+.sheet-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  min-width: 72rem;
+}
+.sheet-table th,
+.sheet-table td {
+  font-variant-numeric: tabular-nums;
+}
+.sheet-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--color-surface);
+}
+.sheet-table th:first-child {
+  z-index: 3;
+}

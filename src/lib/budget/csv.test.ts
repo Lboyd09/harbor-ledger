@@ -52,6 +52,9 @@ test("keywords are universal", () => {
   assert.equal(matchKeywordSlug("NETFLIX.COM"), "subscriptions");
   assert.equal(matchKeywordSlug("Zelle payment to LAKESIDE PROPERTY MGMT"), "housing");
   assert.equal(matchKeywordSlug("MCDONALD'S"), "dining");
+  assert.equal(matchKeywordSlug("TARGET STORE"), "personal");
+  assert.equal(matchKeywordSlug("FIVE GUYS BURGERS"), "dining");
+  assert.equal(matchKeywordSlug("PAYMENT TO CHASE CARD ENDING 4242"), "transfers-out");
 });
 
 test("refund stays in expense bucket", () => {

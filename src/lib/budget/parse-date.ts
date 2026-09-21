@@ -58,6 +58,11 @@ export function monthLabel(ym: string): string {
   return new Date(y, m - 1, 1).toLocaleString("en-US", { month: "long", year: "numeric" });
 }
 
+export function monthShort(ym: string): string {
+  const m = Number(ym.slice(5, 7));
+  return ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][m - 1] ?? ym;
+}
+
 export function currentMonthKey(now = new Date()): string {
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}`;
 }

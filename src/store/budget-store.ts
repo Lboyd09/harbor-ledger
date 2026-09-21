@@ -9,6 +9,7 @@ import { merchantKey } from "@/lib/budget/merchant";
 import { emptySnapshot, normalizeSnapshot } from "@/lib/budget/normalize";
 import { currentMonthKey, currentWeekKey, monthKeyFromDate, weekKeyFromDate } from "@/lib/budget/parse-date";
 import { loadLedger, saveLedger } from "@/lib/budget/persist";
+import { recommendedPlans } from "@/lib/budget/year";
 import { buildPresetCategories } from "@/lib/budget/presets";
 import { SAMPLE_CSV, SAMPLE_PROFILE } from "@/lib/budget/sample";
 import type {
@@ -46,6 +47,8 @@ type State = LedgerSnapshot & {
   addCategory: (cat: Omit<Category, "id">) => void;
   removeCategory: (id: string) => void;
   setTransactionCategory: (id: string, categoryId: string | null, applyToMerchant: boolean) => void;
+  setMerchantCategory: (merchantKey: string, categoryId: string | null) => void;
+  applyRecommendedPlans: (year: string) => number;
   patchTransaction: (id: string, patch: Partial<Pick<Transaction, "excluded" | "status" | "notes">>) => void;
   importPreview: (preview: CsvPreview, flipSign: boolean) => ImportResult;
   loadSample: () => void;
@@ -284,21 +287,38 @@ export const useBudgetStore = create<State>()(
       setTransactionCategory: (id, categoryId, applyToMerchant) => {
         const tx = get().transactions.find((t) => t.id === id);
         if (!tx) return;
-        let rules = get().merchantRules;
-        if (categoryId && applyToMerchant) {
-          rules = [...rules.filter((r) => r.merchantKey !== tx.merchantKey), { merchantKey: tx.merchantKey, categoryId }];
+        if (applyToMerchant) {
+          get().setMerchantCategory(tx.merchantKey, categoryId);
+          return;
         }
         set({
-          merchantRules: rules,
-          transactions: get().transactions.map((t) => {
-            if (t.id === id) return { ...t, categoryId, userSet: true };
-            if (applyToMerchant && t.merchantKey === tx.merchantKey && !t.userSet) {
-              return { ...t, categoryId };
-            }
-            return t;
-          }),
+          transactions: get().transactions.map((t) => (t.id === id ? { ...t, categoryId, userSet: true } : t)),
         });
         schedulePersist();
+      },
+      setMerchantCategory: (key, categoryId) => {
+        const rules = categoryId
+          ? [...get().merchantRules.filter((r) => r.merchantKey !== key), { merchantKey: key, categoryId }]
+          : get().merchantRules.filter((r) => r.merchantKey !== key);
+        set({
+          merchantRules: rules,
+          transactions: get().transactions.map((t) =>
+            t.merchantKey === key ? { ...t, categoryId, userSet: true } : t,
+          ),
+        });
+        schedulePersist();
+      },
+      applyRecommendedPlans: (year) => {
+        const recs = recommendedPlans(get().transactions, get().categories, year);
+        if (!recs.length) return 0;
+        const map = new Map(recs.map((r) => [r.id, r.plannedMonthly]));
+        set({
+          categories: get().categories.map((c) =>
+            map.has(c.id) ? { ...c, plannedMonthly: map.get(c.id) as number } : c,
+          ),
+        });
+        schedulePersist();
+        return recs.length;
       },
       patchTransaction: (id, patch) => {
         set({

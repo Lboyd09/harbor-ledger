@@ -12,11 +12,14 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AccountRouteImport } from './routes/account'
 import { Route as ActivityRouteImport } from './routes/activity'
+import { Route as CategoriesRouteImport } from './routes/categories'
 import { Route as ImportRouteImport } from './routes/import'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as PayeesRouteImport } from './routes/payees'
 import { Route as PlanRouteImport } from './routes/plan'
 import { Route as RecurringRouteImport } from './routes/recurring'
 import { Route as ResetRouteImport } from './routes/reset'
+import { Route as YearRouteImport } from './routes/year'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 
 const IndexRoute = IndexRouteImport.update({
@@ -34,6 +37,11 @@ const ActivityRoute = ActivityRouteImport.update({
   path: '/activity',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CategoriesRoute = CategoriesRouteImport.update({
+  id: '/categories',
+  path: '/categories',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ImportRoute = ImportRouteImport.update({
   id: '/import',
   path: '/import',
@@ -42,6 +50,11 @@ const ImportRoute = ImportRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PayeesRoute = PayeesRouteImport.update({
+  id: '/payees',
+  path: '/payees',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PlanRoute = PlanRouteImport.update({
@@ -59,6 +72,11 @@ const ResetRoute = ResetRouteImport.update({
   path: '/reset',
   getParentRoute: () => rootRouteImport,
 } as any)
+const YearRoute = YearRouteImport.update({
+  id: '/year',
+  path: '/year',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -69,22 +87,28 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/account': typeof AccountRoute
   '/activity': typeof ActivityRoute
+  '/categories': typeof CategoriesRoute
   '/import': typeof ImportRoute
   '/login': typeof LoginRoute
+  '/payees': typeof PayeesRoute
   '/plan': typeof PlanRoute
   '/recurring': typeof RecurringRoute
   '/reset': typeof ResetRoute
+  '/year': typeof YearRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/account': typeof AccountRoute
   '/activity': typeof ActivityRoute
+  '/categories': typeof CategoriesRoute
   '/import': typeof ImportRoute
   '/login': typeof LoginRoute
+  '/payees': typeof PayeesRoute
   '/plan': typeof PlanRoute
   '/recurring': typeof RecurringRoute
   '/reset': typeof ResetRoute
+  '/year': typeof YearRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesById {
@@ -92,11 +116,14 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/account': typeof AccountRoute
   '/activity': typeof ActivityRoute
+  '/categories': typeof CategoriesRoute
   '/import': typeof ImportRoute
   '/login': typeof LoginRoute
+  '/payees': typeof PayeesRoute
   '/plan': typeof PlanRoute
   '/recurring': typeof RecurringRoute
   '/reset': typeof ResetRoute
+  '/year': typeof YearRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRouteTypes {
@@ -105,33 +132,42 @@ export interface FileRouteTypes {
     | '/'
     | '/account'
     | '/activity'
+    | '/categories'
     | '/import'
     | '/login'
+    | '/payees'
     | '/plan'
     | '/recurring'
     | '/reset'
+    | '/year'
     | '/api/auth/$'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/account'
     | '/activity'
+    | '/categories'
     | '/import'
     | '/login'
+    | '/payees'
     | '/plan'
     | '/recurring'
     | '/reset'
+    | '/year'
     | '/api/auth/$'
   id:
     | '__root__'
     | '/'
     | '/account'
     | '/activity'
+    | '/categories'
     | '/import'
     | '/login'
+    | '/payees'
     | '/plan'
     | '/recurring'
     | '/reset'
+    | '/year'
     | '/api/auth/$'
   fileRoutesById: FileRoutesById
 }
@@ -139,11 +175,14 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AccountRoute: typeof AccountRoute
   ActivityRoute: typeof ActivityRoute
+  CategoriesRoute: typeof CategoriesRoute
   ImportRoute: typeof ImportRoute
   LoginRoute: typeof LoginRoute
+  PayeesRoute: typeof PayeesRoute
   PlanRoute: typeof PlanRoute
   RecurringRoute: typeof RecurringRoute
   ResetRoute: typeof ResetRoute
+  YearRoute: typeof YearRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
 
@@ -170,6 +209,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ActivityRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/categories': {
+      id: '/categories'
+      path: '/categories'
+      fullPath: '/categories'
+      preLoaderRoute: typeof CategoriesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/import': {
       id: '/import'
       path: '/import'
@@ -182,6 +228,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/payees': {
+      id: '/payees'
+      path: '/payees'
+      fullPath: '/payees'
+      preLoaderRoute: typeof PayeesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/plan': {
@@ -205,6 +258,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ResetRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/year': {
+      id: '/year'
+      path: '/year'
+      fullPath: '/year'
+      preLoaderRoute: typeof YearRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -219,11 +279,14 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AccountRoute: AccountRoute,
   ActivityRoute: ActivityRoute,
+  CategoriesRoute: CategoriesRoute,
   ImportRoute: ImportRoute,
   LoginRoute: LoginRoute,
+  PayeesRoute: PayeesRoute,
   PlanRoute: PlanRoute,
   RecurringRoute: RecurringRoute,
   ResetRoute: ResetRoute,
+  YearRoute: YearRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
 }
 export const routeTree = rootRouteImport

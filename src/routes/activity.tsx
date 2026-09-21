@@ -12,8 +12,8 @@ function Activity() {
         <MonthSwitcher compact />
       </div>
       <p className="max-w-2xl text-sm text-muted">
-        Pick a category on each row. Flag refunds, reimbursements, and transfers, or exclude a row so it leaves the
-        budget. “Same merchant” stores the rule so the next import of that payee lands in the same bucket.
+        Pick a category on a row and every other row from that payee follows. Flag refunds, reimbursements, and
+        transfers, or exclude a row so it leaves the budget. For bulk cleanup, use Categories — most repeated first.
       </p>
       <div className="md:hidden">
         <TransactionMobile />

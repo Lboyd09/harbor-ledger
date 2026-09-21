@@ -1,5 +1,5 @@
 import { Link, Navigate, Outlet, useRouterState } from "@tanstack/react-router";
-import { BookOpen, Home, Layers, Repeat, Upload } from "lucide-react";
+import { BookOpen, Home, Layers, Table2, Tags, Upload } from "lucide-react";
 import { useEffect } from "react";
 import { UserButton } from "@/lib/auth/gates";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
@@ -9,11 +9,13 @@ import { Onboarding } from "./onboarding";
 
 const NAV = [
   { to: "/", label: "Home", icon: Home },
+  { to: "/year", label: "Year", icon: Table2 },
   { to: "/activity", label: "Activity", icon: BookOpen },
   { to: "/plan", label: "Plan", icon: Layers },
-  { to: "/recurring", label: "Repeats", icon: Repeat },
-  { to: "/import", label: "Import", icon: Upload },
+  { to: "/categories", label: "Categories", icon: Tags },
 ] as const;
+
+const DESKTOP_NAV = [...NAV, { to: "/import", label: "Import", icon: Upload }] as const;
 
 function AuthSlot() {
   const { user, isPending } = useCurrentUserState();
@@ -44,7 +46,8 @@ export function AppShell() {
   const hydrateLocal = useBudgetStore((s) => s.hydrateLocal);
   const done = useBudgetStore((s) => s.profile.completedOnboarding);
   const path = useRouterState({ select: (s) => s.location.pathname });
-  const current = NAV.find((n) => n.to === path)?.label ?? "Harbor";
+  const current =
+    DESKTOP_NAV.find((n) => n.to === path)?.label ?? (path === "/import" ? "Import" : "Harbor");
   const ledgerName = useBudgetStore((s) => s.profile.ledgerName);
   const publicAuth = path === "/login" || path === "/reset";
   const accountPath = path === "/account";
@@ -106,7 +109,7 @@ export function AppShell() {
           <div className="truncate text-xs text-muted">{ledgerName || "Ledger"}</div>
         </div>
         <nav className="flex flex-1 flex-col gap-1 px-3">
-          {NAV.map((item) => {
+          {DESKTOP_NAV.map((item) => {
             const Icon = item.icon;
             const on = path === item.to;
             return (
@@ -137,6 +140,9 @@ export function AppShell() {
         </div>
         <div className="flex items-center gap-3">
           <SavePill />
+          <Link to="/import" className="text-xs text-muted">
+            Import
+          </Link>
           <Link to="/account" className="text-xs text-muted">
             Account
           </Link>

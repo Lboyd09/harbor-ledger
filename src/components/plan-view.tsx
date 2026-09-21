@@ -3,6 +3,7 @@ import { newId } from "@/lib/budget/ids";
 import { periodNoun } from "@/lib/budget/period";
 import { HOUSEHOLD_LABELS, HOUSING_LABELS, STAGE_LABELS } from "@/lib/budget/presets";
 import { envelopeRows, plannedTotals } from "@/lib/budget/totals";
+import { buildYearWorkbook } from "@/lib/budget/year";
 import { useBudgetStore } from "@/store/budget-store";
 import { MonthSwitcher } from "./month-switcher";
 import { Button } from "./ui/button";
@@ -18,10 +19,18 @@ export function PlanView() {
   const addCategory = useBudgetStore((s) => s.addCategory);
   const removeCategory = useBudgetStore((s) => s.removeCategory);
   const reopenSetup = useBudgetStore((s) => s.reopenSetup);
+  const applyRecommendedPlans = useBudgetStore((s) => s.applyRecommendedPlans);
   const period = profile.budgetPeriod;
   const key = period === "week" ? wk : ym;
-  const rows = envelopeRows(transactions, categories, period, key);
-  const plan = plannedTotals(categories, period);
+  const year = ym.slice(0, 4);
+  const book = buildYearWorkbook(transactions, categories, year);
+  const typicalById = new Map([...book.incomeRows, ...book.expenseRows].map((r) => [r.id, r.typical]));
+  const catsForPlan = categories.map((c) => {
+    const typical = typicalById.get(c.id) ?? 0;
+    return { ...c, plannedMonthly: c.plannedMonthly > 0 ? c.plannedMonthly : typical };
+  });
+  const rows = envelopeRows(transactions, catsForPlan, period, key);
+  const plan = plannedTotals(catsForPlan, period);
   const leftoverActual = rows
     .filter((r) => r.category.kind === "expense")
     .reduce((s, r) => s + r.remaining, 0);
@@ -30,10 +39,11 @@ export function PlanView() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="font-display text-2xl font-semibold md:text-3xl">{profile.ledgerName || "Your categories"}</h1>
+          <h1 className="font-display text-2xl font-semibold md:text-3xl">{profile.ledgerName || "Your plan"}</h1>
           <p className="mt-2 max-w-2xl text-sm text-muted">
-            Each envelope gets a job. Remaining is the plan minus actual for this {periodNoun(period)}. Transfers and
-            excluded rows do not eat an envelope. Rename freely — the matching slug does not change.
+            Each envelope is a job for the money. Remaining is this {periodNoun(period)}’s plan minus what actually
+            posted. If a plan is blank, Harbor uses the typical month from {year}. You can accept those amounts or type
+            your own.
           </p>
         </div>
         <MonthSwitcher compact />
@@ -49,9 +59,14 @@ export function PlanView() {
             ? ` from ${profile.incomeStreams.map((s) => s.name || "Income").join(", ")}`
             : ""}
         </p>
-        <Button className="mt-3" variant="outline" size="sm" onClick={() => reopenSetup()}>
-          Change household answers
-        </Button>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" onClick={() => applyRecommendedPlans(year)}>
+            Save typical {year} amounts as my plan
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => reopenSetup()}>
+            Change household answers
+          </Button>
+        </div>
       </div>
       <div className="grid gap-3 sm:grid-cols-3">
         <div className="rounded-lg border border-border bg-surface p-4">
@@ -81,8 +96,9 @@ export function PlanView() {
             {rows
               .filter((r) => r.category.kind === kind)
               .map((r) => {
-                const c = r.category;
+                const c = categories.find((x) => x.id === r.category.id) ?? r.category;
                 const over = r.over;
+                const typical = typicalById.get(c.id) ?? 0;
                 const pct = r.plan > 0 ? Math.min(100, Math.round((Math.max(0, r.actual) / r.plan) * 100)) : 0;
                 return (
                   <li key={c.id} className="grid gap-2 p-3 md:grid-cols-5 md:items-center">
@@ -95,10 +111,20 @@ export function PlanView() {
                         value={String(c.plannedMonthly)}
                         onChange={(e) => updateCategory(c.id, { plannedMonthly: Number(e.target.value) || 0 })}
                       />
-                      <span className="mt-1 block">Stored as monthly {formatMoney(c.plannedMonthly)}</span>
+                      {typical > 0 ? (
+                        <button
+                          type="button"
+                          className="mt-1 block text-xs text-primary underline-offset-2 hover:underline"
+                          onClick={() => updateCategory(c.id, { plannedMonthly: typical })}
+                        >
+                          Typical {formatMoney(typical)} / month
+                        </button>
+                      ) : (
+                        <span className="mt-1 block">Stored as monthly {formatMoney(c.plannedMonthly)}</span>
+                      )}
                     </label>
                     <div>
-                      <div className="text-xs text-muted">Actual</div>
+                      <div className="text-xs text-muted">Actual this {periodNoun(period)}</div>
                       <div className={`mt-2 tabular text-sm ${over ? "text-danger" : ""}`}>{formatMoney(r.actual)}</div>
                       <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-chip">
                         <div className={`h-full ${over ? "bg-danger" : "bg-primary"}`} style={{ width: `${pct}%` }} />
@@ -108,6 +134,9 @@ export function PlanView() {
                       <div className="text-xs text-muted">{kind === "expense" ? "Remaining" : "Vs plan"}</div>
                       <div className={`mt-2 tabular text-sm ${r.remaining < 0 ? "text-danger" : "text-good"}`}>
                         {formatMoney(r.remaining, { signed: true })}
+                      </div>
+                      <div className={`mt-1 text-xs ${over ? "text-danger" : "text-muted"}`}>
+                        {over ? "Over" : r.plan > 0 ? "On track" : "No plan"}
                       </div>
                     </div>
                     <Button variant="ghost" size="sm" onClick={() => removeCategory(c.id)}>

@@ -7,7 +7,6 @@ import { inPeriod } from "@/lib/budget/totals";
 import type { TxStatus } from "@/lib/budget/types";
 import { useBudgetStore } from "@/store/budget-store";
 import { CategorySelect } from "./category-select";
-import { Button } from "./ui/button";
 import { Input, Select } from "./ui/field";
 
 const STATUSES: TxStatus[] = ["posted", "refund", "transfer", "reimbursement"];
@@ -120,7 +119,7 @@ export function TransactionDesktop() {
                   <CategorySelect
                     categories={categories}
                     value={t.categoryId}
-                    onChange={(id) => setTransactionCategory(t.id, id, false)}
+                    onChange={(id) => setTransactionCategory(t.id, id, true)}
                   />
                   {!t.categoryId ? (
                     <div className="mt-1 text-xs text-warn">Unassigned</div>
@@ -133,15 +132,6 @@ export function TransactionDesktop() {
                 <td className="px-3 py-2">
                   <div className="flex flex-col items-start gap-1">
                     <TxFlags id={t.id} excluded={t.excluded} status={t.status} />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={!t.categoryId}
-                      onClick={() => setTransactionCategory(t.id, t.categoryId, true)}
-                      title="Save this merchant → category and fill other unassigned rows with the same merchant"
-                    >
-                      Same merchant
-                    </Button>
                     <button
                       type="button"
                       className="text-xs text-muted hover:text-danger"
