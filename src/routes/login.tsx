@@ -12,6 +12,11 @@ import { Field, Input } from "@/components/ui/field";
 
 type LoginSearch = { from?: string };
 
+function grokBrokerAvailable() {
+  if (typeof window === "undefined") return false;
+  return window.location.hostname.endsWith(".grok-sandbox.com");
+}
+
 export const Route = createFileRoute("/login")({
   validateSearch: (search: Record<string, unknown>): LoginSearch => ({
     from: typeof search.from === "string" ? search.from : undefined,
@@ -25,6 +30,7 @@ function Login() {
   const { user } = useCurrentUserState();
   const profile = useBudgetStore((s) => s.profile);
   const categories = useBudgetStore((s) => s.categories);
+  const reopenSetup = useBudgetStore((s) => s.reopenSetup);
   const [mode, setMode] = useState<"in" | "up">(fromOnboarding ? "up" : "in");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -33,6 +39,7 @@ function Login() {
   const [recovery, setRecovery] = useState<string | null>(null);
   const [hold, setHold] = useState(false);
   const plan = plannedTotals(categories, "month");
+  const showBroker = grokBrokerAvailable();
 
   if (user && !recovery && !hold && !busy) return <Navigate to="/" />;
 
@@ -129,7 +136,7 @@ function Login() {
         <ul className="max-w-sm space-y-3 text-sm text-muted">
           <li>Saved to your account after you sign up — not this browser alone.</li>
           <li>Keyword matching you can override — no model guessing.</li>
-          <li>Google, X, or email. Recovery code instead of reset mail.</li>
+          <li>{showBroker ? "Google, X, or email. Recovery code instead of reset mail." : "Email and a recovery code. No reset emails."}</li>
         </ul>
       </section>
 
@@ -151,7 +158,7 @@ function Login() {
               : "Takes a minute. You will get a recovery code."}
         </p>
 
-        {authEnabled ? (
+        {authEnabled && showBroker ? (
           <div className="mt-6 flex flex-col gap-2">
             {GROK_PROVIDERS.map((p) => (
               <Button
@@ -164,15 +171,19 @@ function Login() {
               </Button>
             ))}
           </div>
-        ) : (
+        ) : !authEnabled ? (
           <p className="mt-6 text-sm text-muted">Sign-in is disabled.</p>
-        )}
+        ) : null}
 
-        <div className="my-6 flex items-center gap-3 text-xs uppercase tracking-wide text-muted">
-          <span className="h-px flex-1 bg-border" />
-          or email
-          <span className="h-px flex-1 bg-border" />
-        </div>
+        {showBroker ? (
+          <div className="my-6 flex items-center gap-3 text-xs uppercase tracking-wide text-muted">
+            <span className="h-px flex-1 bg-border" />
+            or email
+            <span className="h-px flex-1 bg-border" />
+          </div>
+        ) : (
+          <div className="mt-6" />
+        )}
 
         <form className="space-y-3" onSubmit={onEmail}>
           <Field label="Email">
@@ -215,6 +226,15 @@ function Login() {
             Forgot password
           </Link>
         </div>
+        {fromOnboarding ? (
+          <button
+            type="button"
+            className="mt-6 text-left text-sm text-muted underline-offset-2 hover:underline"
+            onClick={() => reopenSetup()}
+          >
+            Change setup answers
+          </button>
+        ) : null}
       </section>
     </main>
   );
