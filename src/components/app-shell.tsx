@@ -61,7 +61,13 @@ export function AppShell() {
     return <Outlet />;
   }
 
-  if (!hydrated || (isPending && !user && done)) {
+  // Guests always set up the household first. Do not wait on persist/session
+  // or the first HTML is a blank "Opening Harbor" and they never reach signup.
+  if (!user && !done) {
+    return <Onboarding />;
+  }
+
+  if (!hydrated || (isPending && !user)) {
     return (
       <div className="flex min-h-dvh flex-col items-center justify-center gap-2 bg-bg px-6 text-center">
         <p className="text-sm font-medium uppercase tracking-widest text-muted">Harbor Ledger</p>
