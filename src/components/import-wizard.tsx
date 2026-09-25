@@ -178,11 +178,11 @@ export function ImportWizard() {
                 Categorize repeating merchants
               </Link>
             ) : null}
-            <Link to="/year" className="text-primary underline-offset-2 hover:underline">
-              Open the year sheet
-            </Link>
             <Link to="/" className="text-primary underline-offset-2 hover:underline">
-              Year outlook
+              Open this month
+            </Link>
+            <Link to="/year" className="text-primary underline-offset-2 hover:underline">
+              See the year
             </Link>
           </div>
         </div>

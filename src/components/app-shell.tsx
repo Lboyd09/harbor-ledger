@@ -1,5 +1,5 @@
 import { Link, Navigate, Outlet, useRouterState } from "@tanstack/react-router";
-import { BookOpen, Home, Layers, Table2, Tags, Upload } from "lucide-react";
+import { CalendarDays, CalendarRange, Store, Upload, Wallet } from "lucide-react";
 import { useEffect } from "react";
 import { UserButton } from "@/lib/auth/gates";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
@@ -8,11 +8,10 @@ import { useBudgetStore } from "@/store/budget-store";
 import { Onboarding } from "./onboarding";
 
 const NAV = [
-  { to: "/", label: "Home", icon: Home },
-  { to: "/year", label: "Year", icon: Table2 },
-  { to: "/activity", label: "Activity", icon: BookOpen },
-  { to: "/plan", label: "Plan", icon: Layers },
-  { to: "/categories", label: "Categories", icon: Tags },
+  { to: "/", label: "Month", icon: CalendarDays },
+  { to: "/year", label: "Year", icon: CalendarRange },
+  { to: "/categories", label: "Merchants", icon: Store },
+  { to: "/plan", label: "Plan", icon: Wallet },
 ] as const;
 
 const DESKTOP_NAV = [...NAV, { to: "/import", label: "Import", icon: Upload }] as const;
@@ -153,7 +152,7 @@ export function AppShell() {
         <Outlet />
       </main>
 
-      <nav className="safe-nav fixed inset-x-0 bottom-0 z-10 grid grid-cols-5 border-t border-border bg-surface md:hidden">
+      <nav className="safe-nav fixed inset-x-0 bottom-0 z-10 grid grid-cols-4 border-t border-border bg-surface md:hidden">
         {NAV.map((item) => {
           const Icon = item.icon;
           const on = path === item.to;

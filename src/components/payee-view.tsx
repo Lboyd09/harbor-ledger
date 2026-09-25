@@ -31,10 +31,10 @@ export function PayeeView() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-display text-2xl font-semibold md:text-3xl">Categories</h1>
+        <h1 className="font-display text-2xl font-semibold md:text-3xl">Merchants</h1>
         <p className="mt-2 max-w-2xl text-sm text-muted">
-          Most repeated merchants first. Change the category on a payee and every matching row updates — past imports
-          and the next file of the same merchant.
+          This is not a single month. Most repeated names are first. Change one category and every month of that
+          merchant updates. To edit one month, use Month.
         </p>
       </div>
       {openCount > 0 ? (

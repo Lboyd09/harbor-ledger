@@ -90,7 +90,7 @@ function SheetSection({
   );
 }
 
-export function YearSheet() {
+export function YearSheet({ embedded = false }: { embedded?: boolean }) {
   const transactions = useBudgetStore((s) => s.transactions);
   const categories = useBudgetStore((s) => s.categories);
   const activeMonth = useBudgetStore((s) => s.activeMonth);
@@ -119,6 +119,7 @@ export function YearSheet() {
   }
 
   if (!transactions.length) {
+    if (embedded) return null;
     return (
       <div className="mx-auto max-w-lg space-y-4 py-6">
         <h1 className="font-display text-3xl font-semibold">Year sheet</h1>
@@ -134,23 +135,27 @@ export function YearSheet() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="font-display text-2xl font-semibold md:text-3xl">{year} sheet</h1>
-          <p className="mt-2 max-w-2xl text-sm text-muted">
-            Months across, categories down. Typical is the median of months with activity. A blank plan uses that typical
-            amount to judge on-track vs over.
-          </p>
-          <p className="mt-2 text-sm text-muted">
-            {formatMoney(book.income)} in · {formatMoney(book.expenses)} out ·{" "}
-            <span className={book.net < 0 ? "text-danger" : "text-good"}>
-              {formatMoney(book.net, { signed: true })} saved
-            </span>
-            {book.income > 0 ? ` · ${Math.round(book.savingsRate * 100)}%` : ""} · {book.monthsOnTrack}/{book.activeMonths}{" "}
-            months on track
-          </p>
-        </div>
-        <YearSwitcher />
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        {embedded ? (
+          <p className="max-w-xl text-sm text-muted">Months across, categories down. Scroll sideways on a phone.</p>
+        ) : (
+          <div>
+            <h1 className="font-display text-2xl font-semibold md:text-3xl">{year} sheet</h1>
+            <p className="mt-2 max-w-2xl text-sm text-muted">
+              Months across, categories down. Typical is the median of months with activity. A blank plan uses that typical
+              amount to judge on-track vs over.
+            </p>
+            <p className="mt-2 text-sm text-muted">
+              {formatMoney(book.income)} in · {formatMoney(book.expenses)} out ·{" "}
+              <span className={book.net < 0 ? "text-danger" : "text-good"}>
+                {formatMoney(book.net, { signed: true })} saved
+              </span>
+              {book.income > 0 ? ` · ${Math.round(book.savingsRate * 100)}%` : ""} · {book.monthsOnTrack}/{book.activeMonths}{" "}
+              months on track
+            </p>
+          </div>
+        )}
+        {embedded ? null : <YearSwitcher />}
       </div>
 
       <div className="flex flex-wrap gap-2">

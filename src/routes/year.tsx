@@ -1,4 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { YearSheet } from "@/components/year-sheet";
+import { YearHome } from "@/components/year-home";
 
-export const Route = createFileRoute("/year")({ component: YearSheet });
+export const Route = createFileRoute("/year")({ component: YearHome });

@@ -10,7 +10,7 @@ export function Button({ className, variant = "primary", size = "md", ...props }
   return (
     <button
       className={cn(
-        "inline-flex items-center justify-center gap-2 rounded-md font-medium transition-colors duration-150",
+        "tap inline-flex items-center justify-center gap-2 rounded-md font-medium",
         "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
         "disabled:opacity-50 disabled:pointer-events-none",
         size === "md" ? "min-h-11 px-4 text-sm" : "min-h-9 px-3 text-sm",

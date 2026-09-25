@@ -41,9 +41,8 @@ export function PlanView() {
         <div>
           <h1 className="font-display text-2xl font-semibold md:text-3xl">{profile.ledgerName || "Your plan"}</h1>
           <p className="mt-2 max-w-2xl text-sm text-muted">
-            Each envelope is a job for the money. Remaining is this {periodNoun(period)}’s plan minus what actually
-            posted. If a plan is blank, Harbor uses the typical month from {year}. You can accept those amounts or type
-            your own.
+            These amounts are monthly. The Month page shows how one month compares. Income and expenses are listed
+            separately. A blank plan uses the typical month from {year} until you type your own.
           </p>
         </div>
         <MonthSwitcher compact />

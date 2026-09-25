@@ -87,6 +87,24 @@
   z-index: 2;
   background: var(--color-surface);
 }
-.sheet-table th:first-child {
-  z-index: 3;
+.tap {
+  transition: scale 150ms ease-out, background-color 150ms ease-out, color 150ms ease-out, border-color 150ms ease-out;
+}
+.tap:active {
+  scale: 0.96;
+}
+
+.rise {
+  animation: rise-in 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
