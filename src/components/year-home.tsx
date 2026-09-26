@@ -22,7 +22,7 @@ export function YearHome() {
   const setActiveMonth = useBudgetStore((s) => s.setActiveMonth);
   const loadSample = useBudgetStore((s) => s.loadSample);
   const navigate = useNavigate();
-  const [sheet, setSheet] = useState(false);
+  const [sheet, setSheet] = useState(true);
   const year = activeMonth.slice(0, 4);
   const book = useMemo(() => buildYearWorkbook(transactions, categories, year), [transactions, categories, year]);
 
@@ -57,7 +57,7 @@ export function YearHome() {
         <div>
           <h1 className="font-display text-3xl font-semibold md:text-4xl">{year}</h1>
           <p className="mt-1 max-w-xl text-sm text-muted">
-            This page is the whole year. Tap a month to open it and edit its income and expenses.
+            Income and expenses stay in two lists. The spreadsheet under this page is the same year as a grid.
           </p>
         </div>
         <YearSwitcher />
@@ -69,7 +69,7 @@ export function YearHome() {
         <Stat
           label="Saved"
           value={formatMoney(book.net, { signed: true })}
-          hint={book.income > 0 ? `${Math.round(book.savingsRate * 100)}% savings rate` : "No income yet"}
+          hint={book.income > 0 ? `${Math.round(book.savingsRate * 100)}% leftover` : "No income yet"}
           warn={book.net < 0}
         />
       </div>
@@ -88,14 +88,14 @@ export function YearHome() {
       </section>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <List title="Income" hint="Where the money came from this year">
+        <List title="Income" hint="Money in this year — paychecks and other deposits">
           {income.map((r) => (
             <Row key={r.id} name={r.name} amount={formatMoney(r.yearTotal)} note={`${formatMoney(r.typical)} typical / mo`} />
           ))}
           <Row name="Total income" amount={formatMoney(book.income)} strong />
           {income.length === 0 ? <p className="px-4 py-4 text-sm text-muted">No income categorized yet.</p> : null}
         </List>
-        <List title="Expenses" hint="Largest categories this year">
+        <List title="Expenses" hint="Money out this year — never mixed with income">
           {expenses.map((r) => (
             <Row
               key={r.id}
