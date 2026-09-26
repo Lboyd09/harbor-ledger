@@ -6,6 +6,7 @@ import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { cn } from "@/lib/cn";
 import { useBudgetStore } from "@/store/budget-store";
 import { Onboarding } from "./onboarding";
+import { WelcomeGate } from "./welcome-gate";
 import { Button } from "./ui/button";
 
 const NAV = [
@@ -75,7 +76,7 @@ export function AppShell() {
   }
 
   if (!user && !done) {
-    return <Onboarding />;
+    return <WelcomeGate />;
   }
 
   if (!hydrated || (isPending && !user)) {
