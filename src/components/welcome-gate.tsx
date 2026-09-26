@@ -1,16 +1,17 @@
-import { Link } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
+import { useState } from "react";
 import { useBudgetStore } from "@/store/budget-store";
 import { Onboarding } from "./onboarding";
 import { Button } from "./ui/button";
-import { useState } from "react";
 
 export function WelcomeGate() {
   const loadSample = useBudgetStore((s) => s.loadSample);
   const restoreBackup = useBudgetStore((s) => s.restoreBackup);
+  const navigate = useNavigate();
   const [setup, setSetup] = useState(false);
   const [restoreError, setRestoreError] = useState<string | null>(null);
 
-  if (setup) return <Onboarding />;
+  if (setup) return <Onboarding initialStep={1} />;
 
   async function onRestore(file: File) {
     setRestoreError(null);
@@ -36,9 +37,9 @@ export function WelcomeGate() {
         <li>Set up asks a few household questions, then opens the ledger on this device.</li>
       </ul>
       <div className="mt-8 flex flex-col gap-2">
-        <Link to="/login">
-          <Button className="w-full">Sign in</Button>
-        </Link>
+        <Button className="w-full" onClick={() => void navigate({ to: "/login" })}>
+          Sign in
+        </Button>
         <Button variant="outline" className="w-full" onClick={() => loadSample()}>
           Try it out
         </Button>

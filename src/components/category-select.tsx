@@ -1,4 +1,4 @@
-import type { Category } from "@/lib/budget/types";
+import type { Category, CategoryKind } from "@/lib/budget/types";
 import { Select } from "./ui/field";
 
 export function CategorySelect({
@@ -6,23 +6,26 @@ export function CategorySelect({
   value,
   onChange,
   allowEmpty = true,
+  kind,
   className,
 }: {
   categories: Category[];
   value: string | null;
   onChange: (id: string | null) => void;
   allowEmpty?: boolean;
+  kind?: CategoryKind;
   className?: string;
 }) {
-  const income = categories.filter((c) => c.kind === "income");
-  const expense = categories.filter((c) => c.kind === "expense");
+  const selected = categories.find((c) => c.id === value);
+  const income = categories.filter((c) => c.kind === "income" && (!kind || kind === "income"));
+  const expense = categories.filter((c) => c.kind === "expense" && (!kind || kind === "expense"));
+  const emptyLabel = kind === "income" ? "Pick an income category" : kind === "expense" ? "Pick an expense category" : "Needs category";
   return (
-    <Select
-      className={className}
-      value={value ?? ""}
-      onChange={(e) => onChange(e.target.value || null)}
-    >
-      {allowEmpty ? <option value="">Needs category</option> : null}
+    <Select className={className} value={value ?? ""} aria-label={kind === "income" ? "Income category" : kind === "expense" ? "Expense category" : "Category"} onChange={(e) => onChange(e.target.value || null)}>
+      {allowEmpty ? <option value="">{emptyLabel}</option> : null}
+      {selected && kind && selected.kind !== kind ? (
+        <option value={selected.id}>{selected.name} (move this)</option>
+      ) : null}
       {income.length ? (
         <optgroup label="Income">
           {income.map((c) => (

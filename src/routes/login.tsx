@@ -110,7 +110,7 @@ function Login() {
           <p className="mt-4 max-w-md text-muted">
             {fromOnboarding
               ? "Create an account so this setup is not stuck on this phone. Then import a CSV whenever you want."
-              : "Import a CSV, assign every dollar a job, mark refunds and transfers, and read week-to-week habits. Nothing logs into a bank."}
+              : "Import a CSV, assign every dollar a job, and read the month and the year. Nothing logs into a bank."}
           </p>
           {fromOnboarding && profile.completedOnboarding ? (
             <dl className="mt-8 max-w-sm space-y-2 text-sm">
@@ -152,7 +152,7 @@ function Login() {
         </h2>
         <p className="mt-2 text-sm text-muted">
           {fromOnboarding
-            ? "Required. Without an account this setup stays only on this device."
+            ? "Optional, but this is how the ledger follows you off this device."
             : mode === "in"
               ? "Your ledger stays on this account."
               : "Takes a minute. You will get a recovery code."}

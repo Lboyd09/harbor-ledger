@@ -50,3 +50,20 @@ test("month groups split income and expenses and pin uncategorized", () => {
   assert.equal(layout.aside.length, 1);
   assert.equal(layout.aside[0].id, "4");
 });
+
+test("paid back rows stay on the lists but add nothing to the totals", () => {
+  const layout = groupMonth(
+    [
+      tx("1", "2026-09-05", "DIR DEP", 1840, "pay"),
+      tx("2", "2026-09-12", "TARGET", -40, "rent", { status: "reimbursement", notes: "payback:3" }),
+      tx("3", "2026-09-13", "ZELLE FROM PARENT", 40, "pay", { status: "reimbursement", notes: "payback:2" }),
+    ],
+    cats,
+    "2026-09",
+  );
+  assert.equal(layout.incomeTotal, 1840);
+  assert.equal(layout.income[0].transactions.length, 2);
+  assert.equal(layout.expenseTotal, 0);
+  assert.equal(layout.expenses[0].transactions[0].id, "2");
+  assert.equal(layout.aside.length, 0);
+});

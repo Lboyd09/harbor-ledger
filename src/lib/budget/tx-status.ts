@@ -1,16 +1,15 @@
 import type { TxStatus } from "./types.ts";
 
 export const TX_STATUS_LABEL: Record<TxStatus, string> = {
-  posted: "Counts",
+  posted: "Posted",
   refund: "Store refund",
-  transfer: "Move between accounts",
-  reimbursement: "Someone paid me back",
+  transfer: "Left out",
+  reimbursement: "Paid back",
 };
 
 export const TX_STATUS_HINT: Record<TxStatus, string> = {
-  posted: "This row is real income or a real expense.",
-  refund: "The store sent money back. Keep it on the same expense category so that spend goes down.",
-  transfer: "Not income and not spending — card payments, savings moves, cash you sent yourself.",
-  reimbursement:
-    "A person (often a parent) paid you back. Put this deposit on the same category as the original purchase so that purchase drops to $0 in the budget.",
+  posted: "Counts in the budget",
+  refund: "A merchant refund. Stays with that expense and lowers what you spent",
+  transfer: "Left out so a card payment or account move is not counted twice",
+  reimbursement: "Not income and not spending — the purchase and the payback cancel",
 };

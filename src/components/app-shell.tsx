@@ -7,7 +7,6 @@ import { cn } from "@/lib/cn";
 import { useBudgetStore } from "@/store/budget-store";
 import { Onboarding } from "./onboarding";
 import { WelcomeGate } from "./welcome-gate";
-import { Button } from "./ui/button";
 
 const NAV = [
   { to: "/", label: "Month", icon: CalendarDays },
@@ -23,10 +22,11 @@ function AuthSlot() {
   if (isPending) return <div className="h-8 w-24 animate-pulse rounded-full bg-chip" />;
   if (!user) {
     return (
-      <Link to="/login">
-        <Button size="sm" variant="outline">
-          Sign in
-        </Button>
+      <Link
+        to="/login"
+        className="tap inline-flex min-h-9 items-center justify-center rounded-md border border-border bg-surface px-3 text-sm font-medium"
+      >
+        Sign in
       </Link>
     );
   }
@@ -153,6 +153,14 @@ export function AppShell() {
       </header>
 
       <main className="px-4 pb-28 pt-4 md:ml-52 md:px-8 md:pb-10 md:pt-8">
+        {!user ? (
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-surface px-4 py-3">
+            <p className="text-sm">This ledger stays on this device until you sign in.</p>
+            <Link to="/login" className="text-sm font-medium text-primary">
+              Sign in to save
+            </Link>
+          </div>
+        ) : null}
         <Outlet />
       </main>
 

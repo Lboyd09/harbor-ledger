@@ -1,5 +1,4 @@
 import { monthKeyFromDate } from "./parse-date.ts";
-import { countsInCashflow } from "./totals.ts";
 import { roundMoney } from "./money.ts";
 import type { Category, Transaction } from "./types.ts";
 
@@ -25,9 +24,13 @@ function inMonth(t: Transaction, ym: string) {
   return monthKeyFromDate(t.date) === ym;
 }
 
+function cashPart(kind: "income" | "expense", t: Transaction) {
+  if (t.status === "reimbursement") return 0;
+  return kind === "income" ? t.amount : -t.amount;
+}
+
 function totalFor(kind: "income" | "expense", txs: Transaction[]) {
-  const n = txs.reduce((s, t) => s + (kind === "income" ? t.amount : -t.amount), 0);
-  return roundMoney(n);
+  return roundMoney(txs.reduce((s, t) => s + cashPart(kind, t), 0));
 }
 
 function byDate(a: Transaction, b: Transaction) {
@@ -42,7 +45,7 @@ export function groupMonth(transactions: Transaction[], categories: Category[], 
 
   for (const t of transactions) {
     if (!inMonth(t, ym)) continue;
-    if (!countsInCashflow(t)) {
+    if (t.excluded || t.status === "transfer") {
       aside.push(t);
       continue;
     }

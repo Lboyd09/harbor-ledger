@@ -1,9 +1,11 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import { formatMoney } from "@/lib/budget/money";
+import { monthShort } from "@/lib/budget/parse-date";
 import { buildYearWorkbook, monthsOfYear, statusLabel, type MonthStatus } from "@/lib/budget/year";
 import { cn } from "@/lib/cn";
 import { useBudgetStore } from "@/store/budget-store";
+import { CashChart } from "./cash-chart";
 import { MonthRail } from "./month-rail";
 import { Button } from "./ui/button";
 import { YearSheet } from "./year-sheet";
@@ -22,7 +24,6 @@ export function YearHome() {
   const setActiveMonth = useBudgetStore((s) => s.setActiveMonth);
   const loadSample = useBudgetStore((s) => s.loadSample);
   const navigate = useNavigate();
-  const [sheet, setSheet] = useState(true);
   const year = activeMonth.slice(0, 4);
   const book = useMemo(() => buildYearWorkbook(transactions, categories, year), [transactions, categories, year]);
 
@@ -50,6 +51,9 @@ export function YearHome() {
 
   const income = book.incomeRows.filter((r) => r.yearTotal !== 0);
   const expenses = book.expenseRows.filter((r) => r.yearTotal !== 0);
+  const chart = book.monthSummaries
+    .filter((m) => m.count > 0)
+    .map((m) => ({ name: monthShort(m.ym), In: m.income, Out: m.expenses }));
 
   return (
     <div className="space-y-8">
@@ -73,6 +77,20 @@ export function YearHome() {
           warn={book.net < 0}
         />
       </div>
+
+      <section className="rounded-lg border border-border bg-surface p-4">
+        <h2 className="font-display text-xl font-semibold">Income and spending</h2>
+        <p className="mt-1 mb-3 text-sm text-muted">
+          Green is money you kept. Red is money you spent. A purchase someone paid you back for is in neither bar.
+        </p>
+        <CashChart
+          data={chart}
+          bars={[
+            { key: "In", fill: "var(--color-good)" },
+            { key: "Out", fill: "var(--color-danger)" },
+          ]}
+        />
+      </section>
 
       <section>
         <h2 className="font-display text-xl font-semibold">Open a month</h2>
@@ -109,16 +127,10 @@ export function YearHome() {
         </List>
       </div>
 
-      <div>
-        <Button variant="outline" onClick={() => setSheet((v) => !v)}>
-          {sheet ? "Hide the spreadsheet" : "Show the spreadsheet"}
-        </Button>
-        {sheet ? (
-          <div className="rise mt-4">
-            <YearSheet embedded />
-          </div>
-        ) : null}
-      </div>
+      <section className="space-y-3">
+        <h2 className="font-display text-xl font-semibold">Year spreadsheet</h2>
+        <YearSheet embedded />
+      </section>
     </div>
   );
 }

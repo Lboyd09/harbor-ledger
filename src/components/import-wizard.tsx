@@ -275,9 +275,9 @@ function CsvHelp() {
             </div>
           ))}
           <p className="text-muted">
-            Credit-card payments, account transfers, and Venmo/Zelle to yourself should be marked Transfer so they do
-            not look like income or spending. Refunds should stay in the original expense category — use the Refund flag
-            on Activity.
+            Credit-card payments and moving money between your own accounts are left out, so a card bill is not
+            spending twice. A Zelle or Venmo deposit counts as income. If someone paid you back for a purchase, use Paid
+            back on that charge — it cancels the purchase and does not count as income.
           </p>
         </div>
       ) : null}

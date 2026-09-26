@@ -50,6 +50,10 @@ type State = LedgerSnapshot & {
   setMerchantCategory: (merchantKey: string, categoryId: string | null) => void;
   applyRecommendedPlans: (year: string) => number;
   patchTransaction: (id: string, patch: Partial<Pick<Transaction, "excluded" | "status" | "notes">>) => void;
+  markPaidBack: (expenseId: string, depositId: string | null) => void;
+  undoPaidBack: (id: string) => void;
+  countAsIncome: (id: string) => void;
+  countHiddenDeposits: () => number;
   importPreview: (preview: CsvPreview, flipSign: boolean) => ImportResult;
   loadSample: () => void;
   deleteTransaction: (id: string) => void;
@@ -138,7 +142,7 @@ function applyImportRows(
     const cat = suggestion.categoryId ? categories.find((c) => c.id === suggestion.categoryId) : undefined;
     let status: TxStatus = "posted";
     if (suggestion.reason === "refund") status = "refund";
-    if (cat?.slug === "transfers-out" || cat?.slug === "transfers-in") status = "transfer";
+    if (cat?.slug === "transfers-out") status = "transfer";
     added.push({
       id: newId("tx"),
       date: row.date,
@@ -325,6 +329,92 @@ export const useBudgetStore = create<State>()(
           transactions: get().transactions.map((t) => (t.id === id ? { ...t, ...patch } : t)),
         });
         schedulePersist();
+      },
+      markPaidBack: (expenseId, depositId) => {
+        set({
+          transactions: get().transactions.map((t) => {
+            if (t.id === expenseId) {
+              return {
+                ...t,
+                status: "reimbursement",
+                excluded: false,
+                notes: depositId ? `payback:${depositId}` : "payback",
+                userSet: true,
+              };
+            }
+            if (depositId && t.id === depositId) {
+              return {
+                ...t,
+                status: "reimbursement",
+                excluded: false,
+                notes: `payback:${expenseId}`,
+                userSet: true,
+              };
+            }
+            return t;
+          }),
+        });
+        schedulePersist();
+      },
+      undoPaidBack: (id) => {
+        const tx = get().transactions.find((t) => t.id === id);
+        const other = tx?.notes.startsWith("payback:") ? tx.notes.slice("payback:".length) : "";
+        set({
+          transactions: get().transactions.map((t) => {
+            if (t.id !== id && t.id !== other) return t;
+            return {
+              ...t,
+              status: "posted",
+              notes: t.notes.startsWith("payback") ? "" : t.notes,
+            };
+          }),
+        });
+        schedulePersist();
+      },
+      countAsIncome: (id) => {
+        const cats = get().categories;
+        const fallback = cats.find((c) => c.slug === "other-income") ?? cats.find((c) => c.kind === "income" && c.slug !== "transfers-in");
+        set({
+          transactions: get().transactions.map((t) => {
+            if (t.id !== id) return t;
+            const cat = t.categoryId ? cats.find((c) => c.id === t.categoryId) : undefined;
+            const hidden = !cat || cat.slug === "transfers-in" || cat.slug === "transfers-out";
+            return {
+              ...t,
+              status: "posted",
+              excluded: false,
+              categoryId: hidden ? (fallback?.id ?? t.categoryId) : t.categoryId,
+              userSet: true,
+              notes: t.notes.startsWith("payback") ? "" : t.notes,
+            };
+          }),
+        });
+        schedulePersist();
+      },
+      countHiddenDeposits: () => {
+        const cats = get().categories;
+        const fallback =
+          cats.find((c) => c.slug === "other-income") ??
+          cats.find((c) => c.kind === "income" && c.slug !== "transfers-in");
+        let n = 0;
+        set({
+          transactions: get().transactions.map((t) => {
+            if (t.excluded || t.status !== "transfer" || t.amount <= 0) return t;
+            n += 1;
+            const cat = t.categoryId ? cats.find((c) => c.id === t.categoryId) : undefined;
+            const hidden = !cat || cat.kind !== "income" || cat.slug === "transfers-in" || cat.slug === "transfers-out";
+            return {
+              ...t,
+              status: "posted" as const,
+              excluded: false,
+              categoryId: hidden ? (fallback?.id ?? t.categoryId) : t.categoryId,
+              userSet: true,
+              notes: t.notes.startsWith("payback") ? "" : t.notes,
+            };
+          }),
+        });
+        if (n) schedulePersist();
+        return n;
       },
       importPreview: (preview, flipSign) => {
         const rows = applyAmountFlip(preview, flipSign);

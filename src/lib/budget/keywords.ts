@@ -16,8 +16,6 @@ export const KEYWORD_RULES: KeywordRule[] = [
   { pattern: "INTUIT PAYROLL", slug: "paycheck" },
   { pattern: "PAYLOCITY", slug: "paycheck" },
   { pattern: "DAYFORCE", slug: "paycheck" },
-  { pattern: "CITY OF GLENDALE", slug: "paycheck" },
-  { pattern: "NORTH HILLS CONS", slug: "paycheck" },
 
   { pattern: "STRIPE", slug: "side-work" },
   { pattern: "SQUARE", slug: "side-work" },
@@ -356,5 +354,6 @@ export const SLUG_FALLBACKS: Record<string, string[]> = {
   pets: ["personal"],
   travel: ["entertainment", "other"],
   "transfers-out": ["other"],
+  "other-income": ["transfers-in"],
   groceries: ["food"],
 };

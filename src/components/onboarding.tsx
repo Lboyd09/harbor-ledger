@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { SignedIn, UserButton } from "@/lib/auth/gates";
 import { useCurrentUser } from "@/lib/auth/use-current-user";
 import {
@@ -20,17 +21,18 @@ import { Field, Input, Select } from "./ui/field";
 const GOALS: BudgetGoal[] = ["track", "save", "debt", "purchase", "live-within"];
 const STEPS = ["Welcome", "Household", "Life", "Income", "Spending", "Goals", "Categories", "Outlook"];
 
-export function Onboarding() {
+export function Onboarding({ initialStep = 0 }: { initialStep?: number }) {
   const existing = useBudgetStore((s) => s.profile);
   const hasData = useBudgetStore((s) => s.transactions.length > 0 || s.categories.length > 0);
   const completeSetup = useBudgetStore((s) => s.completeSetup);
   const loadSample = useBudgetStore((s) => s.loadSample);
   const restoreBackup = useBudgetStore((s) => s.restoreBackup);
   const signedIn = Boolean(useCurrentUser());
+  const navigate = useNavigate();
 
   const updating = existing.completedOnboarding === false && hasData;
 
-  const [step, setStep] = useState(updating ? 1 : 0);
+  const [step, setStep] = useState(updating ? 1 : initialStep);
   const [ledgerName, setLedgerName] = useState(existing.ledgerName || "");
   const [household, setHousehold] = useState<Household>(existing.household || "single");
   const [dependents, setDependents] = useState(existing.dependents || 0);
@@ -126,20 +128,22 @@ export function Onboarding() {
 
       {step === 0 ? (
         <div className="mt-4 space-y-6">
-          <h1 className="font-display text-3xl font-semibold md:text-4xl">Set up a ledger that matches your life.</h1>
+          <h1 className="font-display text-3xl font-semibold md:text-4xl">Pick up where you left off.</h1>
           <p className="text-muted">
-            Answer a few questions about your household and money. When that is done, you will create an account so the
-            ledger is saved. Nothing logs into a bank.
+            Sign in if you already have an account. Try the demo if you want to look around. Or set up a new ledger for
+            your household. Nothing logs into a bank.
           </p>
-          <ul className="space-y-2 text-sm text-fg">
-            <li>Categories start from who you are — household, housing, income, what you pay for.</li>
-            <li>Matching is keyword-based, not a model. You can override every row.</li>
-            <li>Sign-up is the last step, after the outlook, so you know what you are keeping.</li>
-          </ul>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <Button onClick={() => setStep(1)}>Set up my household</Button>
-            <Button variant="outline" onClick={() => loadSample()}>
-              Try a demo ledger
+          <div className="flex flex-col gap-2">
+            {signedIn ? null : (
+              <Button className="w-full sm:w-auto" onClick={() => void navigate({ to: "/login" })}>
+                Sign in
+              </Button>
+            )}
+            <Button variant={signedIn ? "primary" : "outline"} onClick={() => loadSample()}>
+              Try the demo
+            </Button>
+            <Button variant={signedIn ? "outline" : "ghost"} onClick={() => setStep(1)}>
+              Set up a new household
             </Button>
           </div>
           <label className="inline-flex min-h-11 cursor-pointer items-center text-sm text-muted underline-offset-2 hover:underline">
@@ -480,9 +484,12 @@ export function Onboarding() {
               Back
             </Button>
             <Button onClick={() => completeSetup({ ...profile, budgetPeriod }, cats)}>
-              {signedIn ? "Save and open the ledger" : "Continue to create your account"}
+              {signedIn ? "Save and open the ledger" : "Open the ledger"}
             </Button>
           </div>
+          {!signedIn ? (
+            <p className="text-sm text-muted">You can sign in from the ledger whenever you want it saved to an account.</p>
+          ) : null}
         </div>
       ) : null}
     </div>

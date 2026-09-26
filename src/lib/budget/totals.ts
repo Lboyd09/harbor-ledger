@@ -31,7 +31,7 @@ function categoryMap(categories: Category[]) {
 }
 
 export function countsInCashflow(t: Transaction) {
-  return !t.excluded && t.status !== "transfer";
+  return !t.excluded && t.status !== "transfer" && t.status !== "reimbursement";
 }
 
 export function sumByCategory(
@@ -72,8 +72,12 @@ function foldCash(transactions: Transaction[], categories: Category[], keep: (t:
       transfers += 1;
       continue;
     }
+    if (t.status === "reimbursement") {
+      refunds += 1;
+      continue;
+    }
     count += 1;
-    if (t.status === "refund" || t.status === "reimbursement") refunds += 1;
+    if (t.status === "refund") refunds += 1;
     const cat = t.categoryId ? byId.get(t.categoryId) : undefined;
     if (!cat) {
       if (t.amount > 0) income += t.amount;
