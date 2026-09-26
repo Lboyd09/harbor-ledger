@@ -1,4 +1,4 @@
-import { Link, Navigate, Outlet, useRouterState } from "@tanstack/react-router";
+import { Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { CalendarDays, CalendarRange, Store, Upload, Wallet } from "lucide-react";
 import { useEffect } from "react";
 import { UserButton } from "@/lib/auth/gates";
@@ -6,6 +6,7 @@ import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { cn } from "@/lib/cn";
 import { useBudgetStore } from "@/store/budget-store";
 import { Onboarding } from "./onboarding";
+import { Button } from "./ui/button";
 
 const NAV = [
   { to: "/", label: "Month", icon: CalendarDays },
@@ -19,7 +20,15 @@ const DESKTOP_NAV = [...NAV, { to: "/import", label: "Import", icon: Upload }] a
 function AuthSlot() {
   const { user, isPending } = useCurrentUserState();
   if (isPending) return <div className="h-8 w-24 animate-pulse rounded-full bg-chip" />;
-  if (!user) return null;
+  if (!user) {
+    return (
+      <Link to="/login">
+        <Button size="sm" variant="outline">
+          Sign in
+        </Button>
+      </Link>
+    );
+  }
   return (
     <div className="flex items-center gap-2">
       <Link to="/account" className="hidden text-xs text-muted hover:text-fg md:inline">
@@ -32,6 +41,8 @@ function AuthSlot() {
 
 function SavePill() {
   const saveState = useBudgetStore((s) => s.saveState);
+  const { user } = useCurrentUserState();
+  if (!user) return <span className="text-xs text-muted">On this device</span>;
   if (saveState === "saving") return <span className="text-xs text-muted">Saving</span>;
   if (saveState === "saved") return <span className="text-xs text-muted">Saved</span>;
   if (saveState === "error") return <span className="text-xs text-danger">Save failed</span>;
@@ -63,8 +74,6 @@ export function AppShell() {
     return <Outlet />;
   }
 
-  // Guests always set up the household first. Do not wait on persist/session
-  // or the first HTML is a blank "Opening Harbor" and they never reach signup.
   if (!user && !done) {
     return <Onboarding />;
   }
@@ -79,10 +88,6 @@ export function AppShell() {
   }
 
   if (!done) return <Onboarding />;
-
-  if (!user) {
-    return <Navigate to="/login" search={{ from: "onboarding" }} />;
-  }
 
   if (accountPath) {
     return (
@@ -142,9 +147,7 @@ export function AppShell() {
           <Link to="/import" className="text-xs text-muted">
             Import
           </Link>
-          <Link to="/account" className="text-xs text-muted">
-            Account
-          </Link>
+          <AuthSlot />
         </div>
       </header>
 
