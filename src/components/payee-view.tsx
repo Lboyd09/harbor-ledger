@@ -105,7 +105,7 @@ export function PayeeView() {
                 }}
               />
               <p className="mt-1 text-xs text-muted">
-                Updates {g.count} charge{g.count === 1 ? "" : "s"}
+                Changes these {g.count} existing charge{g.count === 1 ? "" : "s"} only. A new import still uses the usual categories, and one row on the month page can differ.
               </p>
             </div>
           </li>

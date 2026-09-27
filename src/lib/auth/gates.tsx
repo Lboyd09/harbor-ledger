@@ -100,29 +100,28 @@ export function UserButton() {
   if (!user) return null;
   const label = user.displayName ?? user.primaryEmail ?? "Account";
   return (
-    <div className="flex items-center gap-2">
-      {user.profileImageUrl ? (
-        <img
-          src={user.profileImageUrl}
-          alt=""
-          className="h-8 w-8 rounded-full object-cover"
-        />
-      ) : (
-        <span className="grid h-8 w-8 place-items-center rounded-full bg-black/10 text-sm font-medium dark:bg-white/20">
-          {label.charAt(0).toUpperCase()}
+    <div className="flex w-full min-w-0 flex-col gap-1">
+      <div className="flex min-w-0 items-center gap-2">
+        {user.profileImageUrl ? (
+          <img src={user.profileImageUrl} alt="" className="h-8 w-8 shrink-0 rounded-full object-cover" />
+        ) : (
+          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-chip text-sm font-medium">
+            {label.charAt(0).toUpperCase()}
+          </span>
+        )}
+        <span className="min-w-0 flex-1 truncate text-sm font-medium" title={label}>
+          {label}
         </span>
-      )}
-      <span className="text-sm font-medium">{label}</span>
+      </div>
       {authEnabled && !gateSession && (
         <button
           type="button"
           disabled={signingOut}
           onClick={() => {
             setSigningOut(true);
-            // Success navigates away; on failure re-enable so it can be retried.
             void signOut().catch(() => setSigningOut(false));
           }}
-          className="cursor-pointer text-sm underline-offset-4 opacity-70 hover:underline disabled:cursor-wait disabled:no-underline"
+          className="w-fit cursor-pointer text-sm underline-offset-4 opacity-70 hover:underline disabled:cursor-wait disabled:no-underline"
         >
           {signingOut ? "Signing out…" : "Sign out"}
         </button>

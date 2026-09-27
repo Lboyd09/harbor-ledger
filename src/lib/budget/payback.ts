@@ -1,42 +1,35 @@
 import type { Transaction } from "./types.ts";
 
-/** Incoming money that often is a parent / roommate paying you back. */
-export function looksLikePayback(t: Transaction): boolean {
-  if (t.amount <= 0) return false;
-  if (t.excluded) return false;
-  const hay = ` ${t.description.toUpperCase()} `;
-  return (
-    hay.includes("ZELLE") ||
-    hay.includes("VENMO") ||
-    hay.includes("CASH APP") ||
-    hay.includes("PAYPAL") ||
-    hay.includes("APPLE CASH") ||
-    /FROM /.test(hay)
-  );
-}
-
 export function daysBetween(a: string, b: string): number {
   const ms = Math.abs(Date.parse(a) - Date.parse(b));
   return Number.isFinite(ms) ? Math.round(ms / 86400000) : 999;
 }
 
-/** Find later incoming deposits that could cancel this purchase. */
-export function findPaybackCandidates(purchase: Transaction, all: Transaction[]): Transaction[] {
-  if (purchase.amount >= 0) return [];
-  const need = Math.abs(purchase.amount);
-  return all
-    .filter((t) => t.id !== purchase.id)
-    .filter((t) => t.amount > 0 && !t.excluded)
-    .filter((t) => t.status !== "transfer")
-    .filter((t) => daysBetween(t.date, purchase.date) <= 45)
-    .filter((t) => {
-      const diff = Math.abs(t.amount - need);
-      return diff <= Math.max(1, need * 0.15);
-    })
-    .sort((a, b) => daysBetween(a.date, purchase.date) - daysBetween(b.date, purchase.date));
+/** Id of the other row in a payback pair. Notes look like `payback:<id>|optional label`. */
+export function paybackPartnerId(notes: string): string {
+  if (!notes.startsWith("payback:")) return "";
+  const id = notes.slice("payback:".length).split("|")[0] ?? "";
+  return id && id !== "payback" ? id : "";
 }
 
-export function paybackHint(purchase: Transaction, candidate: Transaction): string {
-  const days = daysBetween(purchase.date, candidate.date);
-  return `${candidate.description.slice(0, 42)} · ${days === 0 ? "same day" : `${days}d later`}`;
+export function paybackNote(notes: string): string {
+  const i = notes.indexOf("|");
+  return i >= 0 ? notes.slice(i + 1) : "";
+}
+
+export function paybackNotes(otherId: string | null, label: string): string {
+  const clean = label.trim().replace(/\|/g, " ").slice(0, 80);
+  const head = otherId ? `payback:${otherId}` : "payback";
+  return clean ? `${head}|${clean}` : head;
+}
+
+/** Closest row by dollar amount, then by date. */
+export function closestAmount(need: number, rows: Transaction[], nearDate: string): Transaction | null {
+  if (!rows.length) return null;
+  return [...rows].sort((a, b) => {
+    const da = Math.abs(Math.abs(a.amount) - need);
+    const db = Math.abs(Math.abs(b.amount) - need);
+    if (Math.abs(da - db) > 0.009) return da - db;
+    return daysBetween(a.date, nearDate) - daysBetween(b.date, nearDate);
+  })[0];
 }

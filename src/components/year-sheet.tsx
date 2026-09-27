@@ -11,6 +11,7 @@ import {
 } from "@/lib/budget/year";
 import { cn } from "@/lib/cn";
 import { useBudgetStore } from "@/store/budget-store";
+import { downloadText } from "@/lib/budget/download";
 import { Button } from "./ui/button";
 import { YearSwitcher } from "./year-switcher";
 
@@ -109,13 +110,7 @@ export function YearSheet({ embedded = false }: { embedded?: boolean }) {
   const expenseMonths = book.months.map((_, i) => expenseRows.reduce((s, r) => s + r.months[i], 0));
 
   function downloadCsv() {
-    const blob = new Blob([yearSheetCsv(book)], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `harbor-${year}-sheet.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadText(`harbor-${year}-sheet.csv`, yearSheetCsv(book), "text/csv;charset=utf-8");
   }
 
   if (!transactions.length) {

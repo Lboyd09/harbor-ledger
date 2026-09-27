@@ -71,11 +71,32 @@ function cellXml(cell: Cell): string {
   return `<Cell><Data ss:Type="String">${xmlEscape(String(cell.value))}</Data></Cell>`;
 }
 
+export function ledgerCsv(transactions: Transaction[], categories: Category[]): string {
+  const lines = ["Date,Description,Income,Expense,Category,Counts"];
+  const sorted = [...transactions].sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+  for (const t of sorted) {
+    const income = t.amount > 0 ? t.amount.toFixed(2) : "";
+    const expense = t.amount < 0 ? Math.abs(t.amount).toFixed(2) : "";
+    const counts =
+      t.excluded || t.status === "transfer"
+        ? "Left out"
+        : t.status === "reimbursement"
+          ? "Payback"
+          : t.status === "refund"
+            ? "Store refund"
+            : "Yes";
+    lines.push(
+      [t.date, csvEscape(t.description), income, expense, csvEscape(catName(categories, t.categoryId)), counts].join(","),
+    );
+  }
+  return lines.join("\r\n");
+}
+
 function sheetXml(name: string, rows: Cell[][]): string {
-  const body = rows
-    .map((row) => `<Row>${row.map(cellXml).join("")}</Row>`)
-    .join("");
-  return `<Worksheet ss:Name="${xmlEscape(name.slice(0, 31))}"><Table>${body}</Table></Worksheet>`;
+  const cols = Math.max(1, ...rows.map((row) => row.length));
+  const body = rows.map((row) => `<Row>${row.map(cellXml).join("")}</Row>`).join("");
+  const safe = name.replace(/[\\/?*[\]:]/g, " ").slice(0, 31);
+  return `<Worksheet ss:Name="${xmlEscape(safe)}"><Table ss:ExpandedColumnCount="${cols}" ss:ExpandedRowCount="${Math.max(rows.length, 1)}">${body}</Table></Worksheet>`;
 }
 
 export function spreadsheetXml(opts: {
@@ -200,10 +221,13 @@ export function spreadsheetXml(opts: {
     ]),
   ];
 
-  return `<?xml version="1.0"?>
+  return `<?xml version="1.0" encoding="UTF-8"?>
 <?mso-application progid="Excel.Sheet"?>
 <Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
- xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+ xmlns:o="urn:schemas-microsoft-com:office:office"
+ xmlns:x="urn:schemas-microsoft-com:office:excel"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:html="http://www.w3.org/TR/REC-html40">
 ${sheetXml("Overview", overview)}
 ${sheetXml("By category", pivot)}
 ${sheetXml("Months", monthlyRows)}

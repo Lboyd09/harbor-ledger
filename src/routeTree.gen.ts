@@ -19,6 +19,7 @@ import { Route as PayeesRouteImport } from './routes/payees'
 import { Route as PlanRouteImport } from './routes/plan'
 import { Route as RecurringRouteImport } from './routes/recurring'
 import { Route as ResetRouteImport } from './routes/reset'
+import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as YearRouteImport } from './routes/year'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 
@@ -72,6 +73,11 @@ const ResetRoute = ResetRouteImport.update({
   path: '/reset',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const YearRoute = YearRouteImport.update({
   id: '/year',
   path: '/year',
@@ -94,6 +100,7 @@ export interface FileRoutesByFullPath {
   '/plan': typeof PlanRoute
   '/recurring': typeof RecurringRoute
   '/reset': typeof ResetRoute
+  '/settings': typeof SettingsRoute
   '/year': typeof YearRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
@@ -108,6 +115,7 @@ export interface FileRoutesByTo {
   '/plan': typeof PlanRoute
   '/recurring': typeof RecurringRoute
   '/reset': typeof ResetRoute
+  '/settings': typeof SettingsRoute
   '/year': typeof YearRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
@@ -123,6 +131,7 @@ export interface FileRoutesById {
   '/plan': typeof PlanRoute
   '/recurring': typeof RecurringRoute
   '/reset': typeof ResetRoute
+  '/settings': typeof SettingsRoute
   '/year': typeof YearRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
@@ -139,6 +148,7 @@ export interface FileRouteTypes {
     | '/plan'
     | '/recurring'
     | '/reset'
+    | '/settings'
     | '/year'
     | '/api/auth/$'
   fileRoutesByTo: FileRoutesByTo
@@ -153,6 +163,7 @@ export interface FileRouteTypes {
     | '/plan'
     | '/recurring'
     | '/reset'
+    | '/settings'
     | '/year'
     | '/api/auth/$'
   id:
@@ -167,6 +178,7 @@ export interface FileRouteTypes {
     | '/plan'
     | '/recurring'
     | '/reset'
+    | '/settings'
     | '/year'
     | '/api/auth/$'
   fileRoutesById: FileRoutesById
@@ -182,6 +194,7 @@ export interface RootRouteChildren {
   PlanRoute: typeof PlanRoute
   RecurringRoute: typeof RecurringRoute
   ResetRoute: typeof ResetRoute
+  SettingsRoute: typeof SettingsRoute
   YearRoute: typeof YearRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
@@ -258,6 +271,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ResetRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/year': {
       id: '/year'
       path: '/year'
@@ -286,6 +306,7 @@ const rootRouteChildren: RootRouteChildren = {
   PlanRoute: PlanRoute,
   RecurringRoute: RecurringRoute,
   ResetRoute: ResetRoute,
+  SettingsRoute: SettingsRoute,
   YearRoute: YearRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
 }

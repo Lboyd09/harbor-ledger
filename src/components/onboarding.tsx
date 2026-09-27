@@ -25,6 +25,7 @@ export function Onboarding({ initialStep = 0 }: { initialStep?: number }) {
   const existing = useBudgetStore((s) => s.profile);
   const hasData = useBudgetStore((s) => s.transactions.length > 0 || s.categories.length > 0);
   const completeSetup = useBudgetStore((s) => s.completeSetup);
+  const cancelSetup = useBudgetStore((s) => s.cancelSetup);
   const loadSample = useBudgetStore((s) => s.loadSample);
   const restoreBackup = useBudgetStore((s) => s.restoreBackup);
   const signedIn = Boolean(useCurrentUser());
@@ -192,12 +193,16 @@ export function Onboarding({ initialStep = 0 }: { initialStep?: number }) {
               onChange={(e) => setDependents(Math.max(0, Number(e.target.value) || 0))}
             />
           </Field>
-          <div className="flex gap-2 pt-2">
-            {!updating ? (
+          <div className="flex flex-wrap gap-2 pt-2">
+            {updating ? (
+              <Button variant="outline" onClick={() => cancelSetup()}>
+                Back to ledger
+              </Button>
+            ) : (
               <Button variant="outline" onClick={() => setStep(0)}>
                 Back
               </Button>
-            ) : null}
+            )}
             <Button onClick={() => setStep(2)}>Continue</Button>
           </div>
         </div>

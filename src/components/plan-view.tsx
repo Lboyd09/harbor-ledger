@@ -103,11 +103,13 @@ export function PlanView() {
                   <li key={c.id} className="grid gap-2 p-3 md:grid-cols-5 md:items-center">
                     <Input value={c.name} onChange={(e) => updateCategory(c.id, { name: e.target.value })} />
                     <label className="text-xs text-muted">
-                      Plan / {periodNoun(period)}
+                      Monthly budget
                       <Input
                         className="mt-1"
                         inputMode="decimal"
-                        value={String(c.plannedMonthly)}
+                        aria-label={`Monthly budget for ${c.name}`}
+                        value={c.plannedMonthly ? String(c.plannedMonthly) : ""}
+                        placeholder="Type an amount"
                         onChange={(e) => updateCategory(c.id, { plannedMonthly: Number(e.target.value) || 0 })}
                       />
                       {typical > 0 ? (

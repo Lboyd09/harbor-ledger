@@ -1,5 +1,5 @@
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
-import { CalendarDays, CalendarRange, Store, Upload, Wallet } from "lucide-react";
+import { CalendarDays, CalendarRange, Settings, Store, Upload, Wallet } from "lucide-react";
 import { useEffect } from "react";
 import { UserButton } from "@/lib/auth/gates";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
@@ -9,10 +9,11 @@ import { Onboarding } from "./onboarding";
 import { WelcomeGate } from "./welcome-gate";
 
 const NAV = [
-  { to: "/", label: "Month", icon: CalendarDays },
   { to: "/year", label: "Year", icon: CalendarRange },
+  { to: "/", label: "Month", icon: CalendarDays },
   { to: "/categories", label: "Merchants", icon: Store },
   { to: "/plan", label: "Plan", icon: Wallet },
+  { to: "/settings", label: "Settings", icon: Settings },
 ] as const;
 
 const DESKTOP_NAV = [...NAV, { to: "/import", label: "Import", icon: Upload }] as const;
@@ -30,14 +31,7 @@ function AuthSlot() {
       </Link>
     );
   }
-  return (
-    <div className="flex items-center gap-2">
-      <Link to="/account" className="hidden text-xs text-muted hover:text-fg md:inline">
-        Account
-      </Link>
-      <UserButton />
-    </div>
-  );
+  return <UserButton />;
 }
 
 function SavePill() {
@@ -59,6 +53,8 @@ export function AppShell() {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const current =
     DESKTOP_NAV.find((n) => n.to === path)?.label ?? (path === "/import" ? "Import" : "Harbor");
+  const txCount = useBudgetStore((s) => s.transactions.length);
+  const catCount = useBudgetStore((s) => s.categories.length);
   const ledgerName = useBudgetStore((s) => s.profile.ledgerName);
   const publicAuth = path === "/login" || path === "/reset";
   const accountPath = path === "/account";
@@ -76,6 +72,7 @@ export function AppShell() {
   }
 
   if (!user && !done) {
+    if (txCount > 0 || catCount > 0) return <Onboarding initialStep={1} />;
     return <WelcomeGate />;
   }
 
@@ -108,7 +105,7 @@ export function AppShell() {
 
   return (
     <div className="min-h-dvh bg-bg text-fg">
-      <aside className="fixed inset-y-0 left-0 hidden w-52 flex-col border-r border-border bg-surface md:flex">
+      <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col border-r border-border bg-surface md:flex">
         <div className="px-5 py-6">
           <div className="font-display text-xl font-semibold">Harbor</div>
           <div className="truncate text-xs text-muted">{ledgerName || "Ledger"}</div>
@@ -132,7 +129,7 @@ export function AppShell() {
             );
           })}
         </nav>
-        <div className="space-y-2 border-t border-border px-3 py-4">
+        <div className="min-w-0 space-y-2 border-t border-border px-3 py-4">
           <SavePill />
           <AuthSlot />
         </div>
@@ -152,7 +149,7 @@ export function AppShell() {
         </div>
       </header>
 
-      <main className="px-4 pb-28 pt-4 md:ml-52 md:px-8 md:pb-10 md:pt-8">
+      <main className="px-4 pb-28 pt-4 md:ml-64 md:px-8 md:pb-10 md:pt-8">
         {!user ? (
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-surface px-4 py-3">
             <p className="text-sm">This ledger stays on this device until you sign in.</p>
@@ -164,7 +161,7 @@ export function AppShell() {
         <Outlet />
       </main>
 
-      <nav className="safe-nav fixed inset-x-0 bottom-0 z-10 grid grid-cols-4 border-t border-border bg-surface md:hidden">
+      <nav className="safe-nav fixed inset-x-0 bottom-0 z-10 grid grid-cols-5 border-t border-border bg-surface md:hidden">
         {NAV.map((item) => {
           const Icon = item.icon;
           const on = path === item.to;

@@ -24,7 +24,7 @@ export function RecurringView() {
     const txs = transactions.filter((t) => t.merchantKey === merchantKey);
     const last = txs[0];
     if (!last) return;
-    setTransactionCategory(last.id, categoryId, true);
+    setTransactionCategory(last.id, categoryId, false);
   }
 
   function Block({ title, items }: { title: string; items: typeof groups }) {

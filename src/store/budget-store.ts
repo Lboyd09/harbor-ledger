@@ -9,8 +9,9 @@ import { merchantKey } from "@/lib/budget/merchant";
 import { emptySnapshot, normalizeSnapshot } from "@/lib/budget/normalize";
 import { currentMonthKey, currentWeekKey, monthKeyFromDate, weekKeyFromDate } from "@/lib/budget/parse-date";
 import { loadLedger, saveLedger } from "@/lib/budget/persist";
-import { recommendedPlans } from "@/lib/budget/year";
+import { paybackNotes, paybackPartnerId } from "@/lib/budget/payback";
 import { buildPresetCategories } from "@/lib/budget/presets";
+import { recommendedPlans } from "@/lib/budget/year";
 import { SAMPLE_CSV, SAMPLE_PROFILE } from "@/lib/budget/sample";
 import type {
   BudgetPeriod,
@@ -50,10 +51,12 @@ type State = LedgerSnapshot & {
   setMerchantCategory: (merchantKey: string, categoryId: string | null) => void;
   applyRecommendedPlans: (year: string) => number;
   patchTransaction: (id: string, patch: Partial<Pick<Transaction, "excluded" | "status" | "notes">>) => void;
-  markPaidBack: (expenseId: string, depositId: string | null) => void;
+  markPaidBack: (expenseId: string, depositId: string | null, label?: string) => void;
   undoPaidBack: (id: string) => void;
   countAsIncome: (id: string) => void;
   countHiddenDeposits: () => number;
+  cancelSetup: () => void;
+  patchProfile: (patch: Partial<Profile>) => void;
   importPreview: (preview: CsvPreview, flipSign: boolean) => ImportResult;
   loadSample: () => void;
   deleteTransaction: (id: string) => void;
@@ -207,7 +210,9 @@ export const useBudgetStore = create<State>()(
         const local = snapshotOf(get());
         try {
           const remote = await loadLedger();
-          if (remote?.profile.completedOnboarding) {
+          const editing =
+            !get().profile.completedOnboarding && (get().transactions.length > 0 || get().categories.length > 0);
+          if (remote?.profile.completedOnboarding && !editing) {
             set({ ...remote, hydrated: true, saveState: "saved", saveError: null });
             dropLegacy();
             return;
@@ -249,7 +254,19 @@ export const useBudgetStore = create<State>()(
         });
         void flushPersist();
       },
-      reopenSetup: () => set({ profile: { ...get().profile, completedOnboarding: false } }),
+      reopenSetup: () => {
+        set({ profile: { ...get().profile, completedOnboarding: false } });
+        schedulePersist();
+      },
+      cancelSetup: () => {
+        if (!get().categories.length && !get().transactions.length) return;
+        set({ profile: { ...get().profile, completedOnboarding: true } });
+        schedulePersist();
+      },
+      patchProfile: (patch) => {
+        set({ profile: { ...get().profile, ...patch, completedOnboarding: get().profile.completedOnboarding } });
+        schedulePersist();
+      },
       resetAll: () => {
         set({ ...emptySnapshot(), saveState: "idle" });
         void flushPersist();
@@ -301,11 +318,8 @@ export const useBudgetStore = create<State>()(
         schedulePersist();
       },
       setMerchantCategory: (key, categoryId) => {
-        const rules = categoryId
-          ? [...get().merchantRules.filter((r) => r.merchantKey !== key), { merchantKey: key, categoryId }]
-          : get().merchantRules.filter((r) => r.merchantKey !== key);
         set({
-          merchantRules: rules,
+          merchantRules: get().merchantRules.filter((r) => r.merchantKey !== key),
           transactions: get().transactions.map((t) =>
             t.merchantKey === key ? { ...t, categoryId, userSet: true } : t,
           ),
@@ -330,7 +344,7 @@ export const useBudgetStore = create<State>()(
         });
         schedulePersist();
       },
-      markPaidBack: (expenseId, depositId) => {
+      markPaidBack: (expenseId, depositId, label = "") => {
         set({
           transactions: get().transactions.map((t) => {
             if (t.id === expenseId) {
@@ -338,7 +352,7 @@ export const useBudgetStore = create<State>()(
                 ...t,
                 status: "reimbursement",
                 excluded: false,
-                notes: depositId ? `payback:${depositId}` : "payback",
+                notes: paybackNotes(depositId, label),
                 userSet: true,
               };
             }
@@ -347,7 +361,7 @@ export const useBudgetStore = create<State>()(
                 ...t,
                 status: "reimbursement",
                 excluded: false,
-                notes: `payback:${expenseId}`,
+                notes: paybackNotes(expenseId, label),
                 userSet: true,
               };
             }
@@ -358,7 +372,7 @@ export const useBudgetStore = create<State>()(
       },
       undoPaidBack: (id) => {
         const tx = get().transactions.find((t) => t.id === id);
-        const other = tx?.notes.startsWith("payback:") ? tx.notes.slice("payback:".length) : "";
+        const other = paybackPartnerId(tx?.notes ?? "");
         set({
           transactions: get().transactions.map((t) => {
             if (t.id !== id && t.id !== other) return t;

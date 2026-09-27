@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Link, Navigate } from "@tanstack/react-router";
+import { Link, Navigate, useNavigate } from "@tanstack/react-router";
 import { createFileRoute } from "@tanstack/react-router";
 import { GROK_PROVIDERS, authClient, authEnabled, signIn } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
@@ -26,6 +26,7 @@ export const Route = createFileRoute("/login")({
 
 function Login() {
   const { from } = Route.useSearch();
+  const navigate = useNavigate();
   const fromOnboarding = from === "onboarding";
   const { user } = useCurrentUserState();
   const profile = useBudgetStore((s) => s.profile);
@@ -230,7 +231,10 @@ function Login() {
           <button
             type="button"
             className="mt-6 text-left text-sm text-muted underline-offset-2 hover:underline"
-            onClick={() => reopenSetup()}
+            onClick={() => {
+              reopenSetup();
+              void navigate({ to: "/" });
+            }}
           >
             Change setup answers
           </button>

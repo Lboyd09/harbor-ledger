@@ -119,7 +119,7 @@ export function TransactionDesktop() {
                   <CategorySelect
                     categories={categories}
                     value={t.categoryId}
-                    onChange={(id) => setTransactionCategory(t.id, id, true)}
+                    onChange={(id) => setTransactionCategory(t.id, id, false)}
                   />
                   {!t.categoryId ? (
                     <div className="mt-1 text-xs text-warn">Unassigned</div>
@@ -200,7 +200,7 @@ export function TransactionMobile() {
             <CategorySelect
               categories={categories}
               value={t.categoryId}
-              onChange={(id) => setTransactionCategory(t.id, id, true)}
+              onChange={(id) => setTransactionCategory(t.id, id, false)}
             />
             <TxFlags id={t.id} excluded={t.excluded} status={t.status} />
             <div className="flex items-center justify-between gap-2">
