@@ -5,6 +5,16 @@ import { Button } from "@/components/ui/button";
 
 type ConfirmSearch = { token?: string };
 
+const confirmInflight = new Map<string, ReturnType<typeof confirmEmailToken>>();
+
+function confirmOnce(token: string) {
+  const existing = confirmInflight.get(token);
+  if (existing) return existing;
+  const pending = confirmEmailToken({ data: { token } });
+  confirmInflight.set(token, pending);
+  return pending;
+}
+
 export const Route = createFileRoute("/confirm")({
   validateSearch: (search: Record<string, unknown>): ConfirmSearch => ({
     token: typeof search.token === "string" ? search.token : undefined,
@@ -24,7 +34,7 @@ function Confirm() {
       return;
     }
     let cancel = false;
-    void confirmEmailToken({ data: { token } })
+    void confirmOnce(token)
       .then((result) => {
         if (cancel) return;
         if (!result.ok) {

@@ -8,7 +8,7 @@ import { newId } from "@/lib/budget/ids";
 import { merchantKey } from "@/lib/budget/merchant";
 import { emptySnapshot, normalizeSnapshot } from "@/lib/budget/normalize";
 import { currentMonthKey, currentWeekKey } from "@/lib/budget/parse-date";
-import { loadLedger, saveLedger } from "@/lib/budget/persist";
+import { clearLedger, loadLedger, saveLedger } from "@/lib/budget/persist";
 import { paybackNotes, paybackPartnerId } from "@/lib/budget/payback";
 import { buildPresetCategories } from "@/lib/budget/presets";
 import { recommendedPlans } from "@/lib/budget/year";
@@ -41,7 +41,7 @@ type State = LedgerSnapshot & {
   loadRemote: () => Promise<void>;
   completeSetup: (profile: Profile, categories: Category[]) => void;
   reopenSetup: () => void;
-  resetAll: () => void;
+  resetAll: () => Promise<void>;
   setActiveMonth: (ym: string) => void;
   setActiveWeek: (wk: string) => void;
   setBudgetPeriod: (period: BudgetPeriod) => void;
@@ -84,6 +84,21 @@ function snapshotOf(s: LedgerSnapshot): LedgerSnapshot {
 
 let persistTimer: ReturnType<typeof setTimeout> | null = null;
 let persistChain: Promise<void> = Promise.resolve();
+/** Bumps when the person edits. An in-flight load must not paint over that. */
+let mutationEpoch = 0;
+/** Bumps on reset so an older save cannot write the ledger back. */
+let saveEpoch = 0;
+/** True while applying server or storage data, which is not a local edit. */
+let silenceEpoch = false;
+
+function quiet(run: () => void) {
+  silenceEpoch = true;
+  try {
+    run();
+  } finally {
+    silenceEpoch = false;
+  }
+}
 
 function schedulePersist() {
   if (persistTimer) clearTimeout(persistTimer);
@@ -98,14 +113,20 @@ async function flushPersist() {
     clearTimeout(persistTimer);
     persistTimer = null;
   }
+  const epoch = saveEpoch;
   persistChain = persistChain.then(async () => {
+    if (epoch !== saveEpoch) return;
     const s = useBudgetStore.getState();
     if (!s.hydrated || !s.profile.completedOnboarding) return;
     useBudgetStore.setState({ saveState: "saving", saveError: null });
     try {
-      await saveLedger({ data: snapshotOf(s) });
+      const payload = snapshotOf(useBudgetStore.getState());
+      if (epoch !== saveEpoch) return;
+      await saveLedger({ data: payload });
+      if (epoch !== saveEpoch) return;
       useBudgetStore.setState({ saveState: "saved" });
     } catch (err) {
+      if (epoch !== saveEpoch) return;
       const message = err instanceof Error ? err.message : "Could not save";
       if (message === "Unauthorized") {
         useBudgetStore.setState({ saveState: "idle", saveError: null });
@@ -200,7 +221,9 @@ export const useBudgetStore = create<State>()(
       hydrated: false,
       saveState: "idle",
       saveError: null,
-      setHydrated: () => set({ hydrated: true, ...openToday(), monthBudgets: get().monthBudgets ?? [] }),
+      setHydrated: () => {
+        quiet(() => set({ hydrated: true, ...openToday(), monthBudgets: get().monthBudgets ?? [] }));
+      },
       hydrateLocal: () => {
         const persistApi = useBudgetStore.persist;
         const mark = () => get().setHydrated();
@@ -209,41 +232,47 @@ export const useBudgetStore = create<State>()(
         window.setTimeout(mark, 200);
         const legacy = readLegacy();
         if (legacy && (legacy.profile.completedOnboarding || legacy.transactions.length) && !get().profile.completedOnboarding) {
-          set({ ...legacy, hydrated: true, ...openToday() });
+          quiet(() => set({ ...legacy, hydrated: true, ...openToday() }));
           dropLegacy();
         }
       },
       loadRemote: async () => {
+        const seen = mutationEpoch;
         const local = snapshotOf(get());
         try {
           const remote = await loadLedger();
+          if (seen !== mutationEpoch) {
+            quiet(() => set({ hydrated: true }));
+            if (get().profile.completedOnboarding) void flushPersist();
+            return;
+          }
           const editing =
             !get().profile.completedOnboarding && (get().transactions.length > 0 || get().categories.length > 0);
           if (remote?.profile.completedOnboarding && !editing) {
-            set({ ...remote, hydrated: true, saveState: "saved", saveError: null, ...openToday() });
+            quiet(() => set({ ...remote, hydrated: true, saveState: "saved", saveError: null, ...openToday() }));
             dropLegacy();
             return;
           }
           if (local.profile.completedOnboarding) {
-            set({ hydrated: true, saveState: "saving" });
+            quiet(() => set({ hydrated: true, saveState: "saving" }));
             await flushPersist();
             return;
           }
           const legacy = readLegacy();
           if (legacy?.profile.completedOnboarding) {
-            set({ ...legacy, hydrated: true, saveState: "saving", ...openToday() });
+            quiet(() => set({ ...legacy, hydrated: true, saveState: "saving", ...openToday() }));
             dropLegacy();
             await flushPersist();
             return;
           }
-          set({ hydrated: true, saveState: "idle" });
+          quiet(() => set({ hydrated: true, saveState: "idle" }));
         } catch (err) {
           const message = err instanceof Error ? err.message : "Could not load";
           if (message === "Unauthorized") {
-            set({ hydrated: true, saveState: "idle" });
+            quiet(() => set({ hydrated: true, saveState: "idle" }));
             return;
           }
-          set({ hydrated: true, saveState: "error", saveError: message });
+          quiet(() => set({ hydrated: true, saveState: "error", saveError: message }));
         }
       },
       completeSetup: (profile, categories) => {
@@ -274,9 +303,37 @@ export const useBudgetStore = create<State>()(
         set({ profile: { ...get().profile, ...patch, completedOnboarding: get().profile.completedOnboarding } });
         schedulePersist();
       },
-      resetAll: () => {
-        set({ ...emptySnapshot(), saveState: "idle" });
-        void flushPersist();
+      resetAll: async () => {
+        saveEpoch += 1;
+        if (persistTimer) {
+          clearTimeout(persistTimer);
+          persistTimer = null;
+        }
+        const epoch = saveEpoch;
+        persistChain = persistChain.then(async () => {
+          if (epoch !== saveEpoch) return;
+          try {
+            await clearLedger();
+          } catch (err) {
+            const message = err instanceof Error ? err.message : "Could not reset";
+            if (message !== "Unauthorized") throw err;
+          }
+        });
+        try {
+          await persistChain;
+        } catch (err) {
+          if (epoch !== saveEpoch) return;
+          const message = err instanceof Error ? err.message : "Could not reset";
+          useBudgetStore.setState({ saveState: "error", saveError: message });
+          throw err;
+        }
+        if (epoch !== saveEpoch) return;
+        set({ ...emptySnapshot(), hydrated: true, saveState: "idle", saveError: null });
+        try {
+          useBudgetStore.persist.clearStorage();
+        } catch {
+          /* storage can be blocked; the in-memory ledger is already empty */
+        }
       },
       setActiveMonth: (ym) => {
         set({ activeMonth: ym });
@@ -539,14 +596,34 @@ export const useBudgetStore = create<State>()(
     {
       name: LOCAL_KEY,
       partialize: (s) => snapshotOf(s),
-      onRehydrateStorage: () => (state) => {
-        state?.setHydrated();
+      onRehydrateStorage: () => {
+        silenceEpoch = true;
+        return (state) => {
+          silenceEpoch = false;
+          state?.setHydrated();
+        };
       },
     },
   ),
 );
 
 export { flushPersist };
+
+useBudgetStore.subscribe((state, prev) => {
+  if (silenceEpoch) return;
+  if (
+    state.profile !== prev.profile ||
+    state.categories !== prev.categories ||
+    state.transactions !== prev.transactions ||
+    state.merchantRules !== prev.merchantRules ||
+    state.imports !== prev.imports ||
+    state.monthBudgets !== prev.monthBudgets ||
+    state.activeMonth !== prev.activeMonth ||
+    state.activeWeek !== prev.activeWeek
+  ) {
+    mutationEpoch += 1;
+  }
+});
 
 if (typeof window !== "undefined") {
   window.addEventListener("beforeunload", () => {

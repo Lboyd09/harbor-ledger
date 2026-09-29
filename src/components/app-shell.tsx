@@ -58,15 +58,17 @@ export function AppShell() {
   const ledgerName = useBudgetStore((s) => s.profile.ledgerName);
   const accent = useBudgetStore((s) => s.profile.accent ?? "harbor");
   const motion = useBudgetStore((s) => s.profile.motion ?? "lively");
+  const userId = user?.id ?? null;
   const publicAuth = path === "/login" || path === "/reset" || path === "/confirm";
 
   useEffect(() => {
-    if (user) {
+    if (isPending) return;
+    if (userId) {
       void loadRemote();
       return;
     }
     hydrateLocal();
-  }, [user, loadRemote, hydrateLocal]);
+  }, [userId, isPending, loadRemote, hydrateLocal]);
 
   useEffect(() => {
     const root = document.documentElement;

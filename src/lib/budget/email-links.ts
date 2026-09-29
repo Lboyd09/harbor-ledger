@@ -106,7 +106,17 @@ export const confirmEmailToken = createServerFn({ method: "POST" })
        returning user_id`,
       [tokenHash],
     );
-    if (!rows[0]) return { ok: false as const, error: "That confirmation link is expired or already used." };
+    if (!rows[0]) {
+      const prior = await sql.query<{ user_id: string; used_at: string | null }>(
+        `select user_id, used_at from email_tokens where token_hash = $1 and purpose = 'confirm'`,
+        [tokenHash],
+      );
+      if (!prior[0]?.used_at) {
+        return { ok: false as const, error: "That confirmation link is expired or already used." };
+      }
+      await sql.query(`update "user" set "emailVerified" = true, "updatedAt" = now() where id = $1`, [prior[0].user_id]);
+      return { ok: true as const };
+    }
     await sql.query(`update "user" set "emailVerified" = true, "updatedAt" = now() where id = $1`, [rows[0].user_id]);
     return { ok: true as const };
   });

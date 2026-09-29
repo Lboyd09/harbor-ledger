@@ -15,6 +15,7 @@ export function ExportBar() {
   const restoreBackup = useBudgetStore((s) => s.restoreBackup);
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [armReset, setArmReset] = useState(false);
 
   function exportCsv() {
     downloadText("harbor-ledger.csv", ledgerCsv(transactions, categories), "text/csv;charset=utf-8");
@@ -123,15 +124,38 @@ export function ExportBar() {
               }}
             />
           </label>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              if (confirm("Erase this browser’s ledger? This does not touch your bank.")) resetAll();
-            }}
-          >
-            Reset this device
-          </Button>
+          {armReset ? (
+            <span className="inline-flex flex-wrap items-center gap-2">
+              <span className="text-sm text-muted">Erase the ledger on this device? Your bank is not touched.</span>
+              <Button
+                variant="danger"
+                size="sm"
+                disabled={busy}
+                onClick={() => {
+                  setBusy(true);
+                  setNote(null);
+                  void resetAll()
+                    .then(() => {
+                      setArmReset(false);
+                      setNote("This device is cleared.");
+                    })
+                    .catch((err: unknown) => {
+                      setNote(err instanceof Error ? err.message : "Could not reset this device.");
+                    })
+                    .finally(() => setBusy(false));
+                }}
+              >
+                {busy ? "Erasing…" : "Erase ledger"}
+              </Button>
+              <Button variant="ghost" size="sm" disabled={busy} onClick={() => setArmReset(false)}>
+                Cancel
+              </Button>
+            </span>
+          ) : (
+            <Button variant="ghost" size="sm" onClick={() => setArmReset(true)}>
+              Reset this device
+            </Button>
+          )}
         </div>
       </section>
       {note ? <p className="text-sm text-muted">{note}</p> : null}

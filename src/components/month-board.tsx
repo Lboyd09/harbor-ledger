@@ -117,7 +117,7 @@ export function MonthBoard() {
           <p className="text-xs font-medium uppercase tracking-wide text-muted">{ledgerName || "This month"}</p>
           <h1 className="font-display text-3xl font-semibold md:text-4xl">{monthLabel(ym)}</h1>
           <p className="mt-1 max-w-xl text-sm text-muted">
-            Income is money you kept. Expenses are money you spent. A small “Paid back?” box on a row is how you match a repayment.
+            Income is money you kept. Expenses are money you spent. A store return lowers spending. It is not income.
           </p>
         </div>
         <div className="flex items-center gap-1">
@@ -233,7 +233,7 @@ export function MonthBoard() {
         <Section
           title="Income"
           kicker="Money in"
-          hint="Money you kept. Open a row to categorize just that deposit, or to match a payback."
+          hint="Money you kept. Open a row to categorize that deposit."
           groups={income}
           empty="No income in this month."
           tone="in"
@@ -413,9 +413,9 @@ function Section({
                           </Quiet>
                         ) : t.status === "refund" ? (
                           <RefundLine t={t} onNotice={onNotice} />
-                        ) : (
-                          <PaybackChip t={t} tone={tone} categories={categories} onNotice={onNotice} />
-                        )
+                        ) : tone === "out" ? (
+                          <PaybackChip t={t} categories={categories} onNotice={onNotice} />
+                        ) : null
                       }
                       category={
                         <CategorySelect
@@ -512,27 +512,23 @@ function RowTools({
 
 function PaybackChip({
   t,
-  tone,
   categories,
   onNotice,
 }: {
   t: Transaction;
-  tone: "in" | "out";
   categories: Category[];
   onNotice: (message: string) => void;
 }) {
   const transactions = useBudgetStore((s) => s.transactions);
   const markPaidBack = useBudgetStore((s) => s.markPaidBack);
-  const patchTransaction = useBudgetStore((s) => s.patchTransaction);
   const [open, setOpen] = useState(false);
   const [label, setLabel] = useState("");
   const [pick, setPick] = useState("");
-  if (isPaycheck(categories, t)) return null;
+  if (isPaycheck(categories, t) || t.amount > 0) return null;
 
-  const pool =
-    tone === "out"
-      ? transactions.filter((x) => x.amount > 0 && x.id !== t.id && x.status !== "reimbursement" && !x.excluded && !isPaycheck(categories, x))
-      : transactions.filter((x) => x.amount < 0 && x.id !== t.id && x.status !== "reimbursement" && x.status !== "transfer" && !x.excluded);
+  const pool = transactions.filter(
+    (x) => x.amount > 0 && x.id !== t.id && x.status !== "reimbursement" && !x.excluded && !isPaycheck(categories, x),
+  );
   const ranked = [...pool].sort(
     (a, b) => Math.abs(Math.abs(a.amount) - Math.abs(t.amount)) - Math.abs(Math.abs(b.amount) - Math.abs(t.amount)),
   );
@@ -540,14 +536,16 @@ function PaybackChip({
   const chosen = pick || suggested?.id || "";
 
   return (
-    <div className="mt-1">
+    <div className="relative mt-1">
       <button
         type="button"
-        className="rounded-md border border-border bg-bg px-2 py-0.5 text-xs text-muted hover:border-primary hover:text-fg"
+        aria-label="Paid back?"
+        title="Paid back?"
         aria-expanded={open}
+        className="inline-flex size-6 items-center justify-center rounded-sm text-muted/50 hover:text-fg"
         onClick={() => setOpen((v) => !v)}
       >
-        Paid back?
+        <span className="size-1.5 border border-current bg-current/30" aria-hidden="true" />
       </button>
       {open ? (
         <div className="mt-2 max-w-sm space-y-2 rounded-md border border-border bg-surface p-3">
@@ -555,7 +553,7 @@ function PaybackChip({
           <p className="text-xs text-muted">
             {suggested
               ? `Closest match: ${dayLabel(suggested.date)} · ${displayMerchant(suggested.description)} · ${formatMoney(Math.abs(suggested.amount))}.`
-              : "No matching amount yet. You can still leave this row out of the budget."}
+              : "No matching amount yet. You can still leave this purchase out of spending."}
           </p>
           {ranked.length ? (
             <Select aria-label="Matching row" value={chosen} onChange={(e) => setPick(e.target.value)}>
@@ -570,24 +568,12 @@ function PaybackChip({
           <Button
             size="sm"
             onClick={() => {
-              if (tone === "out") {
-                markPaidBack(t.id, chosen || null, label);
-                onNotice(chosen ? "Matched. Both rows are out of the budget." : "That purchase is out of spending.");
-              } else if (chosen) {
-                markPaidBack(chosen, t.id, label);
-                onNotice("Matched. Both rows are out of the budget.");
-              } else {
-                patchTransaction(t.id, {
-                  status: "reimbursement",
-                  excluded: false,
-                  notes: label.trim() ? `payback|${label.trim()}` : "payback",
-                });
-                onNotice("That deposit is out of income.");
-              }
+              markPaidBack(t.id, chosen || null, label);
+              onNotice(chosen ? "Matched. Both rows are out of the budget." : "That purchase is out of spending.");
               setOpen(false);
             }}
           >
-            {chosen ? "Match payback" : "Leave out of the budget"}
+            {chosen ? "Match payback" : "Leave out of spending"}
           </Button>
         </div>
       ) : null}

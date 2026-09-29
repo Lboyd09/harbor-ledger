@@ -257,7 +257,7 @@ function AccountPanel({ signedIn, email }: { signedIn: boolean; email: string })
         setError(result.error);
         return;
       }
-      resetAll();
+      await resetAll();
       await signOut("/login");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not delete the account.");
