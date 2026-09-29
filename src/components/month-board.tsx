@@ -4,7 +4,8 @@ import { useMemo, useState, type ReactNode } from "react";
 import { displayMerchant } from "@/lib/budget/merchant";
 import { formatMoney } from "@/lib/budget/money";
 import { groupMonth, type MonthGroup } from "@/lib/budget/month-view";
-import { monthKeyFromDate, monthLabel, monthShort, shiftMonth } from "@/lib/budget/parse-date";
+import { currentMonthKey, monthKeyFromDate, monthLabel, monthShort, shiftMonth } from "@/lib/budget/parse-date";
+import { hasMonthOverride, planAmount } from "@/lib/budget/plans";
 import { closestAmount, paybackNote } from "@/lib/budget/payback";
 import { downloadText } from "@/lib/budget/download";
 import type { Category, Transaction } from "@/lib/budget/types";
@@ -38,7 +39,7 @@ function csvCell(value: string) {
 function countsLabel(t: Transaction) {
   if (t.excluded || t.status === "transfer") return "Left out";
   if (t.status === "reimbursement") return t.amount < 0 ? "Paid back — not spending" : "Paid back — not income";
-  if (t.status === "refund") return "Store refund — lowers spending";
+  if (t.status === "refund") return "Money back — lowers spending";
   return "Yes";
 }
 
@@ -49,6 +50,7 @@ export function MonthBoard() {
   const setActiveMonth = useBudgetStore((s) => s.setActiveMonth);
   const setTransactionCategory = useBudgetStore((s) => s.setTransactionCategory);
   const patchTransaction = useBudgetStore((s) => s.patchTransaction);
+  const monthBudgets = useBudgetStore((s) => s.monthBudgets) ?? [];
   const countHiddenDeposits = useBudgetStore((s) => s.countHiddenDeposits);
   const loadSample = useBudgetStore((s) => s.loadSample);
   const ledgerName = useBudgetStore((s) => s.profile.ledgerName);
@@ -58,7 +60,10 @@ export function MonthBoard() {
 
   const year = ym.slice(0, 4);
   const book = useMemo(() => buildYearWorkbook(transactions, categories, year), [transactions, categories, year]);
-  const layout = useMemo(() => groupMonth(transactions, categories, ym), [transactions, categories, ym]);
+  const layout = useMemo(
+    () => groupMonth(transactions, categories, ym, monthBudgets),
+    [transactions, categories, ym, monthBudgets],
+  );
   const needle = q.trim().toUpperCase();
 
   function matches(description: string, merchantKey: string) {
@@ -112,12 +117,15 @@ export function MonthBoard() {
           <p className="text-xs font-medium uppercase tracking-wide text-muted">{ledgerName || "This month"}</p>
           <h1 className="font-display text-3xl font-semibold md:text-4xl">{monthLabel(ym)}</h1>
           <p className="mt-1 max-w-xl text-sm text-muted">
-            Income is money you kept. Expenses are money you spent. Open a row to change that one charge, or to match a payback.
+            Income is money you kept. Expenses are money you spent. A small “Paid back?” box on a row is how you match a repayment.
           </p>
         </div>
         <div className="flex items-center gap-1">
           <Button variant="outline" size="sm" aria-label="Previous month" onClick={() => setActiveMonth(shiftMonth(ym, -1))}>
             <ChevronLeft className="size-4" />
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setActiveMonth(currentMonthKey())}>
+            This month
           </Button>
           <Button variant="outline" size="sm" aria-label="Next month" onClick={() => setActiveMonth(shiftMonth(ym, 1))}>
             <ChevronRight className="size-4" />
@@ -159,6 +167,10 @@ export function MonthBoard() {
             warn={layout.incomeTotal - layout.expenseTotal < 0}
           />
         </div>
+
+        {inMonth.length === 0 ? (
+          <EmptyMonth ym={ym} transactions={transactions} onJump={setActiveMonth} />
+        ) : null}
 
         <section className="rounded-lg border border-danger/30 bg-surface p-4">
           <h2 className="font-display text-xl font-semibold">Where the spending went</h2>
@@ -230,11 +242,13 @@ export function MonthBoard() {
           onOpen={setOpenId}
           onCategory={onCategory}
           onNotice={setNotice}
+          ym={ym}
+          monthBudgets={monthBudgets}
         />
         <Section
           title="Expenses"
           kicker="Money out"
-          hint="Money you spent. The monthly budget is on the category. Open a row to set that one charge or record a payback."
+          hint="Money you spent. The box on the category is this month only. Your usual plan stays on Plan."
           groups={expenses}
           empty="No expenses in this month."
           tone="out"
@@ -243,6 +257,8 @@ export function MonthBoard() {
           onOpen={setOpenId}
           onCategory={onCategory}
           onNotice={setNotice}
+          ym={ym}
+          monthBudgets={monthBudgets}
         />
 
         {hiddenOut.length ? (
@@ -303,6 +319,8 @@ function Section({
   onOpen,
   onCategory,
   onNotice,
+  ym,
+  monthBudgets,
 }: {
   title: string;
   kicker: string;
@@ -315,8 +333,10 @@ function Section({
   onOpen: (id: string | null) => void;
   onCategory: (id: string, merchantKey: string, sample: string, categoryId: string | null) => void;
   onNotice: (message: string) => void;
+  ym: string;
+  monthBudgets: { categoryId: string; ym: string; amount: number }[];
 }) {
-  const updateCategory = useBudgetStore((s) => s.updateCategory);
+  const setMonthPlan = useBudgetStore((s) => s.setMonthPlan);
   return (
     <section className={cn("rounded-xl border p-3 md:p-4", tone === "in" ? "border-good/40" : "border-danger/35")}>
       <div className="mb-3 px-1">
@@ -345,16 +365,20 @@ function Section({
                   </div>
                   <div className={cn("tabular font-medium", tone === "in" ? "text-good" : "text-danger")}>{formatMoney(g.total)}</div>
                 </div>
-                {stored ? (
+                {stored && stored.id !== "money-back" ? (
                   <label className="mt-2 flex max-w-xs flex-col gap-1 text-xs text-muted">
-                    Monthly budget
+                    This month only
                     <Input
                       inputMode="decimal"
-                      aria-label={`Monthly budget for ${g.name}`}
-                      value={stored.plannedMonthly ? String(stored.plannedMonthly) : ""}
-                      placeholder="0"
-                      onChange={(e) => updateCategory(stored.id, { plannedMonthly: Number(e.target.value) || 0 })}
+                      aria-label={`This month's budget for ${g.name}`}
+                      value={hasMonthOverride(stored.id, ym, monthBudgets) ? String(planAmount(stored, ym, monthBudgets)) : ""}
+                      placeholder={stored.plannedMonthly ? `Usual ${stored.plannedMonthly}` : "Uses usual plan"}
+                      onChange={(e) => {
+                        const raw = e.target.value.trim();
+                        setMonthPlan(stored.id, ym, raw ? Number(raw) || 0 : null);
+                      }}
                     />
+                    <span>Usual plan {formatMoney(stored.plannedMonthly)}. Clear the box to use it.</span>
                   </label>
                 ) : null}
                 {g.plan > 0 ? (
@@ -374,9 +398,25 @@ function Section({
                       name={displayMerchant(t.description)}
                       amount={t.amount}
                       paid={paid}
-                      badge={paid ? "Payback" : t.status === "refund" ? "Store refund" : undefined}
+                      badge={paid ? "Paid back" : t.status === "refund" ? "Money back" : undefined}
                       open={open}
                       onOpen={() => onOpen(open ? null : t.id)}
+                      extra={
+                        paid ? (
+                          <Quiet
+                            onClick={() => {
+                              useBudgetStore.getState().undoPaidBack(t.id);
+                              onNotice("Counted again.");
+                            }}
+                          >
+                            Undo payback
+                          </Quiet>
+                        ) : t.status === "refund" ? (
+                          <RefundLine t={t} onNotice={onNotice} />
+                        ) : (
+                          <PaybackChip t={t} tone={tone} categories={categories} onNotice={onNotice} />
+                        )
+                      }
                       category={
                         <CategorySelect
                           categories={categories}
@@ -409,96 +449,41 @@ function RowTools({
   categories: Category[];
   onNotice: (message: string) => void;
 }) {
-  const transactions = useBudgetStore((s) => s.transactions);
-  const markPaidBack = useBudgetStore((s) => s.markPaidBack);
-  const undoPaidBack = useBudgetStore((s) => s.undoPaidBack);
   const patchTransaction = useBudgetStore((s) => s.patchTransaction);
   const deleteTransaction = useBudgetStore((s) => s.deleteTransaction);
   const countAsIncome = useBudgetStore((s) => s.countAsIncome);
-  const [label, setLabel] = useState(paybackNote(t.notes));
-  const [pick, setPick] = useState("");
-  const paid = t.status === "reimbursement";
   const paycheck = isPaycheck(categories, t);
   const note = paybackNote(t.notes);
 
-  if (paid) {
-    return (
-      <div className="mt-2 space-y-2 rounded-md bg-chip p-3">
-        <p className="text-sm">Out of the budget{note ? ` — ${note}` : "."}</p>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => {
-            undoPaidBack(t.id);
-            onNotice("Counted again.");
-          }}
-        >
-          Undo
-        </Button>
-      </div>
-    );
-  }
-
-  const pool =
-    tone === "out"
-      ? transactions.filter((x) => x.amount > 0 && x.id !== t.id && x.status !== "reimbursement" && !x.excluded && !isPaycheck(categories, x))
-      : transactions.filter((x) => x.amount < 0 && x.id !== t.id && x.status !== "reimbursement" && x.status !== "transfer" && !x.excluded);
-  const ranked = [...pool].sort(
-    (a, b) => Math.abs(Math.abs(a.amount) - Math.abs(t.amount)) - Math.abs(Math.abs(b.amount) - Math.abs(t.amount)),
-  );
-  const suggested = closestAmount(Math.abs(t.amount), pool, t.date);
-  const chosen = pick || suggested?.id || "";
-
   return (
-    <div className="mt-2 space-y-2 rounded-md bg-chip p-3">
-      {tone === "out" && t.status === "refund" ? (
-        <p className="text-sm">Store refund. This already lowers spending in this category.</p>
+    <div className="mt-2 space-y-2 text-sm">
+      {t.status === "reimbursement" ? (
+        <p className="text-muted">Out of the budget{note ? ` — ${note}` : ". Someone paid this back."}</p>
       ) : paycheck ? (
-        <p className="text-sm text-muted">This stays as income. Change the category above if it belongs somewhere else.</p>
+        <p className="text-muted">This stays as income. Change the category if it belongs somewhere else.</p>
       ) : (
-        <>
-          <p className="text-sm font-medium">Payback</p>
-          <p className="text-xs text-muted">
-            {suggested
-              ? `Closest amount: ${dayLabel(suggested.date)} · ${displayMerchant(suggested.description)} · ${formatMoney(Math.abs(suggested.amount))}.`
-              : tone === "out"
-                ? "No deposit to match. You can still leave this purchase out of spending."
-                : "No purchase to match. You can still leave this deposit out of income."}
-          </p>
-          {ranked.length ? (
-            <Select aria-label="Matching row" value={chosen} onChange={(e) => setPick(e.target.value)}>
-              {ranked.slice(0, 12).map((x) => (
-                <option key={x.id} value={x.id}>
-                  {dayLabel(x.date)} · {displayMerchant(x.description)} · {formatMoney(Math.abs(x.amount))}
-                </option>
-              ))}
-            </Select>
-          ) : null}
-          <Input value={label} placeholder="Note (optional)" aria-label="Payback note" onChange={(e) => setLabel(e.target.value)} />
-          <Button
-            size="sm"
-            onClick={() => {
-              if (tone === "out") {
-                markPaidBack(t.id, chosen || null, label);
-                onNotice(chosen ? "Both rows are out of the budget." : "That purchase is out of spending.");
-              } else if (chosen) {
-                markPaidBack(chosen, t.id, label);
-                onNotice("Both rows are out of the budget.");
-              } else {
-                patchTransaction(t.id, {
-                  status: "reimbursement",
-                  excluded: false,
-                  notes: label.trim() ? `payback|${label.trim()}` : "payback",
-                });
-                onNotice("That deposit is out of income.");
-              }
-            }}
-          >
-            {chosen ? "Cancel both out" : tone === "out" ? "Leave out of spending" : "Leave out of income"}
-          </Button>
-        </>
+        <p className="text-muted">Category changes apply to this row only.</p>
       )}
       <div className="flex flex-wrap gap-3">
+        {t.status === "refund" ? (
+          <Quiet
+            onClick={() => {
+              patchTransaction(t.id, { status: "posted" });
+              onNotice("Counted as a normal charge again.");
+            }}
+          >
+            Not money back
+          </Quiet>
+        ) : tone === "out" && t.status === "posted" ? (
+          <Quiet
+            onClick={() => {
+              patchTransaction(t.id, { status: "refund" });
+              onNotice("Marked as money a store gave back. It lowers spending and is not income.");
+            }}
+          >
+            Store gave this back
+          </Quiet>
+        ) : null}
         {t.status === "transfer" && t.amount > 0 ? (
           <Quiet
             onClick={() => {
@@ -525,12 +510,144 @@ function RowTools({
   );
 }
 
+function PaybackChip({
+  t,
+  tone,
+  categories,
+  onNotice,
+}: {
+  t: Transaction;
+  tone: "in" | "out";
+  categories: Category[];
+  onNotice: (message: string) => void;
+}) {
+  const transactions = useBudgetStore((s) => s.transactions);
+  const markPaidBack = useBudgetStore((s) => s.markPaidBack);
+  const patchTransaction = useBudgetStore((s) => s.patchTransaction);
+  const [open, setOpen] = useState(false);
+  const [label, setLabel] = useState("");
+  const [pick, setPick] = useState("");
+  if (isPaycheck(categories, t)) return null;
+
+  const pool =
+    tone === "out"
+      ? transactions.filter((x) => x.amount > 0 && x.id !== t.id && x.status !== "reimbursement" && !x.excluded && !isPaycheck(categories, x))
+      : transactions.filter((x) => x.amount < 0 && x.id !== t.id && x.status !== "reimbursement" && x.status !== "transfer" && !x.excluded);
+  const ranked = [...pool].sort(
+    (a, b) => Math.abs(Math.abs(a.amount) - Math.abs(t.amount)) - Math.abs(Math.abs(b.amount) - Math.abs(t.amount)),
+  );
+  const suggested = closestAmount(Math.abs(t.amount), pool, t.date);
+  const chosen = pick || suggested?.id || "";
+
+  return (
+    <div className="mt-1">
+      <button
+        type="button"
+        className="rounded-md border border-border bg-bg px-2 py-0.5 text-xs text-muted hover:border-primary hover:text-fg"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
+        Paid back?
+      </button>
+      {open ? (
+        <div className="mt-2 max-w-sm space-y-2 rounded-md border border-border bg-surface p-3">
+          <p className="text-sm font-medium">Someone paid this back</p>
+          <p className="text-xs text-muted">
+            {suggested
+              ? `Closest match: ${dayLabel(suggested.date)} · ${displayMerchant(suggested.description)} · ${formatMoney(Math.abs(suggested.amount))}.`
+              : "No matching amount yet. You can still leave this row out of the budget."}
+          </p>
+          {ranked.length ? (
+            <Select aria-label="Matching row" value={chosen} onChange={(e) => setPick(e.target.value)}>
+              {ranked.slice(0, 8).map((x) => (
+                <option key={x.id} value={x.id}>
+                  {dayLabel(x.date)} · {displayMerchant(x.description)} · {formatMoney(Math.abs(x.amount))}
+                </option>
+              ))}
+            </Select>
+          ) : null}
+          <Input value={label} placeholder="Note, optional" aria-label="Payback note" onChange={(e) => setLabel(e.target.value)} />
+          <Button
+            size="sm"
+            onClick={() => {
+              if (tone === "out") {
+                markPaidBack(t.id, chosen || null, label);
+                onNotice(chosen ? "Matched. Both rows are out of the budget." : "That purchase is out of spending.");
+              } else if (chosen) {
+                markPaidBack(chosen, t.id, label);
+                onNotice("Matched. Both rows are out of the budget.");
+              } else {
+                patchTransaction(t.id, {
+                  status: "reimbursement",
+                  excluded: false,
+                  notes: label.trim() ? `payback|${label.trim()}` : "payback",
+                });
+                onNotice("That deposit is out of income.");
+              }
+              setOpen(false);
+            }}
+          >
+            {chosen ? "Match payback" : "Leave out of the budget"}
+          </Button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function RefundLine({ t, onNotice }: { t: Transaction; onNotice: (message: string) => void }) {
+  const patchTransaction = useBudgetStore((s) => s.patchTransaction);
+  return (
+    <p className="mt-1 max-w-md text-xs text-muted">
+      Money a store gave back. It lowers what you spent. It is not a paycheck or new income.{" "}
+      <button
+        type="button"
+        className="underline-offset-2 hover:underline"
+        onClick={() => {
+          patchTransaction(t.id, { status: "posted" });
+          onNotice("Counted as a normal charge again.");
+        }}
+      >
+        Not a return
+      </button>
+    </p>
+  );
+}
+
+function EmptyMonth({
+  ym,
+  transactions,
+  onJump,
+}: {
+  ym: string;
+  transactions: Transaction[];
+  onJump: (ym: string) => void;
+}) {
+  const latest = transactions.map((t) => monthKeyFromDate(t.date)).sort().at(-1);
+  return (
+    <div className="rounded-lg border border-dashed border-line bg-surface px-4 py-4 text-sm">
+      <p className="font-medium">Nothing posted in {monthLabel(ym)} yet.</p>
+      {latest && latest !== ym ? (
+        <p className="mt-1 text-muted">
+          Your latest charges are in {monthLabel(latest)}.{" "}
+          <button type="button" className="font-medium text-primary underline-offset-2 hover:underline" onClick={() => onJump(latest)}>
+            Show {monthLabel(latest)}
+          </button>
+        </p>
+      ) : (
+        <p className="mt-1 text-muted">Import a CSV when this month’s file arrives, or move to another month.</p>
+      )}
+    </div>
+  );
+}
+
 function TxRow({
   date,
   name,
   amount,
   category,
   details,
+  extra,
   muted,
   paid,
   badge,
@@ -542,13 +659,14 @@ function TxRow({
   amount: number;
   category: ReactNode;
   details?: ReactNode;
+  extra?: ReactNode;
   muted?: boolean;
   paid?: boolean;
   badge?: string;
   open?: boolean;
   onOpen?: () => void;
 }) {
-  const color = paid ? "text-muted" : amount > 0 ? "text-good" : "text-danger";
+  const color = paid || (badge === "Money back") ? "text-muted" : amount > 0 ? "text-good" : "text-danger";
   return (
     <li className={cn("grid gap-2 px-4 py-3 md:grid-cols-[5.5rem_1fr_7rem_16rem] md:items-start", muted && "opacity-70")}>
       <div className="text-sm text-muted tabular">{date}</div>
@@ -564,6 +682,7 @@ function TxRow({
             {badge ? <span className="ml-2 rounded-full bg-chip px-2 py-0.5 text-xs font-normal text-muted">{badge}</span> : null}
           </div>
         )}
+        {extra}
         {details}
       </div>
       <div className={cn("tabular text-sm md:text-right", color)}>
@@ -572,6 +691,8 @@ function TxRow({
             <div>Not counted</div>
             <div className="text-xs line-through">{formatMoney(Math.abs(amount))}</div>
           </>
+        ) : badge === "Money back" ? (
+          <span title="Lowers what you spent">−{formatMoney(Math.abs(amount))}</span>
         ) : (
           formatMoney(amount, { signed: amount > 0 })
         )}

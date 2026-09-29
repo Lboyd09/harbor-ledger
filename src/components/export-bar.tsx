@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { ledgerCsv, similarAppCsv, spreadsheetXml, transactionsCsv } from "@/lib/budget/export-workbook";
-import { downloadText } from "@/lib/budget/download";
+import { ledgerCsv, similarAppCsv, transactionsCsv } from "@/lib/budget/export-workbook";
+import { downloadBytes, downloadText } from "@/lib/budget/download";
+import { buildHarborWorkbook } from "@/lib/budget/xlsx-book";
 import { useBudgetStore } from "@/store/budget-store";
 import { Button } from "./ui/button";
 
@@ -9,22 +10,35 @@ export function ExportBar() {
   const categories = useBudgetStore((s) => s.categories);
   const profile = useBudgetStore((s) => s.profile);
   const merchantRules = useBudgetStore((s) => s.merchantRules);
+  const monthBudgets = useBudgetStore((s) => s.monthBudgets) ?? [];
   const resetAll = useBudgetStore((s) => s.resetAll);
   const restoreBackup = useBudgetStore((s) => s.restoreBackup);
   const [note, setNote] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   function exportCsv() {
     downloadText("harbor-ledger.csv", ledgerCsv(transactions, categories), "text/csv;charset=utf-8");
-    setNote("Downloaded harbor-ledger.csv. Excel opens it directly. In Google Sheets: File → Import → Upload, then choose that file.");
+    setNote("Downloaded harbor-ledger.csv. Excel opens it. In Google Sheets: File → Import → Upload.");
   }
 
   function exportWorkbook() {
-    downloadText(
-      "harbor-ledger.xls",
-      spreadsheetXml({ profile, categories, transactions }),
-      "application/vnd.ms-excel",
-    );
-    setNote("Downloaded harbor-ledger.xls with separate tabs. If a program shows a blank sheet, use the CSV instead.");
+    setBusy(true);
+    setNote(null);
+    try {
+      const bytes = buildHarborWorkbook({ profile, categories, transactions, monthBudgets });
+      downloadBytes(
+        "harbor-ledger.xlsx",
+        bytes,
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      );
+      setNote(
+        "Downloaded harbor-ledger.xlsx. Excel opens the sheets and the charts. In Google Sheets: File → Import → Upload → Replace spreadsheet. Every Harbor list is a tab: months, plan, month budgets, splits, transactions, and merchants.",
+      );
+    } catch (err) {
+      setNote(err instanceof Error ? err.message : "Could not build the workbook.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function onRestore(file: File) {
@@ -45,18 +59,17 @@ export function ExportBar() {
   return (
     <div className="space-y-6">
       <section className="space-y-3 rounded-lg border border-border bg-surface p-4">
-        <h2 className="font-display text-lg font-semibold">Google Sheets, Excel, Numbers</h2>
+        <h2 className="font-display text-lg font-semibold">Google Sheets and Excel</h2>
         <p className="text-sm text-muted">
-          Download a CSV and open it in Excel, or in Google Sheets choose File → Import → Upload. The CSV has a row
-          for every charge, with income and expenses in separate columns. The Excel file adds tabs for the year grid
-          and the plan.
+          The workbook is the ledger: overview, every month, categories and splits, the usual plan, month-only budgets,
+          every transaction, income merchants, spending merchants, and two charts.
         </p>
         <div className="flex flex-wrap gap-2">
-          <Button size="sm" onClick={exportCsv} disabled={!transactions.length}>
-            Download CSV
+          <Button size="sm" onClick={exportWorkbook} disabled={!transactions.length || busy}>
+            {busy ? "Building…" : "Download Excel workbook"}
           </Button>
-          <Button variant="outline" size="sm" onClick={exportWorkbook} disabled={!transactions.length}>
-            Download Excel workbook
+          <Button variant="outline" size="sm" onClick={exportCsv} disabled={!transactions.length}>
+            Download CSV
           </Button>
         </div>
       </section>
@@ -90,7 +103,7 @@ export function ExportBar() {
             onClick={() =>
               downloadText(
                 "harbor-ledger-backup.json",
-                JSON.stringify({ profile, categories, transactions, merchantRules }, null, 2),
+                JSON.stringify({ profile, categories, transactions, merchantRules, monthBudgets }, null, 2),
                 "application/json",
               )
             }

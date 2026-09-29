@@ -1,5 +1,5 @@
 import { useState, useSyncExternalStore, type ReactNode } from "react";
-import { Navigate } from "@tanstack/react-router";
+import { Link, Navigate } from "@tanstack/react-router";
 import { GROK_PROVIDERS, authEnabled, signIn, signOut } from "./client";
 import { hasGateSessionMarker } from "./gate-session-marker";
 import { resolveSignInGateState } from "./sign-in-gate";
@@ -113,6 +113,9 @@ export function UserButton() {
           {label}
         </span>
       </div>
+      <Link to="/settings" className="w-fit text-sm font-medium text-primary underline-offset-4 hover:underline">
+        Account
+      </Link>
       {authEnabled && !gateSession && (
         <button
           type="button"

@@ -4,9 +4,12 @@ import type {
   BudgetGoal,
   BudgetPeriod,
   Category,
+  HarborLook,
+  HarborMotion,
   ImportBatch,
   LedgerSnapshot,
   MerchantRule,
+  MonthBudget,
   Profile,
   Transaction,
   TxStatus,
@@ -18,6 +21,8 @@ const HOUSEHOLDS = ["single", "partnered", "married"] as const;
 const STAGES = ["student", "early-career", "established", "parent", "retired"] as const;
 const HOUSING = ["family", "rent", "own"] as const;
 const GOALS: BudgetGoal[] = ["track", "save", "debt", "purchase", "live-within"];
+const LOOKS: HarborLook[] = ["harbor", "dusk", "tide", "brass"];
+const MOTIONS: HarborMotion[] = ["calm", "lively"];
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
@@ -78,6 +83,8 @@ export function normalizeProfile(raw: unknown): Profile {
       : ["track"],
     completedOnboarding: asBool(p.completedOnboarding, false),
     budgetPeriod,
+    accent: LOOKS.includes(p.accent as HarborLook) ? (p.accent as HarborLook) : "harbor",
+    motion: MOTIONS.includes(p.motion as HarborMotion) ? (p.motion as HarborMotion) : "lively",
   };
 }
 
@@ -114,6 +121,7 @@ export function normalizeSnapshot(raw: unknown): LedgerSnapshot | null {
     name: asString(c.name, "Untitled"),
     kind: c.kind === "income" ? "income" : "expense",
     plannedMonthly: Math.max(0, asNumber(c.plannedMonthly, 0)),
+    parentId: typeof c.parentId === "string" && c.parentId ? c.parentId : null,
   }));
   const transactions = transactionsRaw
     .map((t, i) => normalizeTransaction(t, i))
@@ -138,10 +146,19 @@ export function normalizeSnapshot(raw: unknown): LedgerSnapshot | null {
       }))
     : [];
   const profile = normalizeProfile(inner.profile);
+  const budgetsRaw = inner.monthBudgets;
+  const monthBudgets: MonthBudget[] = Array.isArray(budgetsRaw)
+    ? budgetsRaw.filter(isRecord).flatMap((b) => {
+        const categoryId = asString(b.categoryId);
+        const ym = asString(b.ym);
+        if (!categoryId || !/^\d{4}-\d{2}$/.test(ym)) return [];
+        return [{ categoryId, ym, amount: Math.max(0, asNumber(b.amount, 0)) }];
+      })
+    : [];
   const activeMonth = asString(inner.activeMonth, currentMonthKey());
   const last = transactions[0]?.date;
   const activeWeek = asString(inner.activeWeek, last ? weekKeyFromDate(last) : currentWeekKey());
-  return { profile, categories, transactions, merchantRules, imports, activeMonth, activeWeek };
+  return { profile, categories, transactions, merchantRules, imports, monthBudgets, activeMonth, activeWeek };
 }
 
 export function emptySnapshot(): LedgerSnapshot {
@@ -151,6 +168,7 @@ export function emptySnapshot(): LedgerSnapshot {
     transactions: [],
     merchantRules: [],
     imports: [],
+    monthBudgets: [],
     activeMonth: currentMonthKey(),
     activeWeek: currentWeekKey(),
   };

@@ -6,6 +6,8 @@ export type CategoryKind = "income" | "expense";
 export type RecurringInterval = "weekly" | "biweekly" | "monthly" | "irregular";
 export type BudgetPeriod = "week" | "month";
 export type TxStatus = "posted" | "refund" | "transfer" | "reimbursement";
+export type HarborLook = "harbor" | "dusk" | "tide" | "brass";
+export type HarborMotion = "calm" | "lively";
 
 export type IncomeStream = {
   name: string;
@@ -27,6 +29,10 @@ export type Profile = {
   goals: BudgetGoal[];
   completedOnboarding: boolean;
   budgetPeriod: BudgetPeriod;
+  /** Paper color. Missing on older ledgers — treat as harbor. */
+  accent?: HarborLook;
+  /** Motion level. Missing on older ledgers — treat as lively. */
+  motion?: HarborMotion;
 };
 
 export type Category = {
@@ -34,7 +40,17 @@ export type Category = {
   slug: string;
   name: string;
   kind: CategoryKind;
+  /** Usual plan. Same every month unless a month budget overrides it. */
   plannedMonthly: number;
+  /** When set, this category is a split of that parent. */
+  parentId?: string | null;
+};
+
+/** A budget that applies to one month only. The usual plan stays on the category. */
+export type MonthBudget = {
+  categoryId: string;
+  ym: string;
+  amount: number;
 };
 
 export type Transaction = {
@@ -118,6 +134,7 @@ export type LedgerSnapshot = {
   transactions: Transaction[];
   merchantRules: MerchantRule[];
   imports: ImportBatch[];
+  monthBudgets: MonthBudget[];
   activeMonth: string;
   activeWeek: string;
 };

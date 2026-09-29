@@ -7,7 +7,7 @@ import { fingerprint } from "@/lib/budget/fingerprint";
 import { newId } from "@/lib/budget/ids";
 import { merchantKey } from "@/lib/budget/merchant";
 import { emptySnapshot, normalizeSnapshot } from "@/lib/budget/normalize";
-import { currentMonthKey, currentWeekKey, monthKeyFromDate, weekKeyFromDate } from "@/lib/budget/parse-date";
+import { currentMonthKey, currentWeekKey } from "@/lib/budget/parse-date";
 import { loadLedger, saveLedger } from "@/lib/budget/persist";
 import { paybackNotes, paybackPartnerId } from "@/lib/budget/payback";
 import { buildPresetCategories } from "@/lib/budget/presets";
@@ -20,6 +20,7 @@ import type {
   ImportBatch,
   LedgerSnapshot,
   MerchantRule,
+  MonthBudget,
   Profile,
   Transaction,
   TxStatus,
@@ -47,6 +48,7 @@ type State = LedgerSnapshot & {
   updateCategory: (id: string, patch: Partial<Category>) => void;
   addCategory: (cat: Omit<Category, "id">) => void;
   removeCategory: (id: string) => void;
+  setMonthPlan: (categoryId: string, ym: string, amount: number | null) => void;
   setTransactionCategory: (id: string, categoryId: string | null, applyToMerchant: boolean) => void;
   setMerchantCategory: (merchantKey: string, categoryId: string | null) => void;
   applyRecommendedPlans: (year: string) => number;
@@ -63,6 +65,10 @@ type State = LedgerSnapshot & {
   restoreBackup: (raw: unknown) => { ok: true; count: number } | { ok: false; error: string };
 };
 
+function openToday() {
+  return { activeMonth: currentMonthKey(), activeWeek: currentWeekKey() };
+}
+
 function snapshotOf(s: LedgerSnapshot): LedgerSnapshot {
   return {
     profile: s.profile,
@@ -70,6 +76,7 @@ function snapshotOf(s: LedgerSnapshot): LedgerSnapshot {
     transactions: s.transactions,
     merchantRules: s.merchantRules,
     imports: s.imports,
+    monthBudgets: s.monthBudgets ?? [],
     activeMonth: s.activeMonth,
     activeWeek: s.activeWeek,
   };
@@ -193,7 +200,7 @@ export const useBudgetStore = create<State>()(
       hydrated: false,
       saveState: "idle",
       saveError: null,
-      setHydrated: () => set({ hydrated: true }),
+      setHydrated: () => set({ hydrated: true, ...openToday(), monthBudgets: get().monthBudgets ?? [] }),
       hydrateLocal: () => {
         const persistApi = useBudgetStore.persist;
         const mark = () => get().setHydrated();
@@ -202,7 +209,7 @@ export const useBudgetStore = create<State>()(
         window.setTimeout(mark, 200);
         const legacy = readLegacy();
         if (legacy && (legacy.profile.completedOnboarding || legacy.transactions.length) && !get().profile.completedOnboarding) {
-          set({ ...legacy, hydrated: true });
+          set({ ...legacy, hydrated: true, ...openToday() });
           dropLegacy();
         }
       },
@@ -213,7 +220,7 @@ export const useBudgetStore = create<State>()(
           const editing =
             !get().profile.completedOnboarding && (get().transactions.length > 0 || get().categories.length > 0);
           if (remote?.profile.completedOnboarding && !editing) {
-            set({ ...remote, hydrated: true, saveState: "saved", saveError: null });
+            set({ ...remote, hydrated: true, saveState: "saved", saveError: null, ...openToday() });
             dropLegacy();
             return;
           }
@@ -224,7 +231,7 @@ export const useBudgetStore = create<State>()(
           }
           const legacy = readLegacy();
           if (legacy?.profile.completedOnboarding) {
-            set({ ...legacy, hydrated: true, saveState: "saving" });
+            set({ ...legacy, hydrated: true, saveState: "saving", ...openToday() });
             dropLegacy();
             await flushPersist();
             return;
@@ -290,19 +297,32 @@ export const useBudgetStore = create<State>()(
         schedulePersist();
       },
       addCategory: (cat) => {
+        const parent = cat.parentId ? get().categories.find((c) => c.id === cat.parentId) : undefined;
+        if (parent?.parentId) return;
         set({
-          categories: [...get().categories, { ...cat, id: newId("cat") }],
+          categories: [...get().categories, { ...cat, parentId: parent ? parent.id : null, id: newId("cat") }],
         });
         schedulePersist();
       },
       removeCategory: (id) => {
+        const parentId = get().categories.find((c) => c.id === id)?.parentId ?? null;
         set({
-          categories: get().categories.filter((c) => c.id !== id),
+          categories: get()
+            .categories.filter((c) => c.id !== id)
+            .map((c) => (c.parentId === id ? { ...c, parentId: null } : c)),
           transactions: get().transactions.map((t) =>
-            t.categoryId === id ? { ...t, categoryId: null, userSet: false } : t,
+            t.categoryId === id ? { ...t, categoryId: parentId, userSet: false } : t,
           ),
           merchantRules: get().merchantRules.filter((r) => r.categoryId !== id),
+          monthBudgets: (get().monthBudgets ?? []).filter((b) => b.categoryId !== id),
         });
+        schedulePersist();
+      },
+      setMonthPlan: (categoryId, ym, amount) => {
+        const rest = (get().monthBudgets ?? []).filter((b) => !(b.categoryId === categoryId && b.ym === ym));
+        const monthBudgets: MonthBudget[] =
+          amount == null || !Number.isFinite(amount) ? rest : [...rest, { categoryId, ym, amount: Math.max(0, amount) }];
+        set({ monthBudgets });
         schedulePersist();
       },
       setTransactionCategory: (id, categoryId, applyToMerchant) => {
@@ -450,13 +470,10 @@ export const useBudgetStore = create<State>()(
         const next = [...added, ...get().transactions].sort(
           (a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id),
         );
-        const months = added.map((t) => monthKeyFromDate(t.date)).sort();
-        const weeks = added.map((t) => weekKeyFromDate(t.date)).sort();
         set({
           transactions: next,
           imports: [batch, ...get().imports].slice(0, 40),
-          activeMonth: months.length ? months[months.length - 1] : get().activeMonth,
-          activeWeek: weeks.length ? weeks[weeks.length - 1] : get().activeWeek,
+          ...openToday(),
         });
         void flushPersist();
         return {
@@ -471,8 +488,6 @@ export const useBudgetStore = create<State>()(
         const categories = buildPresetCategories(profile);
         const preview = parseCsvText(SAMPLE_CSV, "sample-chase.csv");
         const { added } = applyImportRows(preview.rows, "Demo bank file", [], categories, []);
-        const months = added.map((t) => monthKeyFromDate(t.date)).sort();
-        const weeks = added.map((t) => weekKeyFromDate(t.date)).sort();
         set({
           profile,
           categories,
@@ -488,8 +503,7 @@ export const useBudgetStore = create<State>()(
               sourceLabel: "Demo bank file",
             },
           ],
-          activeMonth: months.length ? months[months.length - 1] : currentMonthKey(),
-          activeWeek: weeks.length ? weeks[weeks.length - 1] : currentWeekKey(),
+          ...openToday(),
         });
         void flushPersist();
       },
@@ -500,13 +514,12 @@ export const useBudgetStore = create<State>()(
       restoreBackup: (raw) => {
         const parsed = parseBackup(raw);
         if (!parsed.ok) return parsed;
-        const months = parsed.data.transactions.map((t) => monthKeyFromDate(t.date)).filter(Boolean).sort();
-        const weeks = parsed.data.transactions.map((t) => weekKeyFromDate(t.date)).filter(Boolean).sort();
         set({
           profile: parsed.data.profile,
           categories: parsed.data.categories,
           transactions: [...parsed.data.transactions].sort((a, b) => b.date.localeCompare(a.date)),
           merchantRules: parsed.data.merchantRules,
+          monthBudgets: parsed.data.monthBudgets,
           imports: [
             {
               id: newId("imp"),
@@ -517,8 +530,7 @@ export const useBudgetStore = create<State>()(
               sourceLabel: "Restored backup",
             },
           ],
-          activeMonth: months.length ? months[months.length - 1] : currentMonthKey(),
-          activeWeek: weeks.length ? weeks[weeks.length - 1] : currentWeekKey(),
+          ...openToday(),
         });
         void flushPersist();
         return { ok: true, count: parsed.data.transactions.length };

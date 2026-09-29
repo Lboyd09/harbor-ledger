@@ -4,6 +4,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { GROK_PROVIDERS, authClient, authEnabled, signIn } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { issueRecoveryCode } from "@/lib/budget/persist";
+import { sendConfirmationEmail } from "@/lib/budget/email-links";
 import { formatMoney } from "@/lib/budget/money";
 import { plannedTotals } from "@/lib/budget/totals";
 import { useBudgetStore } from "@/store/budget-store";
@@ -59,6 +60,7 @@ function Login() {
         if (err) throw new Error(err.message || "Could not create the account.");
         await authClient.getSession();
         const issued = await issueRecoveryCode();
+        void sendConfirmationEmail().catch(() => undefined);
         if (issued.ok) setRecovery(issued.code);
         else setError(issued.error);
       } else {
@@ -82,8 +84,8 @@ function Login() {
         <p className="text-sm font-medium uppercase tracking-widest text-muted">Harbor Ledger</p>
         <h1 className="mt-3 font-display text-3xl font-semibold">Save this recovery code</h1>
         <p className="mt-3 text-sm text-muted">
-          This app does not send reset emails. This code is the only way to set a new password if you forget it. Copy
-          it somewhere private — it will not be shown again.
+          A confirmation link is on its way if email is connected. Keep this recovery code too — it still works if mail is not set up
+          yet. Copy it somewhere private. It will not be shown again.
         </p>
         <p className="mt-6 rounded-lg border border-border bg-surface px-4 py-4 text-center font-display text-xl tracking-wide">
           {recovery}
@@ -137,7 +139,7 @@ function Login() {
         <ul className="max-w-sm space-y-3 text-sm text-muted">
           <li>Saved to your account after you sign up — not this browser alone.</li>
           <li>Keyword matching you can override — no model guessing.</li>
-          <li>{showBroker ? "Google, X, or email. Recovery code instead of reset mail." : "Email and a recovery code. No reset emails."}</li>
+          <li>{showBroker ? "Google, X, or email." : "Email and password."} A confirmation link, a password-reset link, and a recovery code if mail is not connected yet.</li>
         </ul>
       </section>
 

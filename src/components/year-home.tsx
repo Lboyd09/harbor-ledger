@@ -1,8 +1,9 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { useMemo, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
+import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { formatMoney } from "@/lib/budget/money";
 import { monthShort } from "@/lib/budget/parse-date";
-import { buildYearWorkbook, monthsOfYear, statusLabel, type MonthStatus } from "@/lib/budget/year";
+import { buildYearWorkbook, monthsOfYear, statusLabel, type MonthStatus, type YearWorkbook } from "@/lib/budget/year";
 import { cn } from "@/lib/cn";
 import { useBudgetStore } from "@/store/budget-store";
 import { CashChart } from "./cash-chart";
@@ -24,6 +25,7 @@ export function YearHome() {
   const setActiveMonth = useBudgetStore((s) => s.setActiveMonth);
   const loadSample = useBudgetStore((s) => s.loadSample);
   const navigate = useNavigate();
+  const [panel, setPanel] = useState<"summary" | "charts" | "grid">("summary");
   const year = activeMonth.slice(0, 4);
   const book = useMemo(() => buildYearWorkbook(transactions, categories, year), [transactions, categories, year]);
 
@@ -67,6 +69,28 @@ export function YearHome() {
         <YearSwitcher />
       </div>
 
+      <div className="flex flex-wrap gap-1">
+        {(
+          [
+            ["summary", "Summary"],
+            ["charts", "Charts"],
+            ["grid", "Spreadsheet"],
+          ] as const
+        ).map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => setPanel(id)}
+            className={cn(
+              "min-h-11 rounded-md px-3 text-sm",
+              panel === id ? "bg-primary text-primary-fg" : "border border-border bg-surface",
+            )}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
       <div className="grid gap-3 sm:grid-cols-3">
         <Stat label="Income" value={formatMoney(book.income)} hint={`${income.length} sources`} />
         <Stat label="Expenses" value={formatMoney(book.expenses)} hint={`${expenses.length} categories`} />
@@ -78,6 +102,15 @@ export function YearHome() {
         />
       </div>
 
+      {panel === "charts" ? (
+        <YearCharts book={book} />
+      ) : panel === "grid" ? (
+        <section className="space-y-3">
+          <h2 className="font-display text-xl font-semibold">Year spreadsheet</h2>
+          <YearSheet embedded />
+        </section>
+      ) : (
+        <>
       <section className="rounded-lg border border-border bg-surface p-4">
         <h2 className="font-display text-xl font-semibold">Income and spending</h2>
         <p className="mt-1 mb-3 text-sm text-muted">
@@ -129,7 +162,61 @@ export function YearHome() {
 
       <section className="space-y-3">
         <h2 className="font-display text-xl font-semibold">Year spreadsheet</h2>
+        <p className="text-sm text-muted">The full grid is also under Spreadsheet, above.</p>
         <YearSheet embedded />
+      </section>
+        </>
+      )}
+    </div>
+  );
+}
+
+function YearCharts({ book }: { book: YearWorkbook }) {
+  const active = book.monthSummaries.filter((m) => m.count > 0);
+  const bars = active.map((m) => ({ name: monthShort(m.ym), In: m.income, Out: m.expenses }));
+  const line = active.map((m) => ({ name: monthShort(m.ym), Left: m.net }));
+  const cats = book.expenseRows
+    .filter((r) => r.yearTotal > 0)
+    .slice(0, 8)
+    .map((r) => ({ name: r.name, Spent: r.yearTotal }));
+  return (
+    <div className="space-y-6">
+      <section className="rounded-lg border border-border bg-surface p-4">
+        <h2 className="font-display text-xl font-semibold">Income and spending by month</h2>
+        <p className="mt-1 mb-3 text-sm text-muted">Green stayed. Red left. Paybacks are in neither.</p>
+        <CashChart
+          data={bars}
+          bars={[
+            { key: "In", fill: "var(--color-good)" },
+            { key: "Out", fill: "var(--color-danger)" },
+          ]}
+        />
+      </section>
+      <section className="rounded-lg border border-border bg-surface p-4">
+        <h2 className="font-display text-xl font-semibold">What was left each month</h2>
+        <div className="h-56 w-full">
+          {line.length ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={line} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                <CartesianGrid stroke="var(--color-border)" vertical={false} />
+                <XAxis dataKey="name" tick={{ fontSize: 12, fill: "var(--color-muted)" }} />
+                <YAxis tick={{ fontSize: 11, fill: "var(--color-muted)" }} width={48} />
+                <Tooltip
+                  formatter={(v) => formatMoney(Number(Array.isArray(v) ? v[0] : v))}
+                  contentStyle={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: 8 }}
+                />
+                <Line type="monotone" dataKey="Left" stroke="var(--color-primary)" strokeWidth={2} dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <p className="text-sm text-muted">Nothing to chart yet.</p>
+          )}
+        </div>
+      </section>
+      <section className="rounded-lg border border-border bg-surface p-4">
+        <h2 className="font-display text-xl font-semibold">Where the year went</h2>
+        <p className="mt-1 mb-3 text-sm text-muted">Largest spending categories. Money a store gave back is already taken out.</p>
+        <CashChart data={cats} layout="vertical" bars={[{ key: "Spent", fill: "var(--color-danger)" }]} />
       </section>
     </div>
   );

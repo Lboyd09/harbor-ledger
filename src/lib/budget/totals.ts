@@ -46,6 +46,12 @@ export function sumByCategory(
   for (const t of transactions) {
     if (!inPeriod(t, period, ym)) continue;
     if (!countsInCashflow(t)) continue;
+    if (t.status === "refund") {
+      if (kind !== "expense") continue;
+      if (!t.categoryId || !ids.has(t.categoryId)) continue;
+      map.set(t.categoryId, (map.get(t.categoryId) ?? 0) - Math.abs(t.amount));
+      continue;
+    }
     if (!t.categoryId || !ids.has(t.categoryId)) continue;
     const add = kind === "income" ? t.amount : -t.amount;
     map.set(t.categoryId, (map.get(t.categoryId) ?? 0) + add);
@@ -76,8 +82,13 @@ function foldCash(transactions: Transaction[], categories: Category[], keep: (t:
       refunds += 1;
       continue;
     }
+    if (t.status === "refund") {
+      refunds += 1;
+      count += 1;
+      expenses -= Math.abs(t.amount);
+      continue;
+    }
     count += 1;
-    if (t.status === "refund") refunds += 1;
     const cat = t.categoryId ? byId.get(t.categoryId) : undefined;
     if (!cat) {
       if (t.amount > 0) income += t.amount;

@@ -7,6 +7,7 @@ export type PayeeGroup = {
   count: number;
   totalOut: number;
   totalIn: number;
+  returned: number;
   categoryId: string | null;
   mixed: boolean;
   lastDate: string;
@@ -25,6 +26,7 @@ export function groupPayees(transactions: Transaction[]): PayeeGroup[] {
       count: 0,
       totalOut: 0,
       totalIn: 0,
+      returned: 0,
       categoryId: null,
       mixed: false,
       lastDate: t.date,
@@ -34,7 +36,9 @@ export function groupPayees(transactions: Transaction[]): PayeeGroup[] {
       cats: new Map<string, number>(),
     };
     cur.count += 1;
-    if (countsInCashflow(t)) {
+    if (t.status === "refund") {
+      cur.returned += Math.abs(t.amount);
+    } else if (countsInCashflow(t)) {
       if (t.amount < 0) cur.totalOut += -t.amount;
       else cur.totalIn += t.amount;
     }
@@ -58,6 +62,7 @@ export function groupPayees(transactions: Transaction[]): PayeeGroup[] {
         count: g.count,
         totalOut: g.totalOut,
         totalIn: g.totalIn,
+        returned: g.returned,
         categoryId,
         mixed: ranked.length > 1,
         lastDate: g.lastDate,

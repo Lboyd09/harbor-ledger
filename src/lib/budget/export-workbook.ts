@@ -83,7 +83,7 @@ export function ledgerCsv(transactions: Transaction[], categories: Category[]): 
         : t.status === "reimbursement"
           ? "Payback"
           : t.status === "refund"
-            ? "Store refund"
+            ? "Money back from a store"
             : "Yes";
     lines.push(
       [t.date, csvEscape(t.description), income, expense, csvEscape(catName(categories, t.categoryId)), counts].join(","),

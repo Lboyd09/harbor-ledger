@@ -13,7 +13,7 @@ const NAV = [
   { to: "/", label: "Month", icon: CalendarDays },
   { to: "/categories", label: "Merchants", icon: Store },
   { to: "/plan", label: "Plan", icon: Wallet },
-  { to: "/settings", label: "Settings", icon: Settings },
+  { to: "/settings", label: "Account", icon: Settings },
 ] as const;
 
 const DESKTOP_NAV = [...NAV, { to: "/import", label: "Import", icon: Upload }] as const;
@@ -56,8 +56,9 @@ export function AppShell() {
   const txCount = useBudgetStore((s) => s.transactions.length);
   const catCount = useBudgetStore((s) => s.categories.length);
   const ledgerName = useBudgetStore((s) => s.profile.ledgerName);
-  const publicAuth = path === "/login" || path === "/reset";
-  const accountPath = path === "/account";
+  const accent = useBudgetStore((s) => s.profile.accent ?? "harbor");
+  const motion = useBudgetStore((s) => s.profile.motion ?? "lively");
+  const publicAuth = path === "/login" || path === "/reset" || path === "/confirm";
 
   useEffect(() => {
     if (user) {
@@ -66,6 +67,12 @@ export function AppShell() {
     }
     hydrateLocal();
   }, [user, loadRemote, hydrateLocal]);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    root.dataset.accent = accent;
+    root.dataset.motion = motion;
+  }, [accent, motion]);
 
   if (publicAuth) {
     return <Outlet />;
@@ -87,27 +94,14 @@ export function AppShell() {
 
   if (!done) return <Onboarding />;
 
-  if (accountPath) {
-    return (
-      <div className="min-h-dvh bg-bg text-fg">
-        <header className="flex items-center justify-between border-b border-border px-4 py-3 md:px-8">
-          <Link to="/" className="font-display text-lg font-semibold">
-            Harbor
-          </Link>
-          <AuthSlot />
-        </header>
-        <main className="px-4 py-6 md:px-8 md:py-10">
-          <Outlet />
-        </main>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-dvh bg-bg text-fg">
       <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col border-r border-border bg-surface md:flex">
         <div className="px-5 py-6">
-          <div className="font-display text-xl font-semibold">Harbor</div>
+          <div className="flex items-center gap-2">
+            <span className="harbor-mark" aria-hidden="true" />
+            <div className="font-display text-xl font-semibold">Harbor</div>
+          </div>
           <div className="truncate text-xs text-muted">{ledgerName || "Ledger"}</div>
         </div>
         <nav className="flex flex-1 flex-col gap-1 px-3">

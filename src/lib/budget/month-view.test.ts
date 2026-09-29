@@ -67,3 +67,19 @@ test("paid back rows stay on the lists but add nothing to the totals", () => {
   assert.equal(layout.expenses[0].transactions[0].id, "2");
   assert.equal(layout.aside.length, 0);
 });
+
+test("money back from a store lowers spending and is not income", () => {
+  const layout = groupMonth(
+    [
+      tx("1", "2026-09-05", "DIR DEP", 100, "pay"),
+      tx("2", "2026-09-06", "MCDONALDS", 8, "rent", { status: "refund" }),
+      tx("3", "2026-09-07", "TARGET", -40, "rent"),
+    ],
+    cats,
+    "2026-09",
+  );
+  assert.equal(layout.incomeTotal, 100);
+  assert.equal(layout.expenses.some((g) => g.transactions.some((t) => t.id === "2")), true);
+  assert.equal(layout.income.some((g) => g.transactions.some((t) => t.id === "2")), false);
+  assert.equal(layout.expenseTotal, 32);
+});

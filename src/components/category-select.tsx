@@ -1,5 +1,13 @@
+import { orderedCategories } from "@/lib/budget/plans";
 import type { Category, CategoryKind } from "@/lib/budget/types";
 import { Select } from "./ui/field";
+
+function labels(list: Category[]) {
+  return orderedCategories(list).map((c) => {
+    const parent = c.parentId ? list.find((p) => p.id === c.parentId) : undefined;
+    return { id: c.id, label: parent ? `${parent.name} — ${c.name}` : c.name, kind: c.kind };
+  });
+}
 
 export function CategorySelect({
   categories,
@@ -17,20 +25,23 @@ export function CategorySelect({
   className?: string;
 }) {
   const selected = categories.find((c) => c.id === value);
-  const income = categories.filter((c) => c.kind === "income" && (!kind || kind === "income"));
-  const expense = categories.filter((c) => c.kind === "expense" && (!kind || kind === "expense"));
+  const income = labels(categories.filter((c) => c.kind === "income" && (!kind || kind === "income")));
+  const expense = labels(categories.filter((c) => c.kind === "expense" && (!kind || kind === "expense")));
   const emptyLabel = kind === "income" ? "Pick an income category" : kind === "expense" ? "Pick an expense category" : "Needs category";
   return (
-    <Select className={className} value={value ?? ""} aria-label={kind === "income" ? "Income category" : kind === "expense" ? "Expense category" : "Category"} onChange={(e) => onChange(e.target.value || null)}>
+    <Select
+      className={className}
+      value={value ?? ""}
+      aria-label={kind === "income" ? "Income category" : kind === "expense" ? "Expense category" : "Category"}
+      onChange={(e) => onChange(e.target.value || null)}
+    >
       {allowEmpty ? <option value="">{emptyLabel}</option> : null}
-      {selected && kind && selected.kind !== kind ? (
-        <option value={selected.id}>{selected.name} (move this)</option>
-      ) : null}
+      {selected && kind && selected.kind !== kind ? <option value={selected.id}>{selected.name} (move this)</option> : null}
       {income.length ? (
         <optgroup label="Income">
           {income.map((c) => (
             <option key={c.id} value={c.id}>
-              {c.name}
+              {c.label}
             </option>
           ))}
         </optgroup>
@@ -39,7 +50,7 @@ export function CategorySelect({
         <optgroup label="Expenses">
           {expense.map((c) => (
             <option key={c.id} value={c.id}>
-              {c.name}
+              {c.label}
             </option>
           ))}
         </optgroup>
