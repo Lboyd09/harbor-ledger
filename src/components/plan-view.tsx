@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { formatMoney } from "@/lib/budget/money";
 import { newId } from "@/lib/budget/ids";
 import { periodNoun } from "@/lib/budget/period";
@@ -93,6 +94,7 @@ export function PlanView() {
           <p className="mt-1 text-xs text-muted">Income plan {formatMoney(plan.income)}</p>
         </div>
       </div>
+      <SavingsGoals />
       {(["income", "expense"] as const).map((kind) => (
         <section key={kind}>
           <h2 className="font-display text-lg font-semibold capitalize">{kind}</h2>
@@ -214,5 +216,115 @@ export function PlanView() {
         </section>
       ))}
     </div>
+  );
+}
+
+function monthsUntil(by: string | null) {
+  if (!by || !/^\d{4}-\d{2}$/.test(by)) return null;
+  const [y, m] = by.split("-").map(Number);
+  const now = new Date();
+  const diff = (y - now.getFullYear()) * 12 + (m - (now.getMonth() + 1));
+  if (diff < 0) return 0;
+  return diff + 1;
+}
+
+function SavingsGoals() {
+  const goals = useBudgetStore((s) => s.savingsGoals) ?? [];
+  const addGoal = useBudgetStore((s) => s.addGoal);
+  const updateGoal = useBudgetStore((s) => s.updateGoal);
+  const removeGoal = useBudgetStore((s) => s.removeGoal);
+  const [name, setName] = useState("");
+  const [target, setTarget] = useState("");
+  const [saved, setSaved] = useState("");
+  const [by, setBy] = useState("");
+
+  function add() {
+    const amount = Number(target);
+    if (!name.trim() || !Number.isFinite(amount) || amount <= 0) return;
+    addGoal({ name: name.trim(), target: amount, saved: Number(saved) || 0, by: /^\d{4}-\d{2}$/.test(by) ? by : null });
+    setName("");
+    setTarget("");
+    setSaved("");
+    setBy("");
+  }
+
+  return (
+    <section className="space-y-3 rounded-lg border border-border bg-surface p-4">
+      <div>
+        <h2 className="font-display text-lg font-semibold">Saving for a purchase</h2>
+        <p className="mt-1 text-sm text-muted">
+          A car, a trip, a deposit. This sits beside the monthly envelopes. It does not change income or spending.
+        </p>
+      </div>
+      {goals.length ? (
+        <ul className="space-y-3">
+          {goals.map((g) => {
+            const pct = g.target > 0 ? Math.min(100, Math.round((g.saved / g.target) * 100)) : 0;
+            const left = Math.max(0, Math.round((g.target - g.saved) * 100) / 100);
+            const span = monthsUntil(g.by);
+            const per =
+              span == null || left <= 0 ? null : Math.ceil((left / Math.max(span, 1)) * 100) / 100;
+            return (
+              <li key={g.id} className="rounded-md border border-border p-3">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <div className="font-medium">{g.name}</div>
+                  <div className="tabular text-sm text-muted">
+                    {formatMoney(g.saved)} of {formatMoney(g.target)}
+                    {g.by ? ` · by ${g.by}` : ""}
+                  </div>
+                </div>
+                <div className="mt-2 h-2 overflow-hidden rounded-full bg-chip">
+                  <div className="goal-fill h-full bg-primary" style={{ width: `${pct}%` }} />
+                </div>
+                <p className="mt-2 text-xs text-muted">
+                  {left <= 0
+                    ? "This purchase is funded. It still sits outside income and spending."
+                    : per == null
+                      ? `${formatMoney(left)} still to set aside. Add a month like 2027-06 to see a monthly pace.`
+                      : span != null && span <= 0
+                        ? `${formatMoney(left)} is due this month.`
+                        : `Set aside ${formatMoney(per)} a month to finish by ${g.by}. ${formatMoney(left)} left.`}
+                </p>
+                <div className="mt-2 flex flex-wrap items-end gap-2">
+                  <label className="text-xs text-muted">
+                    Saved so far
+                    <Input
+                      className="mt-1 w-28"
+                      inputMode="decimal"
+                      aria-label={`Saved toward ${g.name}`}
+                      value={String(g.saved)}
+                      onChange={(e) => updateGoal(g.id, { saved: Number(e.target.value) || 0 })}
+                    />
+                  </label>
+                  {per && per > 0 ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => updateGoal(g.id, { saved: Math.min(g.target, Math.round((g.saved + per) * 100) / 100) })}
+                    >
+                      Put {formatMoney(per)} aside
+                    </Button>
+                  ) : null}
+                  <Button variant="ghost" size="sm" onClick={() => removeGoal(g.id)}>
+                    Remove
+                  </Button>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <p className="text-sm text-muted">Nothing set aside yet. A car is a fine first one.</p>
+      )}
+      <div className="grid gap-2 sm:grid-cols-4">
+        <Input aria-label="Goal name" placeholder="Car" value={name} onChange={(e) => setName(e.target.value)} />
+        <Input aria-label="Target amount" inputMode="decimal" placeholder="Target" value={target} onChange={(e) => setTarget(e.target.value)} />
+        <Input aria-label="Already saved" inputMode="decimal" placeholder="Already saved" value={saved} onChange={(e) => setSaved(e.target.value)} />
+        <Input aria-label="Target month" placeholder="2027-06" value={by} onChange={(e) => setBy(e.target.value)} />
+      </div>
+      <Button size="sm" variant="outline" onClick={add} disabled={!name.trim() || !(Number(target) > 0)}>
+        Add this goal
+      </Button>
+    </section>
   );
 }

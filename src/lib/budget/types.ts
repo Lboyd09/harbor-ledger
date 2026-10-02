@@ -61,11 +61,29 @@ export type Transaction = {
   amount: number;
   sourceLabel: string;
   fingerprint: string;
+  /** Overall category. A divided row still keeps this, even when the money is split underneath. */
   categoryId: string | null;
   userSet: boolean;
   notes: string;
   excluded: boolean;
   status: TxStatus;
+  /** Positive pieces that add up to the absolute amount. Only this row, only this month. */
+  splits?: TxSplit[] | null;
+};
+
+export type TxSplit = {
+  categoryId: string;
+  amount: number;
+};
+
+/** Money set aside for a specific purchase, separate from the monthly envelopes. */
+export type SavingsGoal = {
+  id: string;
+  name: string;
+  target: number;
+  saved: number;
+  /** Optional YYYY-MM. */
+  by: string | null;
 };
 
 export type MerchantRule = {
@@ -135,6 +153,7 @@ export type LedgerSnapshot = {
   merchantRules: MerchantRule[];
   imports: ImportBatch[];
   monthBudgets: MonthBudget[];
+  savingsGoals: SavingsGoal[];
   activeMonth: string;
   activeWeek: string;
 };

@@ -37,33 +37,23 @@ export function SettingsView() {
           <a href="#account" className="rounded-md border border-border bg-surface px-3 py-2">
             Account
           </a>
-          <a href="#ledger" className="rounded-md border border-border bg-surface px-3 py-2">
-            Ledger
+          <a href="#files" className="rounded-md border border-border bg-surface px-3 py-2">
+            Excel & Sheets
           </a>
           <a href="#look" className="rounded-md border border-border bg-surface px-3 py-2">
             Look
           </a>
-          <a href="#files" className="rounded-md border border-border bg-surface px-3 py-2">
-            Excel & Sheets
+          <a href="#ledger" className="rounded-md border border-border bg-surface px-3 py-2">
+            Ledger
           </a>
         </div>
       </div>
 
       <AccountPanel signedIn={Boolean(user)} email={user?.primaryEmail ?? ""} />
 
-      <section id="ledger" className="space-y-3 rounded-lg border border-border bg-surface p-4">
-        <h2 className="font-display text-xl font-semibold">Ledger</h2>
-        <Field label="Name">
-          <Input value={profile.ledgerName} onChange={(e) => patchProfile({ ledgerName: e.target.value })} />
-        </Field>
-        <p className="text-xs text-muted">The name saves as you type.</p>
-        <Field label="Review period">
-          <Select value={profile.budgetPeriod} onChange={(e) => setBudgetPeriod(e.target.value as "month" | "week")}>
-            <option value="month">Month to month</option>
-            <option value="week">Week to week</option>
-          </Select>
-        </Field>
-      </section>
+      <div id="files">
+        <ExportBar />
+      </div>
 
       <section id="look" className="space-y-3 rounded-lg border border-border bg-surface p-4">
         <h2 className="font-display text-xl font-semibold">Look</h2>
@@ -95,6 +85,20 @@ export function SettingsView() {
         </Field>
       </section>
 
+      <section id="ledger" className="space-y-3 rounded-lg border border-border bg-surface p-4">
+        <h2 className="font-display text-xl font-semibold">Ledger</h2>
+        <Field label="Name">
+          <Input value={profile.ledgerName} onChange={(e) => patchProfile({ ledgerName: e.target.value })} />
+        </Field>
+        <p className="text-xs text-muted">The name saves as you type.</p>
+        <Field label="Review period">
+          <Select value={profile.budgetPeriod} onChange={(e) => setBudgetPeriod(e.target.value as "month" | "week")}>
+            <option value="month">Month to month</option>
+            <option value="week">Week to week</option>
+          </Select>
+        </Field>
+      </section>
+
       <section className="space-y-3 rounded-lg border border-border bg-surface p-4">
         <h2 className="font-display text-xl font-semibold">Household</h2>
         <p className="text-sm">
@@ -110,10 +114,6 @@ export function SettingsView() {
           Edit the usual plan and this month
         </Link>
       </section>
-
-      <div id="files">
-        <ExportBar />
-      </div>
     </div>
   );
 }
@@ -287,7 +287,7 @@ function AccountPanel({ signedIn, email }: { signedIn: boolean; email: string })
           Email {mail?.verified ? "confirmed." : "not confirmed yet."}{" "}
           {mail?.configured
             ? "Mail is connected."
-            : "Mail is not connected yet — set RESEND_API_KEY and HARBOR_FROM_EMAIL on the host (Resend). Until then, use a recovery code."}
+            : "Mail is not connected yet. Ask for a confirmation or reset link and it will show on this page until you add RESEND_API_KEY and HARBOR_FROM_EMAIL (Resend)."}
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
           <Button variant="outline" size="sm" disabled={busy} onClick={() => void onConfirm()}>
@@ -308,24 +308,27 @@ function AccountPanel({ signedIn, email }: { signedIn: boolean; email: string })
         </div>
       </div>
 
-      <form className="space-y-3 rounded-lg border border-border bg-surface p-4" onSubmit={onChangePassword}>
-        <h2 className="font-display text-xl font-semibold">Change password</h2>
-        <p className="text-sm text-muted">For email accounts. Google and X do not have a password here.</p>
-        <Field label="Current password">
-          <Input type="password" value={current} onChange={(e) => setCurrent(e.target.value)} required />
-        </Field>
-        <Field label="New password">
-          <Input type="password" minLength={8} value={next} onChange={(e) => setNext(e.target.value)} required />
-        </Field>
-        <Button type="submit" disabled={busy}>
-          Update password
-        </Button>
-      </form>
+      <details className="rounded-lg border border-border bg-surface p-4">
+        <summary className="cursor-pointer font-display text-xl font-semibold">Change password</summary>
+        <form className="mt-3 space-y-3" onSubmit={onChangePassword}>
+          <p className="text-sm text-muted">For email accounts. Google and X do not have a password here.</p>
+          <Field label="Current password">
+            <Input type="password" value={current} onChange={(e) => setCurrent(e.target.value)} required />
+          </Field>
+          <Field label="New password">
+            <Input type="password" minLength={8} value={next} onChange={(e) => setNext(e.target.value)} required />
+          </Field>
+          <Button type="submit" disabled={busy}>
+            Update password
+          </Button>
+        </form>
+      </details>
 
-      <div className="rounded-lg border border-border bg-surface p-4">
-        <h2 className="font-display text-xl font-semibold">Recovery code</h2>
-        <p className="mt-1 text-sm text-muted">
-          Backup if email is not connected. Shown once. Issuing a new code retires the previous one.
+      <details className="rounded-lg border border-border bg-surface p-4">
+        <summary className="cursor-pointer font-display text-xl font-semibold">Optional backup code</summary>
+        <p className="mt-3 text-sm text-muted">
+          You do not need this. Email confirmation and the reset link are the way back in. A backup code is only if mail
+          stays disconnected. It is shown once. A new code retires the old one.
         </p>
         {recovery ? (
           <p className="mt-4 rounded-md border border-border bg-chip px-4 py-3 text-center font-display text-lg tracking-wide">
@@ -333,9 +336,9 @@ function AccountPanel({ signedIn, email }: { signedIn: boolean; email: string })
           </p>
         ) : null}
         <Button className="mt-4" variant="outline" disabled={busy} onClick={() => void onRecovery()}>
-          Issue a new recovery code
+          Issue a backup code
         </Button>
-      </div>
+      </details>
 
       <form className="space-y-3 rounded-lg border border-danger/30 bg-surface p-4" onSubmit={onDelete}>
         <h2 className="font-display text-xl font-semibold text-danger">Delete account</h2>

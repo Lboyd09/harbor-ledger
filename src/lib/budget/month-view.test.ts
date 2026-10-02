@@ -51,6 +51,34 @@ test("month groups split income and expenses and pin uncategorized", () => {
   assert.equal(layout.aside[0].id, "4");
 });
 
+test("one deposit can count in two income categories without being counted twice", () => {
+  const splitCats: Category[] = [
+    ...cats,
+    { id: "side", slug: "side-work", name: "Side work", kind: "income", plannedMonthly: 0, parentId: "pay" },
+  ];
+  const layout = groupMonth(
+    [
+      tx("1", "2026-09-05", "DIR DEP", 1000, "pay", {
+        splits: [
+          { categoryId: "pay", amount: 600 },
+          { categoryId: "side", amount: 400 },
+        ],
+      }),
+    ],
+    splitCats,
+    "2026-09",
+  );
+  assert.equal(layout.incomeTotal, 1000);
+  assert.equal(layout.income.length, 2);
+  assert.equal(layout.expenseTotal, 0);
+  const pay = layout.income.find((g) => g.id === "pay");
+  const side = layout.income.find((g) => g.id === "side");
+  assert.equal(pay?.total, 600);
+  assert.equal(side?.total, 400);
+  assert.equal(pay?.transactions[0].id, "1");
+  assert.equal(side?.transactions[0].id, "1");
+});
+
 test("paid back rows stay on the lists but add nothing to the totals", () => {
   const layout = groupMonth(
     [

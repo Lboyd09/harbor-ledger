@@ -1,5 +1,5 @@
 import { normalizeSnapshot } from "./normalize.ts";
-import type { Category, MerchantRule, MonthBudget, Profile, Transaction } from "./types.ts";
+import type { Category, MerchantRule, MonthBudget, Profile, SavingsGoal, Transaction } from "./types.ts";
 
 export type LedgerBackup = {
   profile: Profile;
@@ -7,6 +7,7 @@ export type LedgerBackup = {
   transactions: Transaction[];
   merchantRules: MerchantRule[];
   monthBudgets: MonthBudget[];
+  savingsGoals: SavingsGoal[];
 };
 
 export function parseBackup(raw: unknown): { ok: true; data: LedgerBackup } | { ok: false; error: string } {
@@ -21,6 +22,7 @@ export function parseBackup(raw: unknown): { ok: true; data: LedgerBackup } | { 
       transactions: snap.transactions,
       merchantRules: snap.merchantRules,
       monthBudgets: snap.monthBudgets,
+      savingsGoals: snap.savingsGoals ?? [],
     },
   };
 }

@@ -3,7 +3,6 @@ import { Link, Navigate, useNavigate } from "@tanstack/react-router";
 import { createFileRoute } from "@tanstack/react-router";
 import { GROK_PROVIDERS, authClient, authEnabled, signIn } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
-import { issueRecoveryCode } from "@/lib/budget/persist";
 import { sendConfirmationEmail } from "@/lib/budget/email-links";
 import { formatMoney } from "@/lib/budget/money";
 import { plannedTotals } from "@/lib/budget/totals";
@@ -38,12 +37,12 @@ function Login() {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [recovery, setRecovery] = useState<string | null>(null);
+  const [confirmLink, setConfirmLink] = useState<string | null>(null);
   const [hold, setHold] = useState(false);
   const plan = plannedTotals(categories, "month");
   const showBroker = grokBrokerAvailable();
 
-  if (user && !recovery && !hold && !busy) return <Navigate to="/" />;
+  if (user && !confirmLink && !hold && !busy) return <Navigate to="/" />;
 
   async function onEmail(e: FormEvent) {
     e.preventDefault();
@@ -59,10 +58,9 @@ function Login() {
         });
         if (err) throw new Error(err.message || "Could not create the account.");
         await authClient.getSession();
-        const issued = await issueRecoveryCode();
-        void sendConfirmationEmail().catch(() => undefined);
-        if (issued.ok) setRecovery(issued.code);
-        else setError(issued.error);
+        const mailed = await sendConfirmationEmail().catch(() => null);
+        if (mailed && "previewLink" in mailed && mailed.previewLink) setConfirmLink(mailed.previewLink);
+        else setHold(false);
       } else {
         const { error: err } = await authClient.signIn.email({
           email: email.trim(),
@@ -78,25 +76,20 @@ function Login() {
     }
   }
 
-  if (recovery) {
+  if (confirmLink) {
     return (
       <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-5 py-10">
         <p className="text-sm font-medium uppercase tracking-widest text-muted">Harbor Ledger</p>
-        <h1 className="mt-3 font-display text-3xl font-semibold">Save this recovery code</h1>
+        <h1 className="mt-3 font-display text-3xl font-semibold">Confirm your email</h1>
         <p className="mt-3 text-sm text-muted">
-          A confirmation link is on its way if email is connected. Keep this recovery code too — it still works if mail is not set up
-          yet. Copy it somewhere private. It will not be shown again.
+          Mail is not connected on this host yet, so the confirmation link is here instead of in an inbox. After you add
+          Resend, this step emails the link and you will not see it on the page. You do not need a paper code.
         </p>
-        <p className="mt-6 rounded-lg border border-border bg-surface px-4 py-4 text-center font-display text-xl tracking-wide">
-          {recovery}
-        </p>
-        <Button className="mt-6" onClick={() => navigator.clipboard.writeText(recovery)}>
-          Copy code
-        </Button>
-        <Link to="/" className="mt-3">
-          <Button variant="outline" className="w-full">
-            I saved it — open the ledger
-          </Button>
+        <a href={confirmLink} className="mt-6 break-all rounded-lg border border-border bg-surface px-4 py-4 text-sm text-primary">
+          {confirmLink}
+        </a>
+        <Link to="/" className="mt-6">
+          <Button className="w-full">Open the ledger</Button>
         </Link>
       </main>
     );
@@ -139,7 +132,7 @@ function Login() {
         <ul className="max-w-sm space-y-3 text-sm text-muted">
           <li>Saved to your account after you sign up — not this browser alone.</li>
           <li>Keyword matching you can override — no model guessing.</li>
-          <li>{showBroker ? "Google, X, or email." : "Email and password."} A confirmation link, a password-reset link, and a recovery code if mail is not connected yet.</li>
+          <li>{showBroker ? "Google, X, or email." : "Email and password."} Confirm the email from Account. Password reset is a link, not a code you have to write down.</li>
         </ul>
       </section>
 
@@ -158,7 +151,7 @@ function Login() {
             ? "Optional, but this is how the ledger follows you off this device."
             : mode === "in"
               ? "Your ledger stays on this account."
-              : "Takes a minute. You will get a recovery code."}
+              : "Takes a minute. Then confirm the email from Account."}
         </p>
 
         {authEnabled && showBroker ? (

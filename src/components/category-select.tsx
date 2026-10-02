@@ -16,6 +16,8 @@ export function CategorySelect({
   allowEmpty = true,
   kind,
   className,
+  payback = false,
+  onPayback,
 }: {
   categories: Category[];
   value: string | null;
@@ -23,17 +25,27 @@ export function CategorySelect({
   allowEmpty?: boolean;
   kind?: CategoryKind;
   className?: string;
+  /** Expense rows can mark a repayment from this list. */
+  payback?: boolean;
+  onPayback?: () => void;
 }) {
   const selected = categories.find((c) => c.id === value);
   const income = labels(categories.filter((c) => c.kind === "income" && (!kind || kind === "income")));
   const expense = labels(categories.filter((c) => c.kind === "expense" && (!kind || kind === "expense")));
   const emptyLabel = kind === "income" ? "Pick an income category" : kind === "expense" ? "Pick an expense category" : "Needs category";
+  const shown = value === "__payback__" ? "__payback__" : (value ?? "");
   return (
     <Select
       className={className}
-      value={value ?? ""}
+      value={shown}
       aria-label={kind === "income" ? "Income category" : kind === "expense" ? "Expense category" : "Category"}
-      onChange={(e) => onChange(e.target.value || null)}
+      onChange={(e) => {
+        if (e.target.value === "__payback__") {
+          onPayback?.();
+          return;
+        }
+        onChange(e.target.value || null);
+      }}
     >
       {allowEmpty ? <option value="">{emptyLabel}</option> : null}
       {selected && kind && selected.kind !== kind ? <option value={selected.id}>{selected.name} (move this)</option> : null}
@@ -53,7 +65,10 @@ export function CategorySelect({
               {c.label}
             </option>
           ))}
+          {payback ? <option value="__payback__">Payback</option> : null}
         </optgroup>
+      ) : payback ? (
+        <option value="__payback__">Payback</option>
       ) : null}
     </Select>
   );

@@ -6,7 +6,8 @@ import { categoryLabel, orderedCategories, planAmount } from "./plans.ts";
 import { groupPayees } from "./payees.ts";
 import { monthlySeries } from "./totals.ts";
 import { buildYearWorkbook } from "./year.ts";
-import type { Category, MonthBudget, Profile, Transaction } from "./types.ts";
+import { piecesOf } from "./splits.ts";
+import type { Category, MonthBudget, Profile, SavingsGoal, Transaction } from "./types.ts";
 
 type Row = (string | number)[];
 
@@ -164,9 +165,11 @@ export function buildHarborWorkbook(input: {
   categories: Category[];
   transactions: Transaction[];
   monthBudgets?: MonthBudget[];
+  savingsGoals?: SavingsGoal[];
 }): Uint8Array {
   const { profile, categories, transactions } = input;
   const budgets = input.monthBudgets ?? [];
+  const goals = input.savingsGoals ?? [];
   const months = monthlySeries(transactions, categories);
   const years = [...new Set(transactions.map((t) => t.date.slice(0, 4)).filter((y) => y.length === 4))].sort();
   const year = years.at(-1) ?? String(new Date().getFullYear());
@@ -176,6 +179,15 @@ export function buildHarborWorkbook(input: {
   const spendByCat = new Map<string, number>();
   for (const t of transactions) {
     if (t.excluded || t.status === "transfer" || t.status === "reimbursement") continue;
+    const pieces = piecesOf(t);
+    if (pieces) {
+      for (const part of pieces) {
+        const cat = categories.find((c) => c.id === part.categoryId);
+        if (!cat || cat.kind !== "expense") continue;
+        spendByCat.set(cat.id, (spendByCat.get(cat.id) ?? 0) + part.amount);
+      }
+      continue;
+    }
     const cat = t.categoryId ? categories.find((c) => c.id === t.categoryId) : undefined;
     if (!cat || cat.kind !== "expense") {
       if (t.status === "refund") spendByCat.set("__refund__", (spendByCat.get("__refund__") ?? 0) - Math.abs(t.amount));
@@ -229,6 +241,11 @@ export function buildHarborWorkbook(input: {
     ["Rows still needing a category", book.uncategorized],
   ]);
 
+  add("Saving for", [
+    ["Name", "Target", "Saved", "Left", "By"],
+    ...goals.map((g) => [g.name, round2(g.target), round2(g.saved), round2(Math.max(0, g.target - g.saved)), g.by ?? ""]),
+  ]);
+
   add("Months", [
     ["Month", "Income", "Spending", "Left", "Needs a category", "Status"],
     ...book.monthSummaries.map((m) => [
@@ -276,6 +293,7 @@ export function buildHarborWorkbook(input: {
     ...[...transactions]
       .sort((a, b) => b.date.localeCompare(a.date))
       .map((t) => {
+        const pieces = piecesOf(t);
         const meaning =
           t.excluded || t.status === "transfer"
             ? "Left out"
@@ -283,14 +301,19 @@ export function buildHarborWorkbook(input: {
               ? "Paid back — not in the budget"
               : t.status === "refund"
                 ? "Money a store gave back — lowers spending"
-                : "Counts";
+                : pieces
+                  ? "Divided across categories"
+                  : "Counts";
+        const categoryText = pieces
+          ? pieces.map((p) => `${categoryLabel(categories, p.categoryId)} ${p.amount.toFixed(2)}`).join("; ")
+          : categoryLabel(categories, t.categoryId);
         return [
           t.date,
           t.description,
           t.amount,
           t.amount > 0 && t.status !== "refund" && t.status !== "reimbursement" ? t.amount : "",
           t.amount < 0 ? Math.abs(t.amount) : t.status === "refund" ? -Math.abs(t.amount) : "",
-          categoryLabel(categories, t.categoryId),
+          categoryText,
           catKind(categories, t.categoryId),
           meaning,
           displayMerchant(t.description),

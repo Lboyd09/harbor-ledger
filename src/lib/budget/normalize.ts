@@ -11,6 +11,7 @@ import type {
   MerchantRule,
   MonthBudget,
   Profile,
+  SavingsGoal,
   Transaction,
   TxStatus,
 } from "./types.ts";
@@ -106,7 +107,19 @@ export function normalizeTransaction(raw: unknown, index = 0): Transaction | nul
     notes: asString(raw.notes),
     excluded: asBool(raw.excluded, false),
     status,
+    splits: normalizeSplits(raw.splits),
   };
+}
+
+function normalizeSplits(raw: unknown): Transaction["splits"] {
+  if (!Array.isArray(raw)) return null;
+  const parts = raw.filter(isRecord).flatMap((s) => {
+    const categoryId = asString(s.categoryId);
+    const amount = Math.abs(asNumber(s.amount, 0));
+    if (!categoryId || amount <= 0) return [];
+    return [{ categoryId, amount }];
+  });
+  return parts.length >= 2 ? parts : null;
 }
 
 export function normalizeSnapshot(raw: unknown): LedgerSnapshot | null {
@@ -155,10 +168,28 @@ export function normalizeSnapshot(raw: unknown): LedgerSnapshot | null {
         return [{ categoryId, ym, amount: Math.max(0, asNumber(b.amount, 0)) }];
       })
     : [];
+  const goalsRaw = inner.savingsGoals;
+  const savingsGoals: SavingsGoal[] = Array.isArray(goalsRaw)
+    ? goalsRaw.filter(isRecord).flatMap((g, i) => {
+        const name = asString(g.name).trim();
+        const target = Math.max(0, asNumber(g.target, 0));
+        if (!name || target <= 0) return [];
+        const by = asString(g.by);
+        return [
+          {
+            id: asString(g.id, `goal_${i}`),
+            name,
+            target,
+            saved: Math.max(0, asNumber(g.saved, 0)),
+            by: /^\d{4}-\d{2}$/.test(by) ? by : null,
+          },
+        ];
+      })
+    : [];
   const activeMonth = asString(inner.activeMonth, currentMonthKey());
   const last = transactions[0]?.date;
   const activeWeek = asString(inner.activeWeek, last ? weekKeyFromDate(last) : currentWeekKey());
-  return { profile, categories, transactions, merchantRules, imports, monthBudgets, activeMonth, activeWeek };
+  return { profile, categories, transactions, merchantRules, imports, monthBudgets, savingsGoals, activeMonth, activeWeek };
 }
 
 export function emptySnapshot(): LedgerSnapshot {
@@ -169,6 +200,7 @@ export function emptySnapshot(): LedgerSnapshot {
     merchantRules: [],
     imports: [],
     monthBudgets: [],
+    savingsGoals: [],
     activeMonth: currentMonthKey(),
     activeWeek: currentWeekKey(),
   };

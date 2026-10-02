@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { ledgerCsv, similarAppCsv, transactionsCsv } from "@/lib/budget/export-workbook";
 import { downloadBytes, downloadText } from "@/lib/budget/download";
+import { monthlySeries } from "@/lib/budget/totals";
+import { monthLabel } from "@/lib/budget/parse-date";
 import { buildHarborWorkbook } from "@/lib/budget/xlsx-book";
 import { useBudgetStore } from "@/store/budget-store";
 import { Button } from "./ui/button";
@@ -11,11 +13,25 @@ export function ExportBar() {
   const profile = useBudgetStore((s) => s.profile);
   const merchantRules = useBudgetStore((s) => s.merchantRules);
   const monthBudgets = useBudgetStore((s) => s.monthBudgets) ?? [];
+  const savingsGoals = useBudgetStore((s) => s.savingsGoals) ?? [];
   const resetAll = useBudgetStore((s) => s.resetAll);
   const restoreBackup = useBudgetStore((s) => s.restoreBackup);
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [armReset, setArmReset] = useState(false);
+  const [ready, setReady] = useState<{ name: string; href: string } | null>(null);
+
+  function publish(filename: string, bytes: Uint8Array, type: string) {
+    const copy = new Uint8Array(bytes.byteLength);
+    copy.set(bytes);
+    const blob = new Blob([copy], { type });
+    const href = URL.createObjectURL(blob);
+    setReady((prev) => {
+      if (prev) URL.revokeObjectURL(prev.href);
+      return { name: filename, href };
+    });
+    downloadBytes(filename, bytes, type);
+  }
 
   function exportCsv() {
     downloadText("harbor-ledger.csv", ledgerCsv(transactions, categories), "text/csv;charset=utf-8");
@@ -26,8 +42,8 @@ export function ExportBar() {
     setBusy(true);
     setNote(null);
     try {
-      const bytes = buildHarborWorkbook({ profile, categories, transactions, monthBudgets });
-      downloadBytes(
+      const bytes = buildHarborWorkbook({ profile, categories, transactions, monthBudgets, savingsGoals });
+      publish(
         "harbor-ledger.xlsx",
         bytes,
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -37,6 +53,39 @@ export function ExportBar() {
       );
     } catch (err) {
       setNote(err instanceof Error ? err.message : "Could not build the workbook.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function exportSheets() {
+    setBusy(true);
+    setNote(null);
+    try {
+      const bytes = buildHarborWorkbook({ profile, categories, transactions, monthBudgets, savingsGoals });
+      publish(
+        "harbor-ledger-google-sheets.xlsx",
+        bytes,
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      );
+      const lines = ["Month\tIncome\tSpending\tLeft"];
+      for (const m of monthlySeries(transactions, categories)) {
+        lines.push([monthLabel(m.ym), m.income.toFixed(2), m.expenses.toFixed(2), m.net.toFixed(2)].join("\t"));
+      }
+      let copied = false;
+      try {
+        await navigator.clipboard.writeText(lines.join("\n"));
+        copied = true;
+      } catch {
+        copied = false;
+      }
+      setNote(
+        copied
+          ? "Downloaded harbor-ledger-google-sheets.xlsx. In Google Sheets: File → Import → Upload → Replace spreadsheet. The month table is also on your clipboard — open a blank Sheet and paste."
+          : "Downloaded harbor-ledger-google-sheets.xlsx. In Google Sheets: File → Import → Upload → Replace spreadsheet. Charts and every Harbor list are in the file.",
+      );
+    } catch (err) {
+      setNote(err instanceof Error ? err.message : "Could not build the Google Sheets file.");
     } finally {
       setBusy(false);
     }
@@ -67,12 +116,22 @@ export function ExportBar() {
         </p>
         <div className="flex flex-wrap gap-2">
           <Button size="sm" onClick={exportWorkbook} disabled={!transactions.length || busy}>
-            {busy ? "Building…" : "Download Excel workbook"}
+            {busy ? "Building…" : "Excel"}
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => void exportSheets()} disabled={!transactions.length || busy}>
+            Google Sheets
           </Button>
           <Button variant="outline" size="sm" onClick={exportCsv} disabled={!transactions.length}>
             Download CSV
           </Button>
         </div>
+        {ready ? (
+          <p className="text-sm">
+            <a className="font-medium text-primary underline-offset-2 hover:underline" href={ready.href} download={ready.name}>
+              {ready.name} is ready. Download it again.
+            </a>
+          </p>
+        ) : null}
       </section>
 
       <section className="space-y-3">
@@ -104,7 +163,7 @@ export function ExportBar() {
             onClick={() =>
               downloadText(
                 "harbor-ledger-backup.json",
-                JSON.stringify({ profile, categories, transactions, merchantRules, monthBudgets }, null, 2),
+                JSON.stringify({ profile, categories, transactions, merchantRules, monthBudgets, savingsGoals }, null, 2),
                 "application/json",
               )
             }

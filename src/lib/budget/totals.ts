@@ -1,5 +1,7 @@
 import { monthKeyFromDate, weekKeyFromDate } from "./parse-date.ts";
+import { countsTowardPlan } from "./plans.ts";
 import { plannedForPeriod } from "./period.ts";
+import { piecesOf } from "./splits.ts";
 import type { BudgetPeriod, Category, Transaction } from "./types.ts";
 
 export function inMonth(t: Transaction, ym: string) {
@@ -52,6 +54,14 @@ export function sumByCategory(
       map.set(t.categoryId, (map.get(t.categoryId) ?? 0) - Math.abs(t.amount));
       continue;
     }
+    const parts = piecesOf(t);
+    if (parts) {
+      for (const part of parts) {
+        if (!ids.has(part.categoryId)) continue;
+        map.set(part.categoryId, (map.get(part.categoryId) ?? 0) + part.amount);
+      }
+      continue;
+    }
     if (!t.categoryId || !ids.has(t.categoryId)) continue;
     const add = kind === "income" ? t.amount : -t.amount;
     map.set(t.categoryId, (map.get(t.categoryId) ?? 0) + add);
@@ -89,6 +99,21 @@ function foldCash(transactions: Transaction[], categories: Category[], keep: (t:
       continue;
     }
     count += 1;
+    const parts = piecesOf(t);
+    if (parts) {
+      for (const part of parts) {
+        const cat = byId.get(part.categoryId);
+        if (!cat) {
+          if (t.amount > 0) income += part.amount;
+          else expenses += part.amount;
+          uncategorized += 1;
+          continue;
+        }
+        if (cat.kind === "income") income += part.amount;
+        else expenses += part.amount;
+      }
+      continue;
+    }
     const cat = t.categoryId ? byId.get(t.categoryId) : undefined;
     if (!cat) {
       if (t.amount > 0) income += t.amount;
@@ -142,10 +167,10 @@ export function weeklySeries(transactions: Transaction[], categories: Category[]
 
 export function plannedTotals(categories: Category[], period: BudgetPeriod = "month") {
   const income = categories
-    .filter((c) => c.kind === "income")
+    .filter((c) => c.kind === "income" && countsTowardPlan(c, categories))
     .reduce((s, c) => s + plannedForPeriod(c.plannedMonthly, period), 0);
   const expenses = categories
-    .filter((c) => c.kind === "expense")
+    .filter((c) => c.kind === "expense" && countsTowardPlan(c, categories))
     .reduce((s, c) => s + plannedForPeriod(c.plannedMonthly, period), 0);
   return { income, expenses, leftover: income - expenses };
 }

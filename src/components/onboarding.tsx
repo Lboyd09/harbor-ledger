@@ -15,6 +15,7 @@ import { formatMoney } from "@/lib/budget/money";
 import { plannedTotals } from "@/lib/budget/totals";
 import type { BudgetGoal, BudgetPeriod, Category, Household, Housing, IncomeStream, LifeStage, Profile } from "@/lib/budget/types";
 import { useBudgetStore } from "@/store/budget-store";
+import { HarborMark } from "./harbor-mark";
 import { Button } from "./ui/button";
 import { Field, Input, Select } from "./ui/field";
 
@@ -110,30 +111,53 @@ export function Onboarding({ initialStep = 0 }: { initialStep?: number }) {
   return (
     <div className="mx-auto flex min-h-dvh max-w-xl flex-col px-5 py-8 md:py-12">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-sm font-medium uppercase tracking-widest text-muted">Harbor Ledger</p>
+        <div className="flex items-center gap-2">
+          <HarborMark className="size-5 text-primary" />
+          <p className="text-sm font-medium uppercase tracking-widest text-muted">Harbor Ledger</p>
+        </div>
         <SignedIn>
           <UserButton />
         </SignedIn>
       </div>
       {step > 0 ? (
-        <div className="mt-4 flex gap-1" aria-label={`Step ${step} of ${STEPS.length - 1}`}>
-          {STEPS.slice(1).map((label, i) => (
-            <div
-              key={label}
-              className={`h-1 flex-1 rounded-full ${i + 1 <= step ? "bg-primary" : "bg-chip"}`}
-              title={label}
-            />
-          ))}
+        <div className="mt-4">
+          <div className="flex gap-1" aria-label={`Step ${step} of ${STEPS.length - 1}`}>
+            {STEPS.slice(1).map((label, i) => (
+              <div
+                key={label}
+                className={`h-1 flex-1 rounded-full ${i + 1 <= step ? "bg-primary" : "bg-chip"}`}
+                title={label}
+              />
+            ))}
+          </div>
+          <p className="mt-2 text-xs font-medium uppercase tracking-wide text-muted">
+            {STEPS[step]} · {step} of {STEPS.length - 1}
+          </p>
         </div>
       ) : null}
 
       {step === 0 ? (
         <div className="mt-4 space-y-6">
-          <h1 className="font-display text-3xl font-semibold md:text-4xl">Pick up where you left off.</h1>
+          <h1 className="font-display text-3xl font-semibold md:text-4xl">A harbor for the money you already have.</h1>
           <p className="text-muted">
-            Sign in if you already have an account. Try the demo if you want to look around. Or set up a new ledger for
-            your household. Nothing logs into a bank.
+            A harbor is where a boat comes in and you count what arrived and what left. Harbor Ledger is that book: income
+            on one side, expenses on the other. It reads a bank CSV. It never logs into a bank.
           </p>
+          <ul className="grid gap-2 sm:grid-cols-2">
+            {[
+              ["Two columns", "Income and expenses stay apart. A store return lowers spending. It is not a paycheck."],
+              ["One row, two jobs", "Divide a paycheck into two categories for this month. The overall category stays."],
+              ["This month vs usual", "The usual plan is the standing budget. One month can differ, then clear back."],
+              ["Payback", "On an expense, choose Payback in the category list. Harbor matches the closest deposit and both leave the month."],
+              ["Saving for something", "A car, a trip, a deposit. A goal with a target, next to the monthly envelopes."],
+              ["Excel and Google Sheets", "Account has both. The file is the whole ledger, including the charts."],
+            ].map(([title, body]) => (
+              <li key={title} className="feature-card rounded-md border border-border bg-surface p-3">
+                <div className="text-sm font-medium">{title}</div>
+                <p className="mt-1 text-xs text-muted">{body}</p>
+              </li>
+            ))}
+          </ul>
           <div className="flex flex-col gap-2">
             {signedIn ? null : (
               <Button className="w-full sm:w-auto" onClick={() => void navigate({ to: "/login" })}>
@@ -211,6 +235,10 @@ export function Onboarding({ initialStep = 0 }: { initialStep?: number }) {
       {step === 2 ? (
         <div className="mt-6 space-y-4">
           <h1 className="font-display text-2xl font-semibold">How you live</h1>
+          <p className="text-sm text-muted">
+            These answers only pick starting categories. A car budget appears if you drive. You can rename or delete any
+            of them later.
+          </p>
           <Field label="Stage of life">
             <Select value={lifeStage} onChange={(e) => setLifeStage(e.target.value as LifeStage)}>
               {Object.entries(STAGE_LABELS).map(([k, v]) => (
@@ -260,8 +288,8 @@ export function Onboarding({ initialStep = 0 }: { initialStep?: number }) {
         <div className="mt-6 space-y-4">
           <h1 className="font-display text-2xl font-semibold">Money in</h1>
           <p className="text-sm text-muted">
-            Name every regular source — paycheck, side work, benefits, whatever you actually receive. Typical monthly
-            take-home after tax. Zero is fine; it only sizes starting plans.
+            Two paychecks can stay under one overall income category and still be split later, row by row, for a single
+            month. Typical monthly take-home after tax. Zero is fine. It only sizes the starting plan.
           </p>
           <ul className="space-y-3">
             {streams.map((stream, i) => (
@@ -418,10 +446,24 @@ export function Onboarding({ initialStep = 0 }: { initialStep?: number }) {
 
       {step === 7 ? (
         <div className="mt-6 space-y-4">
-          <h1 className="font-display text-2xl font-semibold">A clear outlook</h1>
-          <p className="text-sm text-muted">
-            This is the plan before any CSV. Importing real activity will replace guesses with what actually happened.
-          </p>
+          <h1 className="font-display text-2xl font-semibold">You are ready. Here is the map.</h1>
+          <ul className="space-y-2 text-sm">
+            <li>
+              <span className="font-medium">Month</span> is the two columns. Open a row to divide it, or pick Payback on an expense.
+            </li>
+            <li>
+              <span className="font-medium">Plan</span> is the usual budget, this month’s override, and saving for a purchase.
+            </li>
+            <li>
+              <span className="font-medium">Merchants</span> files every charge with the same name. One row can still differ.
+            </li>
+            <li>
+              <span className="font-medium">Year</span> is the summary, the charts, and the spreadsheet.
+            </li>
+            <li>
+              <span className="font-medium">Account</span> is the look, Excel, Google Sheets, and the password. Confirm email from there. You do not need a code written on paper.
+            </li>
+          </ul>
           {(() => {
             const monthly = plannedTotals(cats, "month");
             const weekly = plannedTotals(cats, "week");

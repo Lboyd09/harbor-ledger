@@ -115,21 +115,27 @@ function Reset() {
               {busy ? "Sending…" : "Email me a reset link"}
             </Button>
           </form>
-          <form className="space-y-3 border-t border-border pt-6" onSubmit={onCode}>
-            <p className="text-sm text-muted">Or use the recovery code from when you created the account.</p>
-            <Field label="Email">
-              <Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
-            </Field>
-            <Field label="Recovery code">
-              <Input required value={code} onChange={(e) => setCode(e.target.value)} placeholder="HARBOR-XXXX-XXXX" autoCapitalize="characters" />
-            </Field>
-            <Field label="New password">
-              <Input type="password" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" />
-            </Field>
-            <Button type="submit" variant="outline" className="w-full" disabled={busy}>
-              {busy ? "Updating…" : "Set password with code"}
-            </Button>
-          </form>
+          <details className="border-t border-border pt-6">
+            <summary className="cursor-pointer text-sm text-muted">Email is not set up on this host</summary>
+            <form className="mt-4 space-y-3" onSubmit={onCode}>
+              <p className="text-sm text-muted">
+                If you once saved an optional backup code from Account, you can use it here. New accounts do not get one
+                at signup.
+              </p>
+              <Field label="Email">
+                <Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+              </Field>
+              <Field label="Backup code">
+                <Input required value={code} onChange={(e) => setCode(e.target.value)} placeholder="HARBOR-XXXX-XXXX" autoCapitalize="characters" />
+              </Field>
+              <Field label="New password">
+                <Input type="password" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" />
+              </Field>
+              <Button type="submit" variant="outline" className="w-full" disabled={busy}>
+                {busy ? "Updating…" : "Set password with backup code"}
+              </Button>
+            </form>
+          </details>
           {error ? <p className="text-sm text-danger">{error}</p> : null}
           <Link to="/login" className="text-sm text-muted underline-offset-2 hover:underline">
             Back to sign in

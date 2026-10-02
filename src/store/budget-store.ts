@@ -22,7 +22,9 @@ import type {
   MerchantRule,
   MonthBudget,
   Profile,
+  SavingsGoal,
   Transaction,
+  TxSplit,
   TxStatus,
 } from "@/lib/budget/types";
 
@@ -53,6 +55,10 @@ type State = LedgerSnapshot & {
   setMerchantCategory: (merchantKey: string, categoryId: string | null) => void;
   applyRecommendedPlans: (year: string) => number;
   patchTransaction: (id: string, patch: Partial<Pick<Transaction, "excluded" | "status" | "notes">>) => void;
+  setSplits: (id: string, splits: TxSplit[] | null) => void;
+  addGoal: (goal: Omit<SavingsGoal, "id">) => void;
+  updateGoal: (id: string, patch: Partial<Omit<SavingsGoal, "id">>) => void;
+  removeGoal: (id: string) => void;
   markPaidBack: (expenseId: string, depositId: string | null, label?: string) => void;
   undoPaidBack: (id: string) => void;
   countAsIncome: (id: string) => void;
@@ -77,6 +83,7 @@ function snapshotOf(s: LedgerSnapshot): LedgerSnapshot {
     merchantRules: s.merchantRules,
     imports: s.imports,
     monthBudgets: s.monthBudgets ?? [],
+    savingsGoals: s.savingsGoals ?? [],
     activeMonth: s.activeMonth,
     activeWeek: s.activeWeek,
   };
@@ -421,6 +428,44 @@ export const useBudgetStore = create<State>()(
         });
         schedulePersist();
       },
+      setSplits: (id, splits) => {
+        set({
+          transactions: get().transactions.map((t) => {
+            if (t.id !== id) return t;
+            const next = splits && splits.length >= 2 ? splits : null;
+            const bigger = next ? [...next].sort((a, b) => b.amount - a.amount)[0] : null;
+            return {
+              ...t,
+              splits: next,
+              categoryId: t.categoryId ?? bigger?.categoryId ?? null,
+              userSet: true,
+            };
+          }),
+        });
+        schedulePersist();
+      },
+      addGoal: (goal) => {
+        const next: SavingsGoal = {
+          id: newId("goal"),
+          name: goal.name.trim() || "Savings",
+          target: Math.max(0, goal.target),
+          saved: Math.max(0, goal.saved),
+          by: goal.by,
+        };
+        if (!next.name || next.target <= 0) return;
+        set({ savingsGoals: [...(get().savingsGoals ?? []), next] });
+        schedulePersist();
+      },
+      updateGoal: (id, patch) => {
+        set({
+          savingsGoals: (get().savingsGoals ?? []).map((g) => (g.id === id ? { ...g, ...patch } : g)),
+        });
+        schedulePersist();
+      },
+      removeGoal: (id) => {
+        set({ savingsGoals: (get().savingsGoals ?? []).filter((g) => g.id !== id) });
+        schedulePersist();
+      },
       markPaidBack: (expenseId, depositId, label = "") => {
         set({
           transactions: get().transactions.map((t) => {
@@ -577,6 +622,7 @@ export const useBudgetStore = create<State>()(
           transactions: [...parsed.data.transactions].sort((a, b) => b.date.localeCompare(a.date)),
           merchantRules: parsed.data.merchantRules,
           monthBudgets: parsed.data.monthBudgets,
+          savingsGoals: parsed.data.savingsGoals ?? [],
           imports: [
             {
               id: newId("imp"),
@@ -618,6 +664,7 @@ useBudgetStore.subscribe((state, prev) => {
     state.merchantRules !== prev.merchantRules ||
     state.imports !== prev.imports ||
     state.monthBudgets !== prev.monthBudgets ||
+    state.savingsGoals !== prev.savingsGoals ||
     state.activeMonth !== prev.activeMonth ||
     state.activeWeek !== prev.activeWeek
   ) {

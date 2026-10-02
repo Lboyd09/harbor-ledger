@@ -5,6 +5,7 @@ import { UserButton } from "@/lib/auth/gates";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { cn } from "@/lib/cn";
 import { useBudgetStore } from "@/store/budget-store";
+import { HarborMark } from "./harbor-mark";
 import { Onboarding } from "./onboarding";
 import { WelcomeGate } from "./welcome-gate";
 
@@ -101,7 +102,7 @@ export function AppShell() {
       <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col border-r border-border bg-surface md:flex">
         <div className="px-5 py-6">
           <div className="flex items-center gap-2">
-            <span className="harbor-mark" aria-hidden="true" />
+            <HarborMark className="size-5 text-primary" />
             <div className="font-display text-xl font-semibold">Harbor</div>
           </div>
           <div className="truncate text-xs text-muted">{ledgerName || "Ledger"}</div>
@@ -132,9 +133,12 @@ export function AppShell() {
       </aside>
 
       <header className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-bg/90 px-4 py-3 backdrop-blur md:hidden">
-        <div>
-          <div className="font-display text-lg font-semibold">Harbor</div>
-          <div className="text-xs text-muted">{current}</div>
+        <div className="flex items-center gap-2">
+          <HarborMark className="size-5 text-primary" />
+          <div>
+            <div className="font-display text-lg font-semibold">Harbor</div>
+            <div className="text-xs text-muted">{current}</div>
+          </div>
         </div>
         <div className="flex items-center gap-3">
           <SavePill />

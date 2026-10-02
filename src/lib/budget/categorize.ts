@@ -37,7 +37,10 @@ export function suggestCategory(
         return { categoryId: cat.id, reason: "refund", pattern: hit.pattern };
       }
       if (amount < 0 && cat.kind === "income") {
-        return { categoryId: cat.id, reason: "keyword", pattern: hit.pattern };
+        const spend = resolveSlug("personal", categories) ?? resolveSlug("other", categories);
+        return spend
+          ? { categoryId: spend.id, reason: "keyword", pattern: hit.pattern }
+          : { categoryId: null, reason: null, pattern: null };
       }
       return { categoryId: cat.id, reason: "keyword", pattern: hit.pattern };
     }

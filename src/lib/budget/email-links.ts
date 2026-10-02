@@ -129,7 +129,7 @@ export const requestPasswordReset = createServerFn({ method: "POST" })
       return {
         ok: false as const,
         configured: false,
-        error: "Email is not connected yet. Use a recovery code, or add RESEND_API_KEY and HARBOR_FROM_EMAIL where Harbor is hosted.",
+        error: "Email is not connected yet. Sign in and use Account to get a reset link on the page, or add RESEND_API_KEY and HARBOR_FROM_EMAIL where Harbor is hosted.",
       };
     }
     if (!data.email.includes("@")) return { ok: true as const, configured: true };

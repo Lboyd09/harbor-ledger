@@ -68,15 +68,18 @@ export function GuideCard() {
           . Merchants you pay most often sit at the top. Change one category and every matching charge updates.
         </li>
         <li>
-          Home is the year.{" "}
-          <Link to="/year" className="text-primary underline-offset-2 hover:underline">
-            Year
-          </Link>{" "}
-          is the spreadsheet.{" "}
+          Open a month row to divide one deposit or charge into two categories. The overall category stays. On an
+          expense, Payback is in the category list: it matches the closest deposit and both leave that month.
+        </li>
+        <li>
           <Link to="/plan" className="text-primary underline-offset-2 hover:underline">
             Plan
           </Link>{" "}
-          is where you edit monthly amounts. Suggested amounts come from typical months in your file.
+          is the usual budget, a one-month change, and saving for a purchase.{" "}
+          <Link to="/year" className="text-primary underline-offset-2 hover:underline">
+            Year
+          </Link>{" "}
+          is the summary, the charts, and the spreadsheet. Account exports Excel and Google Sheets.
         </li>
       </ol>
     </section>

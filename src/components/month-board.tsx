@@ -1,12 +1,13 @@
 import { Link } from "@tanstack/react-router";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { displayMerchant } from "@/lib/budget/merchant";
 import { formatMoney } from "@/lib/budget/money";
 import { groupMonth, type MonthGroup } from "@/lib/budget/month-view";
 import { currentMonthKey, monthKeyFromDate, monthLabel, monthShort, shiftMonth } from "@/lib/budget/parse-date";
 import { hasMonthOverride, planAmount } from "@/lib/budget/plans";
 import { closestAmount, paybackNote } from "@/lib/budget/payback";
+import { piecesOf } from "@/lib/budget/splits";
 import { downloadText } from "@/lib/budget/download";
 import type { Category, Transaction } from "@/lib/budget/types";
 import { buildYearWorkbook, monthsOfYear, statusLabel } from "@/lib/budget/year";
@@ -22,6 +23,10 @@ function dayLabel(iso: string) {
   return `${monthShort(iso.slice(0, 7))} ${Number(iso.slice(8, 10))}`;
 }
 
+function rowFocus(tone: "in" | "out", groupId: string, txId: string) {
+  return `${tone}|${groupId}|${txId}`;
+}
+
 function isPaycheck(categories: Category[], t: Transaction) {
   const slug = categories.find((c) => c.id === t.categoryId)?.slug ?? "";
   return slug === "paycheck" || slug.startsWith("paycheck-");
@@ -29,6 +34,13 @@ function isPaycheck(categories: Category[], t: Transaction) {
 
 function catName(categories: Category[], id: string | null) {
   return categories.find((c) => c.id === id)?.name ?? "Needs a category";
+}
+
+function sheetCategory(categories: Category[], t: Transaction) {
+  const pieces = piecesOf(t);
+  const overall = catName(categories, t.categoryId);
+  if (!pieces) return overall;
+  return `${overall} (${pieces.map((p) => `${catName(categories, p.categoryId)} ${p.amount.toFixed(2)}`).join(" / ")})`;
 }
 
 function csvCell(value: string) {
@@ -57,6 +69,9 @@ export function MonthBoard() {
   const [q, setQ] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [focus, setFocus] = useState<string | null>(null);
+  const [divideKey, setDivideKey] = useState<string | null>(null);
+  const [paybackId, onPayback] = useState<string | null>(null);
 
   const year = ym.slice(0, 4);
   const book = useMemo(() => buildYearWorkbook(transactions, categories, year), [transactions, categories, year]);
@@ -96,7 +111,7 @@ export function MonthBoard() {
       <div className="mx-auto max-w-lg space-y-4 py-8">
         <h1 className="font-display text-3xl font-semibold">Start with one month</h1>
         <p className="text-sm text-muted">
-          Import a bank CSV. Income and expenses stay in two lists. Open a row to record a payback.
+          Import a bank CSV. Income and expenses stay in two lists. Open a row to divide a deposit, or choose Payback on an expense.
         </p>
         <div className="flex flex-wrap gap-2">
           <Link to="/import">
@@ -117,7 +132,7 @@ export function MonthBoard() {
           <p className="text-xs font-medium uppercase tracking-wide text-muted">{ledgerName || "This month"}</p>
           <h1 className="font-display text-3xl font-semibold md:text-4xl">{monthLabel(ym)}</h1>
           <p className="mt-1 max-w-xl text-sm text-muted">
-            Income is money you kept. Expenses are money you spent. A store return lowers spending. It is not income.
+            Income is money you kept. Expenses are money you spent. Open a row to divide one deposit or charge into two categories. On an expense, Payback is in the category list.
           </p>
         </div>
         <div className="flex items-center gap-1">
@@ -141,6 +156,8 @@ export function MonthBoard() {
           setQ("");
           setNotice(null);
           setOpenId(null);
+          setFocus(null);
+          setDivideKey(null);
           setActiveMonth(key);
         }}
       />
@@ -233,13 +250,17 @@ export function MonthBoard() {
         <Section
           title="Income"
           kicker="Money in"
-          hint="Money you kept. Open a row to categorize that deposit."
+          hint="Money you kept. Open a row to divide one deposit into two categories. Another deposit can use a different one."
           groups={income}
           empty="No income in this month."
           tone="in"
           categories={categories}
-          openId={openId}
-          onOpen={setOpenId}
+          focus={focus}
+          divideKey={divideKey}
+          paybackId={paybackId}
+          onPayback={onPayback}
+          onFocus={setFocus}
+          onDivide={setDivideKey}
           onCategory={onCategory}
           onNotice={setNotice}
           ym={ym}
@@ -248,13 +269,17 @@ export function MonthBoard() {
         <Section
           title="Expenses"
           kicker="Money out"
-          hint="Money you spent. The box on the category is this month only. Your usual plan stays on Plan."
+          hint="Money you spent. Payback is at the bottom of the category list. The box on the category is this month only."
           groups={expenses}
           empty="No expenses in this month."
           tone="out"
           categories={categories}
-          openId={openId}
-          onOpen={setOpenId}
+          focus={focus}
+          divideKey={divideKey}
+          paybackId={paybackId}
+          onPayback={onPayback}
+          onFocus={setFocus}
+          onDivide={setDivideKey}
           onCategory={onCategory}
           onNotice={setNotice}
           ym={ym}
@@ -315,8 +340,12 @@ function Section({
   empty,
   tone,
   categories,
-  openId,
-  onOpen,
+  focus,
+  divideKey,
+  paybackId,
+  onPayback,
+  onFocus,
+  onDivide,
   onCategory,
   onNotice,
   ym,
@@ -329,14 +358,19 @@ function Section({
   empty: string;
   tone: "in" | "out";
   categories: Category[];
-  openId: string | null;
-  onOpen: (id: string | null) => void;
+  focus: string | null;
+  divideKey: string | null;
+  paybackId: string | null;
+  onPayback: (id: string | null) => void;
+  onFocus: (key: string | null) => void;
+  onDivide: (key: string | null) => void;
   onCategory: (id: string, merchantKey: string, sample: string, categoryId: string | null) => void;
   onNotice: (message: string) => void;
   ym: string;
   monthBudgets: { categoryId: string; ym: string; amount: number }[];
 }) {
   const setMonthPlan = useBudgetStore((s) => s.setMonthPlan);
+  const monthTx = useBudgetStore((s) => s.transactions);
   return (
     <section className={cn("rounded-xl border p-3 md:p-4", tone === "in" ? "border-good/40" : "border-danger/35")}>
       <div className="mb-3 px-1">
@@ -390,42 +424,111 @@ function Section({
               <ul className="divide-y divide-border border-t border-border">
                 {g.transactions.map((t) => {
                   const paid = t.status === "reimbursement";
-                  const open = openId === t.id;
+                  const pieces = piecesOf(t);
+                  const key = rowFocus(tone, g.id, t.id);
+                  const open = focus === key;
+                  const share = g.shares[t.id];
+                  const shown = share == null ? t.amount : tone === "out" ? -Math.abs(share) : Math.abs(share);
+                  const others = monthTx.filter(
+                    (x) =>
+                      x.id !== t.id &&
+                      x.merchantKey === t.merchantKey &&
+                      x.date.slice(0, 7) === ym &&
+                      x.status !== "transfer" &&
+                      !x.excluded,
+                  );
+                  const otherCats = [...new Set(others.map((x) => x.categoryId))].filter((id) => id !== t.categoryId);
+                  const pieceLine = pieces
+                    ? `Overall ${catName(categories, t.categoryId)}. This month: ${pieces
+                        .map((p) => `${catName(categories, p.categoryId)} ${formatMoney(p.amount)}`)
+                        .join(" · ")}.`
+                    : null;
                   return (
                     <TxRow
-                      key={t.id}
+                      key={`${g.id}-${t.id}`}
                       date={dayLabel(t.date)}
                       name={displayMerchant(t.description)}
-                      amount={t.amount}
+                      amount={shown}
                       paid={paid}
-                      badge={paid ? "Paid back" : t.status === "refund" ? "Money back" : undefined}
+                      badge={paid ? "Paid back" : t.status === "refund" ? "Money back" : pieces ? "Divided" : undefined}
                       open={open}
-                      onOpen={() => onOpen(open ? null : t.id)}
+                      onOpen={() => {
+                        onPayback(null);
+                        if (open) {
+                          onFocus(null);
+                          onDivide(null);
+                        } else {
+                          onFocus(key);
+                          onDivide(null);
+                        }
+                      }}
                       extra={
-                        paid ? (
-                          <Quiet
-                            onClick={() => {
-                              useBudgetStore.getState().undoPaidBack(t.id);
-                              onNotice("Counted again.");
-                            }}
-                          >
-                            Undo payback
-                          </Quiet>
-                        ) : t.status === "refund" ? (
+                        t.status === "refund" ? (
                           <RefundLine t={t} onNotice={onNotice} />
-                        ) : tone === "out" ? (
-                          <PaybackChip t={t} categories={categories} onNotice={onNotice} />
+                        ) : pieceLine ? (
+                          <p className="mt-1 text-xs text-muted">{pieceLine}</p>
                         ) : null
                       }
                       category={
-                        <CategorySelect
-                          categories={categories}
-                          kind={tone === "in" ? "income" : "expense"}
-                          value={t.categoryId}
-                          onChange={(id) => onCategory(t.id, t.merchantKey, t.description, id)}
-                        />
+                        <div className="space-y-1">
+                          <CategorySelect
+                            categories={categories}
+                            kind={tone === "in" ? "income" : "expense"}
+                            payback={tone === "out" && t.status !== "refund"}
+                            value={paid || (open && paybackId === t.id) ? "__payback__" : t.categoryId}
+                            onPayback={() => {
+                              onFocus(key);
+                              onDivide(null);
+                              onPayback(t.id);
+                            }}
+                            onChange={(id) => {
+                              if (paid) useBudgetStore.getState().undoPaidBack(t.id);
+                              onPayback(null);
+                              onCategory(t.id, t.merchantKey, t.description, id);
+                            }}
+                          />
+                          {t.status === "posted" && !paid ? (
+                            <button
+                              type="button"
+                              className="min-h-8 text-xs text-muted hover:text-fg"
+                              onClick={() => {
+                                onPayback(null);
+                                onFocus(key);
+                                onDivide(key);
+                              }}
+                            >
+                              Divide this row
+                            </button>
+                          ) : null}
+                          {otherCats.length ? (
+                            <p className="text-xs text-muted">
+                              Another {displayMerchant(t.description)} this month is {otherCats.map((id) => catName(categories, id)).join(" or ")}. This row can differ.
+                            </p>
+                          ) : null}
+                        </div>
                       }
-                      details={open ? <RowTools t={t} tone={tone} categories={categories} onNotice={onNotice} /> : null}
+                      details={
+                        open && paybackId === t.id ? (
+                          <div className="detail-in">
+                            <PaybackMatch
+                              t={t}
+                              categories={categories}
+                              onNotice={onNotice}
+                              onClose={() => onPayback(null)}
+                            />
+                          </div>
+                        ) : open ? (
+                          <div className="detail-in">
+                            <RowTools
+                              t={t}
+                              tone={tone}
+                              categories={categories}
+                              onNotice={onNotice}
+                              divide={divideKey === key}
+                            />
+                          </div>
+                        ) : null
+                      }
                     />
                   );
                 })}
@@ -443,28 +546,56 @@ function RowTools({
   tone,
   categories,
   onNotice,
+  divide,
 }: {
   t: Transaction;
   tone: "in" | "out";
   categories: Category[];
   onNotice: (message: string) => void;
+  divide?: boolean;
 }) {
   const patchTransaction = useBudgetStore((s) => s.patchTransaction);
   const deleteTransaction = useBudgetStore((s) => s.deleteTransaction);
   const countAsIncome = useBudgetStore((s) => s.countAsIncome);
+  const setTransactionCategory = useBudgetStore((s) => s.setTransactionCategory);
   const paycheck = isPaycheck(categories, t);
   const note = paybackNote(t.notes);
+  const pieces = piecesOf(t);
 
   return (
-    <div className="mt-2 space-y-2 text-sm">
+    <div className="mt-2 space-y-3 text-sm">
       {t.status === "reimbursement" ? (
-        <p className="text-muted">Out of the budget{note ? ` — ${note}` : ". Someone paid this back."}</p>
-      ) : paycheck ? (
-        <p className="text-muted">This stays as income. Change the category if it belongs somewhere else.</p>
+        <p className="text-muted">
+          Out of this month{note ? ` — ${note}` : ". Someone paid this back."}{" "}
+          <Quiet
+            onClick={() => {
+              useBudgetStore.getState().undoPaidBack(t.id);
+              onNotice("Counted again.");
+            }}
+          >
+            Undo payback
+          </Quiet>
+        </p>
       ) : (
-        <p className="text-muted">Category changes apply to this row only.</p>
+        <p className="text-muted">
+          This row only. Another charge with the same name can use a different category. The overall category stays on
+          the dropdown.
+        </p>
       )}
+      {t.status === "posted" ? (
+        <SplitEditor t={t} tone={tone} categories={categories} onNotice={onNotice} openNow={Boolean(divide)} />
+      ) : null}
       <div className="flex flex-wrap gap-3">
+        {t.categoryId && t.status === "posted" ? (
+          <Quiet
+            onClick={() => {
+              setTransactionCategory(t.id, t.categoryId, true);
+              onNotice("Every row with this name now uses that category.");
+            }}
+          >
+            Use this category for every {displayMerchant(t.description)}
+          </Quiet>
+        ) : null}
         {t.status === "refund" ? (
           <Quiet
             onClick={() => {
@@ -474,7 +605,7 @@ function RowTools({
           >
             Not money back
           </Quiet>
-        ) : tone === "out" && t.status === "posted" ? (
+        ) : tone === "out" && t.status === "posted" && !pieces ? (
           <Quiet
             onClick={() => {
               patchTransaction(t.id, { status: "refund" });
@@ -504,79 +635,186 @@ function RowTools({
             Not income
           </Quiet>
         ) : null}
-        <Quiet onClick={() => deleteTransaction(t.id)}>Remove</Quiet>
+        <Quiet danger onClick={() => deleteTransaction(t.id)}>Remove</Quiet>
       </div>
     </div>
   );
 }
 
-function PaybackChip({
+function SplitEditor({
+  t,
+  tone,
+  categories,
+  onNotice,
+  openNow,
+}: {
+  t: Transaction;
+  tone: "in" | "out";
+  categories: Category[];
+  onNotice: (message: string) => void;
+  openNow?: boolean;
+}) {
+  const setSplits = useBudgetStore((s) => s.setSplits);
+  const existing = t.splits && t.splits.length >= 2 ? t.splits : null;
+  const [on, setOn] = useState(Boolean(existing) || Boolean(openNow));
+  const abs = Math.abs(t.amount);
+  const half = Math.round((abs / 2) * 100) / 100;
+  const rest = Math.round((abs - half) * 100) / 100;
+  const [aCat, setACat] = useState(existing?.[0]?.categoryId ?? t.categoryId ?? "");
+  const [bCat, setBCat] = useState(existing?.[1]?.categoryId ?? "");
+  const [aAmt, setAAmt] = useState(String(existing?.[0]?.amount ?? half));
+  const [bAmt, setBAmt] = useState(String(existing?.[1]?.amount ?? rest));
+  const kind = tone === "in" ? "income" : "expense";
+  const overall = categories.find((c) => c.id === t.categoryId);
+
+  useEffect(() => {
+    if (openNow) setOn(true);
+  }, [openNow]);
+
+  if (!on) {
+    return (
+      <Quiet onClick={() => setOn(true)}>Divide into two categories</Quiet>
+    );
+  }
+
+  function save() {
+    const a = Number(aAmt);
+    const b = Number(bAmt);
+    if (!aCat || !bCat) {
+      onNotice("Pick a category for each piece.");
+      return;
+    }
+    if (aCat === bCat) {
+      onNotice("Pick two different categories. The overall category can still be one of them.");
+      return;
+    }
+    if (!Number.isFinite(a) || !Number.isFinite(b) || a <= 0 || b <= 0) {
+      onNotice("Both amounts need to be more than zero.");
+      return;
+    }
+    if (Math.abs(a + b - abs) > 0.05) {
+      onNotice(`The two amounts need to add up to ${formatMoney(abs)}.`);
+      return;
+    }
+    setSplits(t.id, [
+      { categoryId: aCat, amount: a },
+      { categoryId: bCat, amount: b },
+    ]);
+    onNotice("Divided. The overall category stays, and only this row changed.");
+  }
+
+  return (
+    <div className="max-w-md space-y-2 rounded-md border border-border bg-bg p-3">
+      <p className="font-medium">Two categories, one row</p>
+      <p className="text-xs text-muted">
+        {overall ? `${overall.name} stays the overall category. ` : ""}
+        The pieces count in this month only. They have to add up to {formatMoney(abs)}.
+      </p>
+      <div className="grid gap-2 sm:grid-cols-[1fr_6rem]">
+        <CategorySelect categories={categories} kind={kind} value={aCat || null} onChange={(id) => setACat(id ?? "")} />
+        <Input inputMode="decimal" aria-label="First amount" value={aAmt} onChange={(e) => setAAmt(e.target.value)} />
+        <CategorySelect categories={categories} kind={kind} value={bCat || null} onChange={(id) => setBCat(id ?? "")} />
+        <Input inputMode="decimal" aria-label="Second amount" value={bAmt} onChange={(e) => setBAmt(e.target.value)} />
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" onClick={save}>
+          Save this split
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => {
+            setSplits(t.id, null);
+            setOn(false);
+            onNotice("Back to one category.");
+          }}
+        >
+          Use one category
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function PaybackMatch({
   t,
   categories,
   onNotice,
+  onClose,
 }: {
   t: Transaction;
   categories: Category[];
   onNotice: (message: string) => void;
+  onClose: () => void;
 }) {
   const transactions = useBudgetStore((s) => s.transactions);
   const markPaidBack = useBudgetStore((s) => s.markPaidBack);
-  const [open, setOpen] = useState(false);
   const [label, setLabel] = useState("");
   const [pick, setPick] = useState("");
-  if (isPaycheck(categories, t) || t.amount > 0) return null;
-
+  const month = t.date.slice(0, 7);
   const pool = transactions.filter(
-    (x) => x.amount > 0 && x.id !== t.id && x.status !== "reimbursement" && !x.excluded && !isPaycheck(categories, x),
+    (x) => x.amount > 0 && x.id !== t.id && x.status !== "reimbursement" && x.status !== "transfer" && !x.excluded && !isPaycheck(categories, x),
   );
-  const ranked = [...pool].sort(
-    (a, b) => Math.abs(Math.abs(a.amount) - Math.abs(t.amount)) - Math.abs(Math.abs(b.amount) - Math.abs(t.amount)),
-  );
-  const suggested = closestAmount(Math.abs(t.amount), pool, t.date);
-  const chosen = pick || suggested?.id || "";
+  const sameMonth = pool.filter((x) => x.date.slice(0, 7) === month);
+  const list = (sameMonth.length ? sameMonth : pool).slice().sort((a, b) => {
+    const da = Math.abs(Math.abs(a.amount) - Math.abs(t.amount));
+    const db = Math.abs(Math.abs(b.amount) - Math.abs(t.amount));
+    return da - db || a.date.localeCompare(b.date);
+  });
+  const suggested = closestAmount(Math.abs(t.amount), list, t.date);
+  const gap = suggested ? Math.abs(Math.abs(suggested.amount) - Math.abs(t.amount)) : Infinity;
+  const close = Boolean(suggested) && gap <= Math.max(5, Math.abs(t.amount) * 0.15);
+  const chosen = pick || (close ? suggested?.id || "" : "");
 
   return (
-    <div className="relative mt-1">
-      <button
-        type="button"
-        aria-label="Paid back?"
-        title="Paid back?"
-        aria-expanded={open}
-        className="inline-flex size-6 items-center justify-center rounded-sm text-muted/50 hover:text-fg"
-        onClick={() => setOpen((v) => !v)}
-      >
-        <span className="size-1.5 border border-current bg-current/30" aria-hidden="true" />
-      </button>
-      {open ? (
-        <div className="mt-2 max-w-sm space-y-2 rounded-md border border-border bg-surface p-3">
-          <p className="text-sm font-medium">Someone paid this back</p>
-          <p className="text-xs text-muted">
-            {suggested
-              ? `Closest match: ${dayLabel(suggested.date)} · ${displayMerchant(suggested.description)} · ${formatMoney(Math.abs(suggested.amount))}.`
-              : "No matching amount yet. You can still leave this purchase out of spending."}
-          </p>
-          {ranked.length ? (
-            <Select aria-label="Matching row" value={chosen} onChange={(e) => setPick(e.target.value)}>
-              {ranked.slice(0, 8).map((x) => (
-                <option key={x.id} value={x.id}>
-                  {dayLabel(x.date)} · {displayMerchant(x.description)} · {formatMoney(Math.abs(x.amount))}
-                </option>
-              ))}
-            </Select>
-          ) : null}
-          <Input value={label} placeholder="Note, optional" aria-label="Payback note" onChange={(e) => setLabel(e.target.value)} />
-          <Button
-            size="sm"
-            onClick={() => {
-              markPaidBack(t.id, chosen || null, label);
-              onNotice(chosen ? "Matched. Both rows are out of the budget." : "That purchase is out of spending.");
-              setOpen(false);
-            }}
-          >
-            {chosen ? "Match payback" : "Leave out of spending"}
-          </Button>
-        </div>
+    <div className="mt-2 max-w-lg space-y-2 rounded-md border border-border bg-bg p-3">
+      <p className="font-medium">Match the money that paid this back</p>
+      <p className="text-xs text-muted">
+        {close && suggested
+          ? `Closest in this month: ${dayLabel(suggested.date)} · ${displayMerchant(suggested.description)} · ${formatMoney(suggested.amount)}. Matching takes both rows out of the month.`
+          : suggested
+            ? `Nothing is close to ${formatMoney(Math.abs(t.amount))}. Nearest is listed first. Pick it only if that money really paid this back.`
+            : "No deposit to match yet. You can still leave this purchase out of spending."}
+      </p>
+      {list.length ? (
+        <ul className="max-h-48 space-y-1 overflow-y-auto">
+          {list.slice(0, 12).map((x) => {
+            const on = chosen === x.id;
+            return (
+              <li key={x.id}>
+                <button
+                  type="button"
+                  onClick={() => setPick(x.id)}
+                  className={`flex w-full items-center justify-between gap-2 rounded-md px-2 py-2 text-left text-sm ${on ? "bg-chip" : "hover:bg-chip"}`}
+                >
+                  <span>
+                    {dayLabel(x.date)} · {displayMerchant(x.description)}
+                    {close && suggested?.id === x.id ? <span className="ml-2 text-xs text-muted">Closest</span> : null}
+                  </span>
+                  <span className="tabular text-good">{formatMoney(x.amount)}</span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
       ) : null}
+      <Input value={label} placeholder="Note, optional" aria-label="Payback note" onChange={(e) => setLabel(e.target.value)} />
+      <div className="flex flex-wrap gap-2">
+        <Button
+          size="sm"
+          disabled={!chosen && list.length > 0}
+          onClick={() => {
+            markPaidBack(t.id, chosen || null, label);
+            onNotice(chosen ? "Matched. Both rows are out of this month." : "That purchase is out of spending.");
+            onClose();
+          }}
+        >
+          {chosen ? "Cancel both out" : "Leave out of spending"}
+        </Button>
+        <Button size="sm" variant="ghost" onClick={onClose}>
+          Cancel
+        </Button>
+      </div>
     </div>
   );
 }
@@ -699,7 +937,16 @@ function MonthSheet({ rows, categories, ym }: { rows: Transaction[]; categories:
     for (const t of sorted) {
       const income = t.amount > 0 ? t.amount.toFixed(2) : "";
       const expense = t.amount < 0 ? Math.abs(t.amount).toFixed(2) : "";
-      lines.push([t.date, csvCell(displayMerchant(t.description)), income, expense, csvCell(catName(categories, t.categoryId)), csvCell(countsLabel(t))].join(","));
+      lines.push(
+        [
+          t.date,
+          csvCell(displayMerchant(t.description)),
+          income,
+          expense,
+          csvCell(sheetCategory(categories, t)),
+          csvCell(countsLabel(t)),
+        ].join(","),
+      );
     }
     downloadText(`harbor-${ym}.csv`, lines.join("\r\n"), "text/csv;charset=utf-8");
   }
@@ -736,7 +983,7 @@ function MonthSheet({ rows, categories, ym }: { rows: Transaction[]; categories:
                   <td className="px-3 py-2">{displayMerchant(t.description)}</td>
                   <td className="px-3 py-2 text-right tabular text-good">{t.amount > 0 ? formatMoney(t.amount) : "—"}</td>
                   <td className="px-3 py-2 text-right tabular text-danger">{t.amount < 0 ? formatMoney(Math.abs(t.amount)) : "—"}</td>
-                  <td className="px-3 py-2">{catName(categories, t.categoryId)}</td>
+                  <td className="px-3 py-2">{sheetCategory(categories, t)}</td>
                   <td className="px-3 py-2">{countsLabel(t)}</td>
                 </tr>
               );
@@ -748,9 +995,9 @@ function MonthSheet({ rows, categories, ym }: { rows: Transaction[]; categories:
   );
 }
 
-function Quiet({ children, onClick }: { children: ReactNode; onClick: () => void }) {
+function Quiet({ children, onClick, danger = false }: { children: ReactNode; onClick: () => void; danger?: boolean }) {
   return (
-    <button type="button" className="min-h-9 text-xs text-muted hover:text-danger" onClick={onClick}>
+    <button type="button" className={cn("min-h-9 text-xs text-muted", danger ? "hover:text-danger" : "hover:text-fg")} onClick={onClick}>
       {children}
     </button>
   );

@@ -1,6 +1,7 @@
 import { monthKeyFromDate } from "./parse-date.ts";
 import { categoryLabel, planAmount } from "./plans.ts";
 import { roundMoney } from "./money.ts";
+import { piecesOf } from "./splits.ts";
 import type { Category, MonthBudget, Transaction } from "./types.ts";
 
 export type MonthGroup = {
@@ -10,6 +11,8 @@ export type MonthGroup = {
   total: number;
   open: boolean;
   transactions: Transaction[];
+  /** When set, this row contributes this positive amount here instead of its full amount. */
+  shares: Record<string, number>;
 };
 
 export type MonthLayout = {
@@ -31,8 +34,13 @@ function cashPart(kind: "income" | "expense", t: Transaction) {
   return kind === "income" ? t.amount : -t.amount;
 }
 
-function totalFor(kind: "income" | "expense", txs: Transaction[]) {
-  return roundMoney(txs.reduce((s, t) => s + cashPart(kind, t), 0));
+function totalFor(kind: "income" | "expense", txs: Transaction[], shares: Record<string, number>) {
+  return roundMoney(
+    txs.reduce((s, t) => {
+      if (shares[t.id] != null) return s + shares[t.id];
+      return s + cashPart(kind, t);
+    }, 0),
+  );
 }
 
 function byDate(a: Transaction, b: Transaction) {
@@ -48,7 +56,19 @@ export function groupMonth(
   const byId = new Map(categories.map((c) => [c.id, c]));
   const incomeMap = new Map<string, Transaction[]>();
   const expenseMap = new Map<string, Transaction[]>();
+  const shareMaps = new Map<string, Record<string, number>>();
   const aside: Transaction[] = [];
+
+  function add(bucket: Map<string, Transaction[]>, id: string, t: Transaction, share?: number) {
+    const list = bucket.get(id) ?? [];
+    if (!list.some((row) => row.id === t.id)) list.push(t);
+    bucket.set(id, list);
+    if (share == null) return;
+    const key = `${bucket === incomeMap ? "in" : "out"}:${id}`;
+    const prev = shareMaps.get(key) ?? {};
+    prev[t.id] = roundMoney((prev[t.id] ?? 0) + share);
+    shareMaps.set(key, prev);
+  }
 
   for (const t of transactions) {
     if (!inMonth(t, ym)) continue;
@@ -59,9 +79,16 @@ export function groupMonth(
     if (t.status === "refund") {
       const cat = t.categoryId ? byId.get(t.categoryId) : undefined;
       const id = cat && cat.kind === "expense" ? cat.id : "__refund__";
-      const list = expenseMap.get(id) ?? [];
-      list.push(t);
-      expenseMap.set(id, list);
+      add(expenseMap, id, t);
+      continue;
+    }
+    const parts = piecesOf(t);
+    if (parts) {
+      for (const part of parts) {
+        const cat = byId.get(part.categoryId);
+        const incomeSide = cat ? cat.kind === "income" : t.amount >= 0;
+        add(incomeSide ? incomeMap : expenseMap, cat?.id ?? "", t, part.amount);
+      }
       continue;
     }
     const cat = t.categoryId ? byId.get(t.categoryId) : undefined;
@@ -73,23 +100,24 @@ export function groupMonth(
       continue;
     }
     const bucket = cat.kind === "income" ? incomeMap : expenseMap;
-    const list = bucket.get(cat.id) ?? [];
-    list.push(t);
-    bucket.set(cat.id, list);
+    add(bucket, cat.id, t);
   }
 
   function build(kind: "income" | "expense", map: Map<string, Transaction[]>): MonthGroup[] {
     const groups: MonthGroup[] = [];
+    const prefix = kind === "income" ? "in" : "out";
     for (const [id, txs] of map) {
       txs.sort(byDate);
+      const shares = shareMaps.get(`${prefix}:${id}`) ?? {};
       if (!id || id === "__refund__") {
         groups.push({
           id: id === "__refund__" ? "money-back" : `${kind}-open`,
           name: id === "__refund__" ? "Money a store gave back" : "Needs a category",
           plan: 0,
-          total: totalFor(kind, txs),
+          total: totalFor(kind, txs, shares),
           open: id !== "__refund__",
           transactions: txs,
+          shares,
         });
         continue;
       }
@@ -98,9 +126,10 @@ export function groupMonth(
         id,
         name: cat ? categoryLabel(categories, cat.id) : "Category",
         plan: cat ? planAmount(cat, ym, budgets) : 0,
-        total: totalFor(kind, txs),
+        total: totalFor(kind, txs, shares),
         open: false,
         transactions: txs,
+        shares,
       });
     }
     groups.sort((a, b) => Number(b.open) - Number(a.open) || Math.abs(b.total) - Math.abs(a.total));
