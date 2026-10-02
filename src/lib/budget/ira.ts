@@ -1,0 +1,47 @@
+import type { IraRules } from "./types.ts";
+
+/**
+ * 2026 figures from IRS Notice 2025-67, published November 2025.
+ * The person can edit every number. The projection functions only read this object.
+ */
+export const DEFAULT_IRA: IraRules = {
+  year: 2026,
+  under50: 7500,
+  catchUp: 1100,
+  rothSingleStart: 153000,
+  rothSingleEnd: 168000,
+  rothJointStart: 242000,
+  rothJointEnd: 252000,
+  note: "Check the current IRS figures before you rely on these. Harbor does not update them for you.",
+};
+
+function num(v: unknown, fallback: number) {
+  return typeof v === "number" && Number.isFinite(v) ? v : fallback;
+}
+
+export function normalizeIra(raw: unknown): IraRules {
+  const p = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  return {
+    year: Math.round(num(p.year, DEFAULT_IRA.year)),
+    under50: Math.max(0, num(p.under50, DEFAULT_IRA.under50)),
+    catchUp: Math.max(0, num(p.catchUp, DEFAULT_IRA.catchUp)),
+    rothSingleStart: Math.max(0, num(p.rothSingleStart, DEFAULT_IRA.rothSingleStart)),
+    rothSingleEnd: Math.max(0, num(p.rothSingleEnd, DEFAULT_IRA.rothSingleEnd)),
+    rothJointStart: Math.max(0, num(p.rothJointStart, DEFAULT_IRA.rothJointStart)),
+    rothJointEnd: Math.max(0, num(p.rothJointEnd, DEFAULT_IRA.rothJointEnd)),
+    note: typeof p.note === "string" && p.note.trim() ? p.note : DEFAULT_IRA.note,
+  };
+}
+
+export function iraLimit(rules: IraRules, age50: boolean) {
+  return rules.under50 + (age50 ? rules.catchUp : 0);
+}
+
+/** Full, partial, or none. Joint uses the joint band; anything else uses the single band. */
+export function rothRoom(rules: IraRules, magi: number, joint: boolean): "full" | "partial" | "none" {
+  const start = joint ? rules.rothJointStart : rules.rothSingleStart;
+  const end = joint ? rules.rothJointEnd : rules.rothSingleEnd;
+  if (magi < start) return "full";
+  if (magi >= end) return "none";
+  return "partial";
+}

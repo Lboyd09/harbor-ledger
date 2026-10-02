@@ -13,14 +13,14 @@ import {
 } from "@/lib/budget/presets";
 import { formatMoney } from "@/lib/budget/money";
 import { plannedTotals } from "@/lib/budget/totals";
-import type { BudgetGoal, BudgetPeriod, Category, Household, Housing, IncomeStream, LifeStage, Profile } from "@/lib/budget/types";
+import type { BudgetGoal, BudgetPeriod, Category, DetailMode, Household, Housing, IncomeStream, LifeStage, Profile } from "@/lib/budget/types";
 import { useBudgetStore } from "@/store/budget-store";
 import { HarborMark } from "./harbor-mark";
 import { Button } from "./ui/button";
 import { Field, Input, Select } from "./ui/field";
 
 const GOALS: BudgetGoal[] = ["track", "save", "debt", "purchase", "live-within"];
-const STEPS = ["Welcome", "Household", "Life", "Income", "Spending", "Goals", "Categories", "Outlook"];
+const STEPS = ["How you like it", "Household", "Life", "Income", "Spending", "Goals", "Categories", "Outlook"];
 
 export function Onboarding({ initialStep = 0 }: { initialStep?: number }) {
   const existing = useBudgetStore((s) => s.profile);
@@ -29,6 +29,7 @@ export function Onboarding({ initialStep = 0 }: { initialStep?: number }) {
   const cancelSetup = useBudgetStore((s) => s.cancelSetup);
   const loadSample = useBudgetStore((s) => s.loadSample);
   const restoreBackup = useBudgetStore((s) => s.restoreBackup);
+  const patchProfile = useBudgetStore((s) => s.patchProfile);
   const signedIn = Boolean(useCurrentUser());
   const navigate = useNavigate();
 
@@ -49,6 +50,8 @@ export function Onboarding({ initialStep = 0 }: { initialStep?: number }) {
   const [buckets, setBuckets] = useState<string[]>(existing.buckets?.length ? existing.buckets : []);
   const [goals, setGoals] = useState<BudgetGoal[]>(existing.goals?.length ? existing.goals : ["track"]);
   const [budgetPeriod, setBudgetPeriod] = useState<BudgetPeriod>(existing.budgetPeriod || "month");
+  const [mode, setMode] = useState<DetailMode>(existing.detail === "nerd" ? "nerd" : "simple");
+  const [picked, setPicked] = useState(Boolean(existing.detailChosen));
   const [cats, setCats] = useState<Category[]>([]);
   const [restoreError, setRestoreError] = useState<string | null>(null);
 
@@ -70,8 +73,10 @@ export function Onboarding({ initialStep = 0 }: { initialStep?: number }) {
       goals,
       completedOnboarding: true,
       budgetPeriod,
+      detail: mode,
+      detailChosen: true,
     }),
-    [ledgerName, household, dependents, lifeStage, housing, hasVehicle, usesTransit, hasPets, monthlyIncome, streams, buckets, goals, budgetPeriod],
+    [ledgerName, household, dependents, lifeStage, housing, hasVehicle, usesTransit, hasPets, monthlyIncome, streams, buckets, goals, budgetPeriod, mode],
   );
 
   function toggleGoal(g: BudgetGoal) {
@@ -138,19 +143,44 @@ export function Onboarding({ initialStep = 0 }: { initialStep?: number }) {
 
       {step === 0 ? (
         <div className="mt-4 space-y-6">
-          <h1 className="font-display text-3xl font-semibold md:text-4xl">A harbor for the money you already have.</h1>
+          <h1 className="font-display text-3xl font-semibold md:text-4xl">Start with how much detail you want.</h1>
           <p className="text-muted">
-            A harbor is where a boat comes in and you count what arrived and what left. Harbor Ledger is that book: income
-            on one side, expenses on the other. It reads a bank CSV. It never logs into a bank.
+            Harbor counts what came in and what left. It never logs into a bank. Categories reset every month. Buckets keep what you don't spend. Grow is a set of estimates, not advice.
           </p>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => {
+                setMode("simple");
+                setPicked(true);
+                patchProfile({ detail: "simple", detailChosen: true });
+              }}
+              className={`feature-card min-h-24 rounded-lg border p-4 text-left ${picked && mode === "simple" ? "border-primary bg-chip" : "border-border bg-surface"}`}
+            >
+              <div className="font-medium">Simple</div>
+              <p className="mt-1 text-sm text-muted">Savings rate and a short note at the end of the month. Change this later in Account.</p>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setMode("nerd");
+                setPicked(true);
+                patchProfile({ detail: "nerd", detailChosen: true });
+              }}
+              className={`feature-card min-h-24 rounded-lg border p-4 text-left ${picked && mode === "nerd" ? "border-primary bg-chip" : "border-border bg-surface"}`}
+            >
+              <div className="font-medium">Nerd</div>
+              <p className="mt-1 text-sm text-muted">Weekday heatmap, price changes, drift, debt payoff, and a sandbox that does not save.</p>
+            </button>
+          </div>
           <ul className="grid gap-2 sm:grid-cols-2">
             {[
               ["Two columns", "Income and expenses stay apart. A store return lowers spending. It is not a paycheck."],
-              ["One row, two jobs", "Divide a paycheck into two categories for this month. The overall category stays."],
+              ["Buckets", "Link groceries to a bucket and the leftover carries. A category is budgeted or bucketed, never both."],
               ["This month vs usual", "The usual plan is the standing budget. One month can differ, then clear back."],
-              ["Payback", "On an expense, choose Payback in the category list. Harbor matches the closest deposit and both leave the month."],
-              ["Saving for something", "A car, a trip, a deposit. A goal with a target, next to the monthly envelopes."],
-              ["Excel and Google Sheets", "Account has both. The file is the whole ledger, including the charts."],
+              ["Payback and splits", "Payback sits at the bottom of an expense list. One deposit can be two categories."],
+              ["Grow", "Project leftover money as a range. IRA limits live in settings you can edit."],
+              ["Excel and Google Sheets", "Account exports the whole ledger, including buckets."],
             ].map(([title, body]) => (
               <li key={title} className="feature-card rounded-md border border-border bg-surface p-3">
                 <div className="text-sm font-medium">{title}</div>
@@ -160,17 +190,18 @@ export function Onboarding({ initialStep = 0 }: { initialStep?: number }) {
           </ul>
           <div className="flex flex-col gap-2">
             {signedIn ? null : (
-              <Button className="w-full sm:w-auto" onClick={() => void navigate({ to: "/login" })}>
+              <Button className="w-full sm:w-auto" disabled={!picked && !updating} onClick={() => void navigate({ to: "/login" })}>
                 Sign in
               </Button>
             )}
-            <Button variant={signedIn ? "primary" : "outline"} onClick={() => loadSample()}>
+            <Button variant={signedIn ? "primary" : "outline"} disabled={!picked && !updating} onClick={() => loadSample()}>
               Try the demo
             </Button>
-            <Button variant={signedIn ? "outline" : "ghost"} onClick={() => setStep(1)}>
+            <Button variant={signedIn ? "outline" : "ghost"} disabled={!picked && !updating} onClick={() => setStep(1)}>
               Set up a new household
             </Button>
           </div>
+          {!picked && !updating ? <p className="text-sm text-muted">Choose Simple or Nerd before the ledger opens.</p> : null}
           <label className="inline-flex min-h-11 cursor-pointer items-center text-sm text-muted underline-offset-2 hover:underline">
             Restore a backup JSON
             <input
@@ -449,19 +480,19 @@ export function Onboarding({ initialStep = 0 }: { initialStep?: number }) {
           <h1 className="font-display text-2xl font-semibold">You are ready. Here is the map.</h1>
           <ul className="space-y-2 text-sm">
             <li>
-              <span className="font-medium">Month</span> is the two columns. Open a row to divide it, or pick Payback on an expense.
+              <span className="font-medium">Month</span> is the two columns, plus one line for what is safe to spend.
             </li>
             <li>
-              <span className="font-medium">Plan</span> is the usual budget, this month’s override, and saving for a purchase.
+              <span className="font-medium">Plan</span> is Budget or Buckets. Categories reset. Buckets keep the leftover.
             </li>
             <li>
-              <span className="font-medium">Merchants</span> files every charge with the same name. One row can still differ.
+              <span className="font-medium">Grow</span> projects money you already have. It says it is an estimate.
             </li>
             <li>
               <span className="font-medium">Year</span> is the summary, the charts, and the spreadsheet.
             </li>
             <li>
-              <span className="font-medium">Account</span> is the look, Excel, Google Sheets, and the password. Confirm email from there. You do not need a code written on paper.
+              <span className="font-medium">Account</span> switches Simple and Nerd, and exports Excel and Google Sheets. Merchants and Import live there too.
             </li>
           </ul>
           {(() => {

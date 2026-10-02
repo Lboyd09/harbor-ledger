@@ -6,7 +6,7 @@ import { emailStatus, sendConfirmationEmail, sendOwnResetLink } from "@/lib/budg
 import { deleteAccount, issueRecoveryCode } from "@/lib/budget/persist";
 import { HOUSEHOLD_LABELS, HOUSING_LABELS, STAGE_LABELS } from "@/lib/budget/presets";
 import { formatMoney } from "@/lib/budget/money";
-import type { HarborLook, HarborMotion } from "@/lib/budget/types";
+import type { DetailMode, HarborLook, HarborMotion } from "@/lib/budget/types";
 import { useBudgetStore } from "@/store/budget-store";
 import { ExportBar } from "./export-bar";
 import { Button } from "./ui/button";
@@ -42,6 +42,9 @@ export function SettingsView() {
           </a>
           <a href="#look" className="rounded-md border border-border bg-surface px-3 py-2">
             Look
+          </a>
+          <a href="#mode" className="rounded-md border border-border bg-surface px-3 py-2">
+            Simple or Nerd
           </a>
           <a href="#ledger" className="rounded-md border border-border bg-surface px-3 py-2">
             Ledger
@@ -83,6 +86,33 @@ export function SettingsView() {
             <option value="calm">Calm — almost still</option>
           </Select>
         </Field>
+      </section>
+
+      <section id="mode" className="space-y-3 rounded-lg border border-border bg-surface p-4">
+        <h2 className="font-display text-xl font-semibold">Simple or Nerd</h2>
+        <p className="text-sm text-muted">
+          Simple keeps the savings rate and a short month-end note. Nerd adds drift, repeating charges, debt payoff, and a sandbox that never changes the real plan.
+        </p>
+        <Field label="How much to show">
+          <Select
+            value={profile.detail === "nerd" ? "nerd" : "simple"}
+            onChange={(e) => patchProfile({ detail: e.target.value as DetailMode, detailChosen: true })}
+          >
+            <option value="simple">Simple</option>
+            <option value="nerd">Nerd</option>
+          </Select>
+        </Field>
+        <div className="flex flex-wrap gap-3 text-sm">
+          <Link to="/categories" className="font-medium text-primary">
+            Merchants
+          </Link>
+          <Link to="/import" className="font-medium text-primary">
+            Import a CSV
+          </Link>
+          <Link to="/grow" className="font-medium text-primary">
+            Grow calculators
+          </Link>
+        </div>
       </section>
 
       <section id="ledger" className="space-y-3 rounded-lg border border-border bg-surface p-4">

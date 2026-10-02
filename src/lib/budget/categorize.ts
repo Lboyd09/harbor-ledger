@@ -1,9 +1,9 @@
 import { matchKeyword, SLUG_FALLBACKS } from "./keywords.ts";
-import type { Category, MerchantRule } from "./types.ts";
+import type { Category, MerchantRule, Transaction } from "./types.ts";
 
 export type SuggestResult = {
   categoryId: string | null;
-  reason: "rule" | "keyword" | "refund" | null;
+  reason: "rule" | "history" | "keyword" | "refund" | null;
   pattern: string | null;
 };
 
@@ -23,10 +23,18 @@ export function suggestCategory(
   categories: Category[],
   rules: MerchantRule[],
   merchantKeyValue: string,
+  history: Pick<Transaction, "merchantKey" | "categoryId" | "userSet" | "date">[] = [],
 ): SuggestResult {
   const rule = rules.find((r) => r.merchantKey === merchantKeyValue);
   if (rule && categories.some((c) => c.id === rule.categoryId)) {
     return { categoryId: rule.categoryId, reason: "rule", pattern: null };
+  }
+
+  const past = history
+    .filter((t) => t.userSet && t.merchantKey === merchantKeyValue && t.categoryId && categories.some((c) => c.id === t.categoryId))
+    .sort((a, b) => b.date.localeCompare(a.date));
+  if (past[0]?.categoryId) {
+    return { categoryId: past[0].categoryId, reason: "history", pattern: null };
   }
 
   const hit = matchKeyword(description);
@@ -55,8 +63,9 @@ export function suggestCategoryId(
   categories: Category[],
   rules: MerchantRule[],
   merchantKeyValue: string,
+  history: Pick<Transaction, "merchantKey" | "categoryId" | "userSet" | "date">[] = [],
 ): string | null {
-  return suggestCategory(description, amount, categories, rules, merchantKeyValue).categoryId;
+  return suggestCategory(description, amount, categories, rules, merchantKeyValue, history).categoryId;
 }
 
 export function explainMatch(

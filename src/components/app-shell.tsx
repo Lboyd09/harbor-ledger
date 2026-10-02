@@ -1,5 +1,5 @@
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
-import { CalendarDays, CalendarRange, Settings, Store, Upload, Wallet } from "lucide-react";
+import { CalendarDays, CalendarRange, Settings, Sprout, Wallet } from "lucide-react";
 import { useEffect } from "react";
 import { UserButton } from "@/lib/auth/gates";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
@@ -10,14 +10,12 @@ import { Onboarding } from "./onboarding";
 import { WelcomeGate } from "./welcome-gate";
 
 const NAV = [
-  { to: "/year", label: "Year", icon: CalendarRange },
   { to: "/", label: "Month", icon: CalendarDays },
-  { to: "/categories", label: "Merchants", icon: Store },
   { to: "/plan", label: "Plan", icon: Wallet },
+  { to: "/grow", label: "Grow", icon: Sprout },
+  { to: "/year", label: "Year", icon: CalendarRange },
   { to: "/settings", label: "Account", icon: Settings },
 ] as const;
-
-const DESKTOP_NAV = [...NAV, { to: "/import", label: "Import", icon: Upload }] as const;
 
 function AuthSlot() {
   const { user, isPending } = useCurrentUserState();
@@ -53,7 +51,8 @@ export function AppShell() {
   const done = useBudgetStore((s) => s.profile.completedOnboarding);
   const path = useRouterState({ select: (s) => s.location.pathname });
   const current =
-    DESKTOP_NAV.find((n) => n.to === path)?.label ?? (path === "/import" ? "Import" : "Harbor");
+    NAV.find((n) => n.to === path)?.label ??
+    (path === "/import" ? "Import" : path === "/categories" ? "Merchants" : "Harbor");
   const txCount = useBudgetStore((s) => s.transactions.length);
   const catCount = useBudgetStore((s) => s.categories.length);
   const ledgerName = useBudgetStore((s) => s.profile.ledgerName);
@@ -108,7 +107,7 @@ export function AppShell() {
           <div className="truncate text-xs text-muted">{ledgerName || "Ledger"}</div>
         </div>
         <nav className="flex flex-1 flex-col gap-1 px-3">
-          {DESKTOP_NAV.map((item) => {
+          {NAV.map((item) => {
             const Icon = item.icon;
             const on = path === item.to;
             return (
@@ -142,9 +141,6 @@ export function AppShell() {
         </div>
         <div className="flex items-center gap-3">
           <SavePill />
-          <Link to="/import" className="text-xs text-muted">
-            Import
-          </Link>
           <AuthSlot />
         </div>
       </header>

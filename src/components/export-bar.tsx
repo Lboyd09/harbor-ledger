@@ -14,6 +14,11 @@ export function ExportBar() {
   const merchantRules = useBudgetStore((s) => s.merchantRules);
   const monthBudgets = useBudgetStore((s) => s.monthBudgets) ?? [];
   const savingsGoals = useBudgetStore((s) => s.savingsGoals) ?? [];
+  const moneyBuckets = useBudgetStore((s) => s.moneyBuckets) ?? [];
+  const bucketMoves = useBudgetStore((s) => s.bucketMoves) ?? [];
+  const netWorth = useBudgetStore((s) => s.netWorth) ?? [];
+  const debts = useBudgetStore((s) => s.debts) ?? [];
+  const ira = useBudgetStore((s) => s.ira);
   const resetAll = useBudgetStore((s) => s.resetAll);
   const restoreBackup = useBudgetStore((s) => s.restoreBackup);
   const [note, setNote] = useState<string | null>(null);
@@ -42,7 +47,7 @@ export function ExportBar() {
     setBusy(true);
     setNote(null);
     try {
-      const bytes = buildHarborWorkbook({ profile, categories, transactions, monthBudgets, savingsGoals });
+      const bytes = buildHarborWorkbook({ profile, categories, transactions, monthBudgets, savingsGoals, moneyBuckets, bucketMoves, netWorth, debts, ira });
       publish(
         "harbor-ledger.xlsx",
         bytes,
@@ -62,7 +67,7 @@ export function ExportBar() {
     setBusy(true);
     setNote(null);
     try {
-      const bytes = buildHarborWorkbook({ profile, categories, transactions, monthBudgets, savingsGoals });
+      const bytes = buildHarborWorkbook({ profile, categories, transactions, monthBudgets, savingsGoals, moneyBuckets, bucketMoves, netWorth, debts, ira });
       publish(
         "harbor-ledger-google-sheets.xlsx",
         bytes,
@@ -163,7 +168,11 @@ export function ExportBar() {
             onClick={() =>
               downloadText(
                 "harbor-ledger-backup.json",
-                JSON.stringify({ profile, categories, transactions, merchantRules, monthBudgets, savingsGoals }, null, 2),
+                JSON.stringify(
+                  { profile, categories, transactions, merchantRules, monthBudgets, savingsGoals, moneyBuckets, bucketMoves, netWorth, debts, ira },
+                  null,
+                  2,
+                ),
                 "application/json",
               )
             }

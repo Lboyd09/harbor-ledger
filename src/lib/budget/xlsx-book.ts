@@ -1,3 +1,4 @@
+import { bucketBalance } from "./buckets.ts";
 import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
 import * as XLSX from "xlsx";
 import { displayMerchant } from "./merchant.ts";
@@ -7,7 +8,7 @@ import { groupPayees } from "./payees.ts";
 import { monthlySeries } from "./totals.ts";
 import { buildYearWorkbook } from "./year.ts";
 import { piecesOf } from "./splits.ts";
-import type { Category, MonthBudget, Profile, SavingsGoal, Transaction } from "./types.ts";
+import type { BucketMove, Category, DebtItem, IraRules, MoneyBucket, MonthBudget, NetWorthPoint, Profile, SavingsGoal, Transaction } from "./types.ts";
 
 type Row = (string | number)[];
 
@@ -166,10 +167,20 @@ export function buildHarborWorkbook(input: {
   transactions: Transaction[];
   monthBudgets?: MonthBudget[];
   savingsGoals?: SavingsGoal[];
+  moneyBuckets?: MoneyBucket[];
+  bucketMoves?: BucketMove[];
+  netWorth?: NetWorthPoint[];
+  debts?: DebtItem[];
+  ira?: IraRules;
 }): Uint8Array {
   const { profile, categories, transactions } = input;
   const budgets = input.monthBudgets ?? [];
   const goals = input.savingsGoals ?? [];
+  const buckets = input.moneyBuckets ?? [];
+  const moves = input.bucketMoves ?? [];
+  const netWorth = input.netWorth ?? [];
+  const debts = input.debts ?? [];
+  const ira = input.ira;
   const months = monthlySeries(transactions, categories);
   const years = [...new Set(transactions.map((t) => t.date.slice(0, 4)).filter((y) => y.length === 4))].sort();
   const year = years.at(-1) ?? String(new Date().getFullYear());
@@ -229,6 +240,8 @@ export function buildHarborWorkbook(input: {
     ["Money back from a store lowers spending. It is not income."],
     ["Paid back means someone repaid a purchase, so neither row is income or spending."],
     ["A month budget replaces the usual plan for that month only."],
+    ["Categories reset every month. Buckets keep what you don't spend."],
+    ["Money moved into a bucket is not income and not spending."],
   ]);
 
   add("Overview", [
@@ -245,6 +258,55 @@ export function buildHarborWorkbook(input: {
     ["Name", "Target", "Saved", "Left", "By"],
     ...goals.map((g) => [g.name, round2(g.target), round2(g.saved), round2(Math.max(0, g.target - g.saved)), g.by ?? ""]),
   ]);
+
+  const through = months.at(-1)?.ym ?? year + "-12";
+  add("Buckets", [
+    ["Name", "Monthly", "Yearly", "Opening", "Start", "Target", "By", "Balance", "Linked categories"],
+    ...buckets.map((b) => [
+      b.name,
+      round2(b.monthly),
+      b.yearly ?? "",
+      round2(b.opening),
+      b.startMonth,
+      b.target ?? "",
+      b.by ?? "",
+      round2(bucketBalance(b, through, transactions, categories, moves)),
+      b.categoryIds.map((id) => categoryLabel(categories, id)).join(", "),
+    ]),
+    [],
+    ["Moves", "Month", "Amount", "From", "To"],
+    ...moves.map((m) => [
+      m.id,
+      m.ym,
+      round2(m.amount),
+      m.fromId ? (buckets.find((b) => b.id === m.fromId)?.name ?? m.fromId) : "Unassigned",
+      buckets.find((b) => b.id === m.toId)?.name ?? m.toId,
+    ]),
+  ]);
+
+  add("Net worth", [
+    ["Date", "Amount", "Note"],
+    ...netWorth.map((p) => [p.date, round2(p.amount), p.note]),
+  ]);
+
+  add("Debts", [
+    ["Name", "Balance", "APR", "Minimum"],
+    ...debts.map((d) => [d.name, round2(d.balance), d.apr, round2(d.minimum)]),
+  ]);
+
+  if (ira) {
+    add("IRA figures", [
+      ["These numbers are editable in Harbor. Check the current IRS figures."],
+      ["Year", ira.year],
+      ["Under 50", ira.under50],
+      ["Catch-up", ira.catchUp],
+      ["Roth phase-out single start", ira.rothSingleStart],
+      ["Roth phase-out single end", ira.rothSingleEnd],
+      ["Roth phase-out joint start", ira.rothJointStart],
+      ["Roth phase-out joint end", ira.rothJointEnd],
+      ["Note", ira.note],
+    ]);
+  }
 
   add("Months", [
     ["Month", "Income", "Spending", "Left", "Needs a category", "Status"],

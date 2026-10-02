@@ -8,6 +8,9 @@ import { Button } from "./ui/button";
 export function WelcomeGate() {
   const loadSample = useBudgetStore((s) => s.loadSample);
   const restoreBackup = useBudgetStore((s) => s.restoreBackup);
+  const patchProfile = useBudgetStore((s) => s.patchProfile);
+  const chosen = useBudgetStore((s) => Boolean(s.profile.detailChosen));
+  const detail = useBudgetStore((s) => s.profile.detail ?? "simple");
   const navigate = useNavigate();
   const [setup, setSetup] = useState(false);
   const [restoreError, setRestoreError] = useState<string | null>(null);
@@ -25,35 +28,55 @@ export function WelcomeGate() {
     }
   }
 
+  function pick(mode: "simple" | "nerd") {
+    patchProfile({ detail: mode, detailChosen: true });
+  }
+
   return (
     <div className="mx-auto flex min-h-dvh max-w-xl flex-col px-5 py-8 md:py-12">
       <div className="flex items-center gap-2">
         <HarborMark className="size-5 text-primary" />
         <p className="text-sm font-medium uppercase tracking-widest text-muted">Harbor Ledger</p>
       </div>
-      <h1 className="mt-4 font-display text-3xl font-semibold md:text-4xl">Your money, in two columns.</h1>
+      <h1 className="mt-4 font-display text-3xl font-semibold md:text-4xl">How much do you want to see?</h1>
       <p className="mt-3 text-muted">
-        A harbor is where you count what came in and what left. Income on one side. Expenses on the other. A bank CSV is
-        enough. Nothing logs into a bank.
+        A harbor is where you count what arrived and what left. Pick Simple or Nerd before the ledger opens. You can change it later in Account.
       </p>
+      <div className="mt-5 grid gap-2 sm:grid-cols-2">
+        <button
+          type="button"
+          onClick={() => pick("simple")}
+          className={`feature-card min-h-24 rounded-lg border p-4 text-left ${chosen && detail !== "nerd" ? "border-primary bg-chip" : "border-border bg-surface"}`}
+        >
+          <div className="font-medium">Simple</div>
+          <p className="mt-1 text-sm text-muted">One number, one sentence, and a short month-end note.</p>
+        </button>
+        <button
+          type="button"
+          onClick={() => pick("nerd")}
+          className={`feature-card min-h-24 rounded-lg border p-4 text-left ${detail === "nerd" && chosen ? "border-primary bg-chip" : "border-border bg-surface"}`}
+        >
+          <div className="font-medium">Nerd</div>
+          <p className="mt-1 text-sm text-muted">Drift, repeating charges, debt payoff, and a sandbox that does not touch the real plan.</p>
+        </button>
+      </div>
       <ul className="mt-6 space-y-2 text-sm">
-        <li>Divide one paycheck into two categories for that month. The overall category stays.</li>
-        <li>Two charges with the same name can use different categories. Only that month changes.</li>
-        <li>Payback lives at the bottom of the expense category list. The closest deposit is marked, and both leave the month.</li>
-        <li>Plan holds the usual budget, a one-month change, and saving for a purchase.</li>
-        <li>Account exports Excel and Google Sheets, and confirms your email. No paper code.</li>
+        <li>Categories reset every month. Buckets keep what you don't spend.</li>
+        <li>Divide one deposit, or mark a purchase paid back. Neither double-counts.</li>
+        <li>Grow projects leftover money. It is an estimate, not advice.</li>
       </ul>
       <div className="mt-8 flex flex-col gap-2">
-        <Button className="w-full" onClick={() => void navigate({ to: "/login" })}>
+        <Button className="w-full" disabled={!chosen} onClick={() => void navigate({ to: "/login" })}>
           Sign in
         </Button>
-        <Button variant="outline" className="w-full" onClick={() => loadSample()}>
-          Try it out
+        <Button variant="outline" className="w-full" disabled={!chosen} onClick={() => loadSample()}>
+          Try the demo
         </Button>
-        <Button variant="ghost" className="w-full" onClick={() => setSetup(true)}>
+        <Button variant="ghost" className="w-full" disabled={!chosen} onClick={() => setSetup(true)}>
           Set up my household
         </Button>
       </div>
+      {!chosen ? <p className="mt-3 text-sm text-muted">Choose Simple or Nerd first.</p> : null}
       <label className="mt-6 inline-flex min-h-11 cursor-pointer items-center text-sm text-muted underline-offset-2 hover:underline">
         Restore a backup JSON
         <input

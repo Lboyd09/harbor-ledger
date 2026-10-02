@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { safeToSpend } from "@/lib/budget/buckets";
 import { displayMerchant } from "@/lib/budget/merchant";
 import { formatMoney } from "@/lib/budget/money";
 import { groupMonth, type MonthGroup } from "@/lib/budget/month-view";
@@ -16,6 +17,7 @@ import { useBudgetStore } from "@/store/budget-store";
 import { CashChart } from "./cash-chart";
 import { CategorySelect } from "./category-select";
 import { MonthRail } from "./month-rail";
+import { SummaryCard } from "./summary-card";
 import { Button } from "./ui/button";
 import { Input, Select } from "./ui/field";
 
@@ -63,6 +65,8 @@ export function MonthBoard() {
   const setTransactionCategory = useBudgetStore((s) => s.setTransactionCategory);
   const patchTransaction = useBudgetStore((s) => s.patchTransaction);
   const monthBudgets = useBudgetStore((s) => s.monthBudgets) ?? [];
+  const moneyBuckets = useBudgetStore((s) => s.moneyBuckets) ?? [];
+  const bucketMoves = useBudgetStore((s) => s.bucketMoves) ?? [];
   const countHiddenDeposits = useBudgetStore((s) => s.countHiddenDeposits);
   const loadSample = useBudgetStore((s) => s.loadSample);
   const ledgerName = useBudgetStore((s) => s.profile.ledgerName);
@@ -100,6 +104,7 @@ export function MonthBoard() {
     .filter((g) => g.total > 0)
     .slice(0, 8)
     .map((g) => ({ name: g.name, Spent: g.total }));
+  const safe = safeToSpend({ ym, transactions, categories, budgets: monthBudgets, buckets: moneyBuckets, moves: bucketMoves });
 
   function onCategory(id: string, _merchantKey: string, _sample: string, categoryId: string | null) {
     setTransactionCategory(id, categoryId, false);
@@ -117,7 +122,10 @@ export function MonthBoard() {
           <Link to="/import">
             <Button>Import a CSV</Button>
           </Link>
-          <Button variant="outline" onClick={() => loadSample()}>
+          <Link to="/categories">
+            <Button variant="outline">Merchants</Button>
+          </Link>
+          <Button variant="ghost" onClick={() => loadSample()}>
             Try the demo
           </Button>
         </div>
@@ -164,36 +172,38 @@ export function MonthBoard() {
 
       <div key={ym} className="rise space-y-6">
         <div className="grid gap-3 sm:grid-cols-3">
-          <Summary
+          <SummaryCard
             label="Income"
             value={formatMoney(layout.incomeTotal)}
-            hint={monthCell && monthCell.planIncome > 0 ? `${formatMoney(monthCell.planIncome)} planned` : "Money you kept"}
+            sentence={monthCell && monthCell.planIncome > 0 ? `${formatMoney(monthCell.planIncome)} was the plan.` : "Money you kept this month."}
             tone="in"
           />
-          <Summary
+          <SummaryCard
             label="Expenses"
             value={formatMoney(layout.expenseTotal)}
-            hint={monthCell ? statusLabel(monthCell.status) : "Money you spent"}
+            sentence={monthCell ? statusLabel(monthCell.status) : "Money you spent this month."}
             warn={monthCell?.status === "over"}
             tone="out"
-          />
-          <Summary
+          >
+            <p className="text-sm text-muted">Only expenses that still count. A paid-back purchase is not in this chart.</p>
+            <div className="chart-rise">
+              <CashChart data={spentChart} layout="vertical" bars={[{ key: "Spent", fill: "var(--color-danger)" }]} />
+            </div>
+          </SummaryCard>
+          <SummaryCard
             label="Left"
             value={formatMoney(layout.incomeTotal - layout.expenseTotal, { signed: true })}
-            hint="Income minus expenses"
+            sentence="Income minus expenses. Bucket moves are not in this number."
             warn={layout.incomeTotal - layout.expenseTotal < 0}
-          />
+          >
+            <MonthSheet rows={inMonth} categories={categories} ym={ym} />
+          </SummaryCard>
         </div>
+        <p className="text-sm">Safe to spend: {formatMoney(safe.amount, { signed: true })} after bucket funding and spending outside buckets.</p>
 
         {inMonth.length === 0 ? (
           <EmptyMonth ym={ym} transactions={transactions} onJump={setActiveMonth} />
         ) : null}
-
-        <section className="rounded-lg border border-danger/30 bg-surface p-4">
-          <h2 className="font-display text-xl font-semibold">Where the spending went</h2>
-          <p className="mt-1 mb-3 text-sm text-muted">Only expenses that still count. A paid-back purchase is not in this chart.</p>
-          <CashChart data={spentChart} layout="vertical" bars={[{ key: "Spent", fill: "var(--color-danger)" }]} />
-        </section>
 
         {layout.openCount > 0 ? (
           <p className="rounded-md border border-warn/40 bg-chip px-4 py-3 text-sm">
@@ -325,8 +335,6 @@ export function MonthBoard() {
             </ul>
           </details>
         ) : null}
-
-        <MonthSheet rows={inMonth} categories={categories} ym={ym} />
       </div>
     </div>
   );
@@ -963,7 +971,7 @@ function MonthSheet({ rows, categories, ym }: { rows: Transaction[]; categories:
         </Button>
       </div>
       <div className="sheet-wrap rounded-lg border border-border bg-surface">
-        <table className="sheet-table w-full min-w-[40rem] text-sm">
+        <table className="sheet-table sheet-rise w-full min-w-[40rem] text-sm">
           <thead>
             <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted">
               <th className="px-3 py-2 font-medium">Date</th>

@@ -38,11 +38,11 @@ test("chase-like sample parses", () => {
   const first = p.rows[0];
   assert.equal(first.date, "2026-06-02");
   assert.ok((first.amount ?? 0) < 0);
-  assert.ok(first.description.includes("COSTCO"));
+  assert.ok(first.description.includes("GROCERY"));
   assert.ok(!first.description.includes("DEBIT"));
   const details = p.columns.find((c) => c.header.toLowerCase() === "details");
   assert.equal(details?.role, "direction");
-  const pay = p.rows.find((r) => r.description.includes("DIR DEP"));
+  const pay = p.rows.find((r) => r.description.includes("NORTHWIND"));
   assert.ok(pay && (pay.amount ?? 0) > 0);
 });
 

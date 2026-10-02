@@ -175,7 +175,7 @@ export function YearSheet({ embedded = false }: { embedded?: boolean }) {
       </div>
 
       <div className="sheet-wrap rounded-lg border border-border bg-surface">
-        <table className="sheet-table w-full text-sm">
+        <table className="sheet-table sheet-rise w-full text-sm">
           <thead>
             <tr className="border-b border-border text-muted">
               <th className="sticky left-0 bg-surface px-3 py-2 text-left font-medium">Category</th>

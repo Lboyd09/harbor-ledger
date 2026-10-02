@@ -1,13 +1,17 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState, type ReactNode } from "react";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { categoryDrift, monthReview, subscriptionFlags, weekdayHeat } from "@/lib/budget/insights";
 import { formatMoney } from "@/lib/budget/money";
 import { monthShort } from "@/lib/budget/parse-date";
 import { buildYearWorkbook, monthsOfYear, statusLabel, type MonthStatus, type YearWorkbook } from "@/lib/budget/year";
+import type { Category, Transaction } from "@/lib/budget/types";
 import { cn } from "@/lib/cn";
 import { useBudgetStore } from "@/store/budget-store";
 import { CashChart } from "./cash-chart";
 import { MonthRail } from "./month-rail";
+import { SummaryCard } from "./summary-card";
+import { useLivelyMotion } from "./use-lively-motion";
 import { Button } from "./ui/button";
 import { YearSheet } from "./year-sheet";
 import { YearSwitcher } from "./year-switcher";
@@ -24,6 +28,9 @@ export function YearHome() {
   const activeMonth = useBudgetStore((s) => s.activeMonth);
   const setActiveMonth = useBudgetStore((s) => s.setActiveMonth);
   const loadSample = useBudgetStore((s) => s.loadSample);
+  const detail = useBudgetStore((s) => s.profile.detail ?? "simple");
+  const buckets = useBudgetStore((s) => s.moneyBuckets) ?? [];
+  const moves = useBudgetStore((s) => s.bucketMoves) ?? [];
   const navigate = useNavigate();
   const [panel, setPanel] = useState<"summary" | "charts" | "grid">("summary");
   const year = activeMonth.slice(0, 4);
@@ -56,6 +63,8 @@ export function YearHome() {
   const chart = book.monthSummaries
     .filter((m) => m.count > 0)
     .map((m) => ({ name: monthShort(m.ym), In: m.income, Out: m.expenses }));
+  const review = monthReview({ ym: activeMonth, transactions, categories, buckets, moves });
+  const nerd = detail === "nerd";
 
   return (
     <div className="space-y-8">
@@ -68,6 +77,8 @@ export function YearHome() {
         </div>
         <YearSwitcher />
       </div>
+
+      {nerd ? <YearNerd year={year} ym={activeMonth} transactions={transactions} categories={categories} /> : null}
 
       <div className="flex flex-wrap gap-1">
         {(
@@ -92,14 +103,32 @@ export function YearHome() {
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3">
-        <Stat label="Income" value={formatMoney(book.income)} hint={`${income.length} sources`} />
-        <Stat label="Expenses" value={formatMoney(book.expenses)} hint={`${expenses.length} categories`} />
-        <Stat
+        <SummaryCard
+          label="Income"
+          value={formatMoney(book.income)}
+          sentence={income.length ? `${income.length} sources this year.` : "No income categorized yet."}
+          tone="in"
+        />
+        <SummaryCard
+          label="Expenses"
+          value={formatMoney(book.expenses)}
+          sentence={expenses.length ? `${expenses.length} categories this year.` : "No spending categorized yet."}
+          tone="out"
+        />
+        <SummaryCard
           label="Saved"
           value={formatMoney(book.net, { signed: true })}
-          hint={book.income > 0 ? `${Math.round(book.savingsRate * 100)}% leftover` : "No income yet"}
+          sentence={book.income > 0 ? `${Math.round(book.savingsRate * 100)}% of income was left.` : "No income yet."}
           warn={book.net < 0}
-        />
+        >
+          <p>{review.action}</p>
+          {review.rolled.length ? (
+            <p>Rolled forward: {review.rolled.map((r) => `${r.name} ${formatMoney(r.delta)}`).join(", ")}.</p>
+          ) : (
+            <p>Nothing extra rolled into a bucket.</p>
+          )}
+          <p>{review.over.length ? `Over plan: ${review.over.join(", ")}.` : "No category ran past its plan."}</p>
+        </SummaryCard>
       </div>
 
       {panel === "charts" ? (
@@ -116,6 +145,7 @@ export function YearHome() {
         <p className="mt-1 mb-3 text-sm text-muted">
           Green is money you kept. Red is money you spent. A purchase someone paid you back for is in neither bar.
         </p>
+        <div className="chart-rise">
         <CashChart
           data={chart}
           bars={[
@@ -123,6 +153,7 @@ export function YearHome() {
             { key: "Out", fill: "var(--color-danger)" },
           ]}
         />
+        </div>
       </section>
 
       <section>
@@ -172,6 +203,7 @@ export function YearHome() {
 }
 
 function YearCharts({ book }: { book: YearWorkbook }) {
+  const lively = useLivelyMotion();
   const active = book.monthSummaries.filter((m) => m.count > 0);
   const bars = active.map((m) => ({ name: monthShort(m.ym), In: m.income, Out: m.expenses }));
   const line = active.map((m) => ({ name: monthShort(m.ym), Left: m.net }));
@@ -184,6 +216,7 @@ function YearCharts({ book }: { book: YearWorkbook }) {
       <section className="rounded-lg border border-border bg-surface p-4">
         <h2 className="font-display text-xl font-semibold">Income and spending by month</h2>
         <p className="mt-1 mb-3 text-sm text-muted">Green stayed. Red left. Paybacks are in neither.</p>
+        <div className="chart-rise">
         <CashChart
           data={bars}
           bars={[
@@ -191,10 +224,11 @@ function YearCharts({ book }: { book: YearWorkbook }) {
             { key: "Out", fill: "var(--color-danger)" },
           ]}
         />
+        </div>
       </section>
       <section className="rounded-lg border border-border bg-surface p-4">
         <h2 className="font-display text-xl font-semibold">What was left each month</h2>
-        <div className="h-56 w-full">
+        <div className="chart-rise h-56 w-full">
           {line.length ? (
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={line} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
@@ -205,7 +239,7 @@ function YearCharts({ book }: { book: YearWorkbook }) {
                   formatter={(v) => formatMoney(Number(Array.isArray(v) ? v[0] : v))}
                   contentStyle={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: 8 }}
                 />
-                <Line type="monotone" dataKey="Left" stroke="var(--color-primary)" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="Left" stroke="var(--color-primary)" strokeWidth={2} dot={false} isAnimationActive={lively} />
               </LineChart>
             </ResponsiveContainer>
           ) : (
@@ -216,9 +250,72 @@ function YearCharts({ book }: { book: YearWorkbook }) {
       <section className="rounded-lg border border-border bg-surface p-4">
         <h2 className="font-display text-xl font-semibold">Where the year went</h2>
         <p className="mt-1 mb-3 text-sm text-muted">Largest spending categories. Money a store gave back is already taken out.</p>
+        <div className="chart-rise">
         <CashChart data={cats} layout="vertical" bars={[{ key: "Spent", fill: "var(--color-danger)" }]} />
+        </div>
       </section>
     </div>
+  );
+}
+
+function YearNerd({
+  year,
+  ym,
+  transactions,
+  categories,
+}: {
+  year: string;
+  ym: string;
+  transactions: Transaction[];
+  categories: Category[];
+}) {
+  const heat = weekdayHeat(transactions, year);
+  const drift = categoryDrift(transactions, categories, ym);
+  const subs = subscriptionFlags(transactions).slice(0, 8);
+  return (
+    <section className="space-y-3 rounded-lg border border-border bg-surface p-4">
+      <h2 className="font-display text-xl font-semibold">Nerd notes</h2>
+      <div>
+        <h3 className="text-sm font-medium">Spending by weekday</h3>
+        <div className="mt-2 grid grid-cols-7 gap-1">
+          {heat.map((day) => (
+            <div key={day.label} className="text-center text-xs">
+              <div className="mx-auto h-8 w-full rounded-sm" style={{ background: `color-mix(in srgb, var(--color-primary) ${Math.round(day.level * 80 + 8)}%, var(--color-chip))` }} />
+              <div className="mt-1">{day.label}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div>
+        <h3 className="text-sm font-medium">Drift vs the last 3 months</h3>
+        {drift.length ? (
+          <ul className="mt-1 text-sm">
+            {drift.map((row) => (
+              <li key={row.id}>
+                {row.name}: {formatMoney(row.current)} now, {formatMoney(row.average)} typical ({formatMoney(row.delta, { signed: true })}).
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-1 text-sm text-muted">No category moved far from its recent average.</p>
+        )}
+      </div>
+      <div>
+        <h3 className="text-sm font-medium">Repeating charges</h3>
+        {subs.length ? (
+          <ul className="mt-1 text-sm">
+            {subs.map((g) => (
+              <li key={g.merchantKey}>
+                {g.sampleDescription}: {formatMoney(g.last)}
+                {g.changed ? ` — price changed from ${formatMoney(g.median)}` : " — same price"}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-1 text-sm text-muted">No repeating charge yet.</p>
+        )}
+      </div>
+    </section>
   );
 }
 

@@ -231,6 +231,7 @@ export const KEYWORD_RULES: KeywordRule[] = [
   { pattern: "PELOTON", slug: "health" },
 
   { pattern: "NETFLIX", slug: "subscriptions" },
+  { pattern: "STREAMBOX", slug: "subscriptions" },
   { pattern: "SPOTIFY", slug: "subscriptions" },
   { pattern: "DISNEY", slug: "subscriptions" },
   { pattern: "HULU", slug: "subscriptions" },

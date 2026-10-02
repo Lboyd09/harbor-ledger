@@ -1,11 +1,14 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { linkCategoryState, migrateGoals } from "@/lib/budget/buckets";
 import { parseBackup } from "@/lib/budget/backup";
 import { suggestCategory } from "@/lib/budget/categorize";
 import { parseCsvText, applyAmountFlip } from "@/lib/budget/csv";
 import { fingerprint } from "@/lib/budget/fingerprint";
 import { newId } from "@/lib/budget/ids";
+import { DEFAULT_IRA } from "@/lib/budget/ira";
 import { merchantKey } from "@/lib/budget/merchant";
+import { roundMoney } from "@/lib/budget/money";
 import { emptySnapshot, normalizeSnapshot } from "@/lib/budget/normalize";
 import { currentMonthKey, currentWeekKey } from "@/lib/budget/parse-date";
 import { clearLedger, loadLedger, saveLedger } from "@/lib/budget/persist";
@@ -14,13 +17,18 @@ import { buildPresetCategories } from "@/lib/budget/presets";
 import { recommendedPlans } from "@/lib/budget/year";
 import { SAMPLE_CSV, SAMPLE_PROFILE } from "@/lib/budget/sample";
 import type {
+  BucketMove,
   BudgetPeriod,
   Category,
   CsvPreview,
+  DebtItem,
   ImportBatch,
+  IraRules,
   LedgerSnapshot,
   MerchantRule,
+  MoneyBucket,
   MonthBudget,
+  NetWorthPoint,
   Profile,
   SavingsGoal,
   Transaction,
@@ -59,6 +67,18 @@ type State = LedgerSnapshot & {
   addGoal: (goal: Omit<SavingsGoal, "id">) => void;
   updateGoal: (id: string, patch: Partial<Omit<SavingsGoal, "id">>) => void;
   removeGoal: (id: string) => void;
+  addBucket: (bucket: Omit<MoneyBucket, "id">) => void;
+  updateBucket: (id: string, patch: Partial<Omit<MoneyBucket, "id">>) => void;
+  removeBucket: (id: string) => void;
+  linkBucketCategory: (bucketId: string, categoryId: string) => string;
+  unlinkBucketCategory: (bucketId: string, categoryId: string) => void;
+  moveBucketMoney: (move: Omit<BucketMove, "id">) => void;
+  addNetWorth: (point: Omit<NetWorthPoint, "id">) => void;
+  removeNetWorth: (id: string) => void;
+  addDebt: (debt: Omit<DebtItem, "id">) => void;
+  updateDebt: (id: string, patch: Partial<Omit<DebtItem, "id">>) => void;
+  removeDebt: (id: string) => void;
+  patchIra: (patch: Partial<IraRules>) => void;
   markPaidBack: (expenseId: string, depositId: string | null, label?: string) => void;
   undoPaidBack: (id: string) => void;
   countAsIncome: (id: string) => void;
@@ -84,6 +104,11 @@ function snapshotOf(s: LedgerSnapshot): LedgerSnapshot {
     imports: s.imports,
     monthBudgets: s.monthBudgets ?? [],
     savingsGoals: s.savingsGoals ?? [],
+    moneyBuckets: s.moneyBuckets ?? [],
+    bucketMoves: s.bucketMoves ?? [],
+    netWorth: s.netWorth ?? [],
+    debts: s.debts ?? [],
+    ira: s.ira ?? DEFAULT_IRA,
     activeMonth: s.activeMonth,
     activeWeek: s.activeWeek,
   };
@@ -176,7 +201,7 @@ function applyImportRows(
     }
     seen.add(fp);
     const key = merchantKey(row.description);
-    const suggestion = suggestCategory(row.description, row.amount, categories, rules, key);
+    const suggestion = suggestCategory(row.description, row.amount, categories, rules, key, existing);
     const cat = suggestion.categoryId ? categories.find((c) => c.id === suggestion.categoryId) : undefined;
     let status: TxStatus = "posted";
     if (suggestion.reason === "refund") status = "refund";
@@ -229,7 +254,22 @@ export const useBudgetStore = create<State>()(
       saveState: "idle",
       saveError: null,
       setHydrated: () => {
-        quiet(() => set({ hydrated: true, ...openToday(), monthBudgets: get().monthBudgets ?? [] }));
+        const s = get();
+        const month = currentMonthKey();
+        quiet(() =>
+          set({
+            hydrated: true,
+            ...openToday(),
+            monthBudgets: s.monthBudgets ?? [],
+            savingsGoals: s.savingsGoals ?? [],
+            moneyBuckets: migrateGoals(s.savingsGoals ?? [], s.moneyBuckets ?? [], month),
+            bucketMoves: s.bucketMoves ?? [],
+            netWorth: s.netWorth ?? [],
+            debts: s.debts ?? [],
+            ira: s.ira ?? DEFAULT_IRA,
+            profile: { ...s.profile, detail: s.profile.detail === "nerd" ? "nerd" : "simple" },
+          }),
+        );
       },
       hydrateLocal: () => {
         const persistApi = useBudgetStore.persist;
@@ -285,15 +325,26 @@ export const useBudgetStore = create<State>()(
       completeSetup: (profile, categories) => {
         const idMap = remapIds(get().categories, categories);
         set({
-          profile: { ...profile, completedOnboarding: true },
+          profile: {
+            ...get().profile,
+            ...profile,
+            completedOnboarding: true,
+            detail: profile.detail ?? get().profile.detail ?? "simple",
+            detailChosen: true,
+          },
           categories,
           transactions: get().transactions.map((t) => ({
             ...t,
             categoryId: t.categoryId ? (idMap.get(t.categoryId) ?? null) : null,
+            splits: t.splits?.map((p) => ({ ...p, categoryId: idMap.get(p.categoryId) ?? p.categoryId })) ?? null,
           })),
           merchantRules: get()
             .merchantRules.map((r) => ({ ...r, categoryId: idMap.get(r.categoryId) ?? "" }))
             .filter((r) => r.categoryId),
+          moneyBuckets: (get().moneyBuckets ?? []).map((b) => ({
+            ...b,
+            categoryIds: b.categoryIds.map((id) => idMap.get(id)).filter((id): id is string => Boolean(id)),
+          })),
         });
         void flushPersist();
       },
@@ -355,8 +406,10 @@ export const useBudgetStore = create<State>()(
         schedulePersist();
       },
       updateCategory: (id, patch) => {
+        const linked = (get().moneyBuckets ?? []).some((b) => b.categoryIds.includes(id));
+        const safe = linked && patch.plannedMonthly ? { ...patch, plannedMonthly: 0 } : patch;
         set({
-          categories: get().categories.map((c) => (c.id === id ? { ...c, ...patch } : c)),
+          categories: get().categories.map((c) => (c.id === id ? { ...c, ...safe } : c)),
         });
         schedulePersist();
       },
@@ -383,6 +436,7 @@ export const useBudgetStore = create<State>()(
         schedulePersist();
       },
       setMonthPlan: (categoryId, ym, amount) => {
+        if ((get().moneyBuckets ?? []).some((b) => b.categoryIds.includes(categoryId))) return;
         const rest = (get().monthBudgets ?? []).filter((b) => !(b.categoryId === categoryId && b.ym === ym));
         const monthBudgets: MonthBudget[] =
           amount == null || !Number.isFinite(amount) ? rest : [...rest, { categoryId, ym, amount: Math.max(0, amount) }];
@@ -411,7 +465,8 @@ export const useBudgetStore = create<State>()(
         schedulePersist();
       },
       applyRecommendedPlans: (year) => {
-        const recs = recommendedPlans(get().transactions, get().categories, year);
+        const linked = new Set((get().moneyBuckets ?? []).flatMap((b) => b.categoryIds));
+        const recs = recommendedPlans(get().transactions, get().categories, year).filter((r) => !linked.has(r.id));
         if (!recs.length) return 0;
         const map = new Map(recs.map((r) => [r.id, r.plannedMonthly]));
         set({
@@ -463,7 +518,136 @@ export const useBudgetStore = create<State>()(
         schedulePersist();
       },
       removeGoal: (id) => {
-        set({ savingsGoals: (get().savingsGoals ?? []).filter((g) => g.id !== id) });
+        set({
+          savingsGoals: (get().savingsGoals ?? []).filter((g) => g.id !== id),
+          moneyBuckets: (get().moneyBuckets ?? []).filter((b) => b.fromGoalId !== id),
+        });
+        schedulePersist();
+      },
+      addBucket: (bucket) => {
+        const name = bucket.name.trim();
+        if (!name) return;
+        const yearly = bucket.yearly && bucket.yearly > 0 ? bucket.yearly : null;
+        const monthly = yearly ? roundMoney(yearly / 12) : Math.max(0, bucket.monthly);
+        const next: MoneyBucket = {
+          id: newId("bucket"),
+          name,
+          monthly,
+          yearly,
+          categoryIds: bucket.categoryIds ?? [],
+          target: bucket.target && bucket.target > 0 ? bucket.target : null,
+          by: bucket.by && /^\d{4}-\d{2}$/.test(bucket.by) ? bucket.by : null,
+          startMonth: /^\d{4}-\d{2}$/.test(bucket.startMonth) ? bucket.startMonth : get().activeMonth,
+          opening: Math.max(0, bucket.opening || 0),
+          fromGoalId: null,
+        };
+        set({ moneyBuckets: [...(get().moneyBuckets ?? []), next] });
+        schedulePersist();
+      },
+      updateBucket: (id, patch) => {
+        set({
+          moneyBuckets: (get().moneyBuckets ?? []).map((b) => {
+            if (b.id !== id) return b;
+            const yearly = patch.yearly === undefined ? b.yearly : patch.yearly && patch.yearly > 0 ? patch.yearly : null;
+            const monthly =
+              patch.yearly && patch.yearly > 0
+                ? roundMoney(patch.yearly / 12)
+                : patch.monthly != null
+                  ? Math.max(0, patch.monthly)
+                  : b.monthly;
+            return { ...b, ...patch, yearly, monthly, name: (patch.name ?? b.name).trim() || b.name };
+          }),
+        });
+        schedulePersist();
+      },
+      removeBucket: (id) => {
+        const bucket = (get().moneyBuckets ?? []).find((b) => b.id === id);
+        set({
+          moneyBuckets: (get().moneyBuckets ?? []).filter((b) => b.id !== id),
+          bucketMoves: (get().bucketMoves ?? []).filter((m) => m.toId !== id && m.fromId !== id),
+          savingsGoals: bucket?.fromGoalId
+            ? (get().savingsGoals ?? []).filter((g) => g.id !== bucket.fromGoalId)
+            : get().savingsGoals,
+        });
+        schedulePersist();
+      },
+      linkBucketCategory: (bucketId, categoryId) => {
+        const linked = linkCategoryState({
+          categories: get().categories,
+          monthBudgets: get().monthBudgets ?? [],
+          buckets: get().moneyBuckets ?? [],
+          categoryId,
+          bucketId,
+        });
+        if (!linked) return "That category is not in this ledger.";
+        const name = get().categories.find((c) => c.id === categoryId)?.name ?? "That category";
+        const bucket = (get().moneyBuckets ?? []).find((b) => b.id === bucketId)?.name ?? "the bucket";
+        set(linked);
+        schedulePersist();
+        return `${name} now feeds ${bucket}. Its monthly budget was cleared so it is not counted twice. Categories reset every month. Buckets keep what you don't spend.`;
+      },
+      unlinkBucketCategory: (bucketId, categoryId) => {
+        set({
+          moneyBuckets: (get().moneyBuckets ?? []).map((b) =>
+            b.id === bucketId ? { ...b, categoryIds: b.categoryIds.filter((id) => id !== categoryId) } : b,
+          ),
+        });
+        schedulePersist();
+      },
+      moveBucketMoney: (move) => {
+        const amount = Math.abs(Number(move.amount) || 0);
+        if (!move.toId || amount <= 0 || !/^\d{4}-\d{2}$/.test(move.ym)) return;
+        if (move.fromId && move.fromId === move.toId) return;
+        const next: BucketMove = {
+          id: newId("move"),
+          ym: move.ym,
+          amount: roundMoney(amount),
+          fromId: move.fromId,
+          toId: move.toId,
+        };
+        set({ bucketMoves: [...(get().bucketMoves ?? []), next] });
+        schedulePersist();
+      },
+      addNetWorth: (point) => {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(point.date)) return;
+        set({
+          netWorth: [...(get().netWorth ?? []), { ...point, id: newId("nw"), note: point.note.trim() }].sort((a, b) =>
+            a.date.localeCompare(b.date),
+          ),
+        });
+        schedulePersist();
+      },
+      removeNetWorth: (id) => {
+        set({ netWorth: (get().netWorth ?? []).filter((p) => p.id !== id) });
+        schedulePersist();
+      },
+      addDebt: (debt) => {
+        const name = debt.name.trim();
+        if (!name || debt.balance <= 0) return;
+        set({
+          debts: [
+            ...(get().debts ?? []),
+            {
+              id: newId("debt"),
+              name,
+              balance: roundMoney(debt.balance),
+              apr: Math.max(0, debt.apr || 0),
+              minimum: Math.max(0, debt.minimum || 0),
+            },
+          ],
+        });
+        schedulePersist();
+      },
+      updateDebt: (id, patch) => {
+        set({ debts: (get().debts ?? []).map((d) => (d.id === id ? { ...d, ...patch } : d)) });
+        schedulePersist();
+      },
+      removeDebt: (id) => {
+        set({ debts: (get().debts ?? []).filter((d) => d.id !== id) });
+        schedulePersist();
+      },
+      patchIra: (patch) => {
+        set({ ira: { ...(get().ira ?? DEFAULT_IRA), ...patch } });
         schedulePersist();
       },
       markPaidBack: (expenseId, depositId, label = "") => {
@@ -586,21 +770,85 @@ export const useBudgetStore = create<State>()(
         };
       },
       loadSample: () => {
-        const profile: Profile = { ...SAMPLE_PROFILE, completedOnboarding: true };
-        const categories = buildPresetCategories(profile);
+        const detail = get().profile.detail === "nerd" ? "nerd" : "simple";
+        const profile: Profile = { ...SAMPLE_PROFILE, completedOnboarding: true, detail, detailChosen: true };
+        const categories = buildPresetCategories(profile).map((c) =>
+          c.slug === "food" ? { ...c, plannedMonthly: 0 } : c,
+        );
         const preview = parseCsvText(SAMPLE_CSV, "sample-chase.csv");
         const { added } = applyImportRows(preview.rows, "Demo bank file", [], categories, []);
+        const food = categories.find((c) => c.slug === "food");
+        const pay = categories.find((c) => c.slug === "paycheck");
+        const side = categories.find((c) => c.slug === "side-work");
+        const dressed = added.map((t) => ({ ...t }));
+        const split = [...dressed].reverse().find((t) => t.description.includes("NORTHWIND PAYROLL") && t.amount > 2000);
+        if (split && pay && side) {
+          const sideAmt = 480;
+          const payAmt = roundMoney(split.amount - sideAmt);
+          split.splits = [
+            { categoryId: pay.id, amount: payAmt },
+            { categoryId: side.id, amount: sideAmt },
+          ];
+          split.categoryId = pay.id;
+          split.userSet = true;
+        }
+        const cafe = dressed.find((t) => t.description.includes("CORNER CAFE") && t.amount === -22.4);
+        const friend = dressed.find((t) => t.description.includes("ZELLE PAYMENT FROM A FRIEND"));
+        if (cafe && friend) {
+          cafe.status = "reimbursement";
+          cafe.notes = paybackNotes(friend.id, "A friend");
+          cafe.userSet = true;
+          friend.status = "reimbursement";
+          friend.notes = paybackNotes(cafe.id, "A friend");
+          friend.userSet = true;
+        }
+        const goalId = "goal_demo_car";
         set({
           profile,
           categories,
-          transactions: added.sort((a, b) => b.date.localeCompare(a.date)),
+          transactions: dressed.sort((a, b) => b.date.localeCompare(a.date)),
           merchantRules: [],
+          monthBudgets: [],
+          savingsGoals: [{ id: goalId, name: "Used car", target: 6000, saved: 900, by: "2027-06" }],
+          moneyBuckets: [
+            {
+              id: "bucket_demo_groceries",
+              name: "Groceries",
+              monthly: 220,
+              yearly: null,
+              categoryIds: food ? [food.id] : [],
+              target: null,
+              by: null,
+              startMonth: "2026-06",
+              opening: 40,
+              fromGoalId: null,
+            },
+            {
+              id: `bucket_goal_${goalId}`,
+              name: "Used car",
+              monthly: 150,
+              yearly: null,
+              categoryIds: [],
+              target: 6000,
+              by: "2027-06",
+              startMonth: "2026-06",
+              opening: 900,
+              fromGoalId: goalId,
+            },
+          ],
+          bucketMoves: [],
+          netWorth: [
+            { id: "nw_demo_1", date: "2026-06-30", amount: 4200, note: "Checking and savings" },
+            { id: "nw_demo_2", date: "2026-09-30", amount: 5100, note: "After the car fund" },
+          ],
+          debts: [{ id: "debt_demo_card", name: "Store card", balance: 640, apr: 19.9, minimum: 25 }],
+          ira: { ...DEFAULT_IRA },
           imports: [
             {
               id: newId("imp"),
-              fileName: "sample-chase.csv",
+              fileName: "sample-demo.csv",
               importedAt: new Date().toISOString(),
-              added: added.length,
+              added: dressed.length,
               skippedDuplicates: 0,
               sourceLabel: "Demo bank file",
             },
@@ -623,6 +871,11 @@ export const useBudgetStore = create<State>()(
           merchantRules: parsed.data.merchantRules,
           monthBudgets: parsed.data.monthBudgets,
           savingsGoals: parsed.data.savingsGoals ?? [],
+          moneyBuckets: parsed.data.moneyBuckets ?? [],
+          bucketMoves: parsed.data.bucketMoves ?? [],
+          netWorth: parsed.data.netWorth ?? [],
+          debts: parsed.data.debts ?? [],
+          ira: parsed.data.ira,
           imports: [
             {
               id: newId("imp"),
@@ -665,6 +918,11 @@ useBudgetStore.subscribe((state, prev) => {
     state.imports !== prev.imports ||
     state.monthBudgets !== prev.monthBudgets ||
     state.savingsGoals !== prev.savingsGoals ||
+    state.moneyBuckets !== prev.moneyBuckets ||
+    state.bucketMoves !== prev.bucketMoves ||
+    state.netWorth !== prev.netWorth ||
+    state.debts !== prev.debts ||
+    state.ira !== prev.ira ||
     state.activeMonth !== prev.activeMonth ||
     state.activeWeek !== prev.activeWeek
   ) {

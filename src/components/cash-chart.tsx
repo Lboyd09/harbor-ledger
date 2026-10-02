@@ -1,5 +1,6 @@
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { formatMoney } from "@/lib/budget/money";
+import { useLivelyMotion } from "./use-lively-motion";
 
 export function CashChart({
   data,
@@ -11,6 +12,7 @@ export function CashChart({
   layout?: "horizontal" | "vertical";
 }) {
   if (!data.length) return <p className="text-sm text-muted">Nothing to chart yet.</p>;
+  const lively = useLivelyMotion();
   const height = layout === "vertical" ? Math.max(160, data.length * 36 + 16) : 224;
   return (
     <div className="w-full" style={{ height }}>
@@ -25,7 +27,7 @@ export function CashChart({
               contentStyle={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: 8 }}
             />
             {bars.map((b) => (
-              <Bar key={b.key} dataKey={b.key} fill={b.fill} radius={2} />
+              <Bar key={b.key} dataKey={b.key} fill={b.fill} radius={2} isAnimationActive={lively} animationDuration={700} />
             ))}
           </BarChart>
         ) : (
@@ -38,7 +40,7 @@ export function CashChart({
               contentStyle={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: 8 }}
             />
             {bars.map((b) => (
-              <Bar key={b.key} dataKey={b.key} fill={b.fill} radius={2} />
+              <Bar key={b.key} dataKey={b.key} fill={b.fill} radius={2} isAnimationActive={lively} animationDuration={700} />
             ))}
           </BarChart>
         )}

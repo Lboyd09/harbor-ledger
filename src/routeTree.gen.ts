@@ -14,6 +14,7 @@ import { Route as AccountRouteImport } from './routes/account'
 import { Route as ActivityRouteImport } from './routes/activity'
 import { Route as CategoriesRouteImport } from './routes/categories'
 import { Route as ConfirmRouteImport } from './routes/confirm'
+import { Route as GrowRouteImport } from './routes/grow'
 import { Route as ImportRouteImport } from './routes/import'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as PayeesRouteImport } from './routes/payees'
@@ -47,6 +48,11 @@ const CategoriesRoute = CategoriesRouteImport.update({
 const ConfirmRoute = ConfirmRouteImport.update({
   id: '/confirm',
   path: '/confirm',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GrowRoute = GrowRouteImport.update({
+  id: '/grow',
+  path: '/grow',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ImportRoute = ImportRouteImport.update({
@@ -101,6 +107,7 @@ export interface FileRoutesByFullPath {
   '/activity': typeof ActivityRoute
   '/categories': typeof CategoriesRoute
   '/confirm': typeof ConfirmRoute
+  '/grow': typeof GrowRoute
   '/import': typeof ImportRoute
   '/login': typeof LoginRoute
   '/payees': typeof PayeesRoute
@@ -117,6 +124,7 @@ export interface FileRoutesByTo {
   '/activity': typeof ActivityRoute
   '/categories': typeof CategoriesRoute
   '/confirm': typeof ConfirmRoute
+  '/grow': typeof GrowRoute
   '/import': typeof ImportRoute
   '/login': typeof LoginRoute
   '/payees': typeof PayeesRoute
@@ -134,6 +142,7 @@ export interface FileRoutesById {
   '/activity': typeof ActivityRoute
   '/categories': typeof CategoriesRoute
   '/confirm': typeof ConfirmRoute
+  '/grow': typeof GrowRoute
   '/import': typeof ImportRoute
   '/login': typeof LoginRoute
   '/payees': typeof PayeesRoute
@@ -152,6 +161,7 @@ export interface FileRouteTypes {
     | '/activity'
     | '/categories'
     | '/confirm'
+    | '/grow'
     | '/import'
     | '/login'
     | '/payees'
@@ -168,6 +178,7 @@ export interface FileRouteTypes {
     | '/activity'
     | '/categories'
     | '/confirm'
+    | '/grow'
     | '/import'
     | '/login'
     | '/payees'
@@ -184,6 +195,7 @@ export interface FileRouteTypes {
     | '/activity'
     | '/categories'
     | '/confirm'
+    | '/grow'
     | '/import'
     | '/login'
     | '/payees'
@@ -201,6 +213,7 @@ export interface RootRouteChildren {
   ActivityRoute: typeof ActivityRoute
   CategoriesRoute: typeof CategoriesRoute
   ConfirmRoute: typeof ConfirmRoute
+  GrowRoute: typeof GrowRoute
   ImportRoute: typeof ImportRoute
   LoginRoute: typeof LoginRoute
   PayeesRoute: typeof PayeesRoute
@@ -247,6 +260,13 @@ declare module '@tanstack/react-router' {
       path: '/confirm'
       fullPath: '/confirm'
       preLoaderRoute: typeof ConfirmRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/grow': {
+      id: '/grow'
+      path: '/grow'
+      fullPath: '/grow'
+      preLoaderRoute: typeof GrowRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/import': {
@@ -321,6 +341,7 @@ const rootRouteChildren: RootRouteChildren = {
   ActivityRoute: ActivityRoute,
   CategoriesRoute: CategoriesRoute,
   ConfirmRoute: ConfirmRoute,
+  GrowRoute: GrowRoute,
   ImportRoute: ImportRoute,
   LoginRoute: LoginRoute,
   PayeesRoute: PayeesRoute,

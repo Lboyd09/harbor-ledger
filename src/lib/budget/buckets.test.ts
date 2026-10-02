@@ -1,0 +1,128 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import { parseBackup } from "./backup.ts";
+import { bucketBalance, linkCategoryState, migrateGoals, safeToSpend } from "./buckets.ts";
+import { suggestCategory } from "./categorize.ts";
+import { normalizeSnapshot } from "./normalize.ts";
+import type { Category, MoneyBucket, Transaction } from "./types.ts";
+
+const rent: Category = { id: "rent", slug: "housing", name: "Rent", kind: "expense", plannedMonthly: 1100 };
+const food: Category = { id: "food", slug: "food", name: "Groceries", kind: "expense", plannedMonthly: 200 };
+const pay: Category = { id: "pay", slug: "paycheck", name: "Paycheck", kind: "income", plannedMonthly: 3000 };
+const cats = [pay, rent, food];
+
+function tx(partial: Partial<Transaction> & Pick<Transaction, "id" | "date" | "amount">): Transaction {
+  return {
+    description: partial.description ?? "Row",
+    merchantKey: partial.merchantKey ?? "ROW",
+    sourceLabel: "t",
+    fingerprint: partial.id,
+    categoryId: partial.categoryId ?? null,
+    userSet: partial.userSet ?? false,
+    notes: "",
+    excluded: false,
+    status: partial.status ?? "posted",
+    splits: partial.splits ?? null,
+    ...partial,
+  };
+}
+
+const groceries: MoneyBucket = {
+  id: "g",
+  name: "Groceries",
+  monthly: 100,
+  yearly: null,
+  categoryIds: ["food"],
+  target: null,
+  by: null,
+  startMonth: "2026-06",
+  opening: 40,
+};
+
+test("bucket balance carries funding and ignores payback, refunds, and splits outside the category", () => {
+  const transactions = [
+    tx({ id: "1", date: "2026-06-02", amount: -30, categoryId: "food" }),
+    tx({ id: "2", date: "2026-07-02", amount: -20, categoryId: "food" }),
+    tx({ id: "3", date: "2026-07-03", amount: 8, categoryId: "food", status: "refund" }),
+    tx({ id: "4", date: "2026-07-04", amount: -50, categoryId: "food", status: "reimbursement" }),
+    tx({
+      id: "5",
+      date: "2026-07-05",
+      amount: -40,
+      categoryId: "rent",
+      splits: [
+        { categoryId: "food", amount: 15 },
+        { categoryId: "rent", amount: 25 },
+      ],
+    }),
+    tx({ id: "6", date: "2026-05-01", amount: -99, categoryId: "food" }),
+  ];
+  assert.equal(bucketBalance(groceries, "2026-05", transactions, cats, []), 40);
+  assert.equal(bucketBalance(groceries, "2026-06", transactions, cats, []), 110);
+  assert.equal(bucketBalance(groceries, "2026-07", transactions, cats, []), 183);
+});
+
+test("safe to spend does not charge bucket spending twice", () => {
+  const transactions = [
+    tx({ id: "in", date: "2026-07-01", amount: 1000, categoryId: "pay" }),
+    tx({ id: "g", date: "2026-07-02", amount: -40, categoryId: "food" }),
+    tx({ id: "r", date: "2026-07-03", amount: -100, categoryId: "rent" }),
+  ];
+  const safe = safeToSpend({
+    ym: "2026-07",
+    transactions,
+    categories: cats,
+    buckets: [groceries],
+    moves: [{ id: "m", ym: "2026-07", amount: 10, fromId: null, toId: "g" }],
+  });
+  assert.equal(safe.income, 1000);
+  assert.equal(safe.funding, 100);
+  assert.equal(safe.moved, 10);
+  assert.equal(safe.spent, 100);
+  assert.equal(safe.amount, 790);
+});
+
+test("linking a category clears its budget", () => {
+  const next = linkCategoryState({
+    categories: cats,
+    monthBudgets: [{ categoryId: "food", ym: "2026-07", amount: 50 }],
+    buckets: [{ ...groceries, categoryIds: [] }],
+    categoryId: "food",
+    bucketId: "g",
+  });
+  assert.ok(next);
+  assert.equal(next?.categories.find((c) => c.id === "food")?.plannedMonthly, 0);
+  assert.equal(next?.monthBudgets.length, 0);
+  assert.deepEqual(next?.buckets[0].categoryIds, ["food"]);
+});
+
+test("goals migrate once and old backups without buckets still open", () => {
+  const once = migrateGoals([{ id: "car", name: "Car", target: 1000, saved: 200, by: "2027-06" }], [], "2026-10");
+  const twice = migrateGoals([{ id: "car", name: "Car", target: 1000, saved: 200, by: "2027-06" }], once, "2026-10");
+  assert.equal(once.length, 1);
+  assert.equal(once[0].opening, 200);
+  assert.equal(twice.length, 1);
+  const parsed = parseBackup({
+    profile: { ledgerName: "Old", completedOnboarding: true },
+    categories: [pay, rent],
+    transactions: [],
+    savingsGoals: [{ id: "car", name: "Car", target: 1000, saved: 200, by: null }],
+  });
+  assert.equal(parsed.ok, true);
+  if (parsed.ok) {
+    assert.equal(parsed.data.moneyBuckets.length, 1);
+    assert.equal(parsed.data.moneyBuckets[0].fromGoalId, "car");
+    assert.ok(parsed.data.ira.under50 > 0);
+  }
+  const empty = normalizeSnapshot({ categories: [pay], transactions: [], savingsGoals: [] });
+  assert.ok(empty);
+  assert.deepEqual(empty?.moneyBuckets, []);
+});
+
+test("import suggestion prefers the last category the person set", () => {
+  const hit = suggestCategory("CITY GROCERY", -12, cats, [], "CITY GROCERY", [
+    { merchantKey: "CITY GROCERY", categoryId: "rent", userSet: true, date: "2026-08-01" },
+  ]);
+  assert.equal(hit.reason, "history");
+  assert.equal(hit.categoryId, "rent");
+});

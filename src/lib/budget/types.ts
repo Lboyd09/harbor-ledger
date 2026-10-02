@@ -8,6 +8,8 @@ export type BudgetPeriod = "week" | "month";
 export type TxStatus = "posted" | "refund" | "transfer" | "reimbursement";
 export type HarborLook = "harbor" | "dusk" | "tide" | "brass";
 export type HarborMotion = "calm" | "lively";
+/** How much of the ledger to show. Missing on older ledgers — treat as simple. */
+export type DetailMode = "simple" | "nerd";
 
 export type IncomeStream = {
   name: string;
@@ -33,6 +35,10 @@ export type Profile = {
   accent?: HarborLook;
   /** Motion level. Missing on older ledgers — treat as lively. */
   motion?: HarborMotion;
+  /** Simple hides the extra tools. Missing means simple. */
+  detail?: DetailMode;
+  /** True after the person picks Simple or Nerd. Missing means they have not chosen yet. */
+  detailChosen?: boolean;
 };
 
 export type Category = {
@@ -84,6 +90,65 @@ export type SavingsGoal = {
   saved: number;
   /** Optional YYYY-MM. */
   by: string | null;
+};
+
+/**
+ * Money set aside that carries forward.
+ * Not the same as profile.buckets, which is only the onboarding category list.
+ */
+export type MoneyBucket = {
+  id: string;
+  name: string;
+  /** Amount added each month from the start month, inclusive. */
+  monthly: number;
+  /** When set, the person typed a year total. monthly is that number divided by 12. */
+  yearly: number | null;
+  categoryIds: string[];
+  target: number | null;
+  /** Optional YYYY-MM. */
+  by: string | null;
+  startMonth: string;
+  /** Balance before the start month. A migrated goal puts "already saved" here. */
+  opening: number;
+  /** Set when this bucket was created from a savings goal, so reload does not copy it again. */
+  fromGoalId?: string | null;
+};
+
+/** A transfer between buckets, or from unassigned money (fromId null). Not income and not spending. */
+export type BucketMove = {
+  id: string;
+  ym: string;
+  amount: number;
+  fromId: string | null;
+  toId: string;
+};
+
+export type NetWorthPoint = {
+  id: string;
+  date: string;
+  amount: number;
+  note: string;
+};
+
+export type DebtItem = {
+  id: string;
+  name: string;
+  balance: number;
+  /** Annual percentage rate, as a percent (18.9 means 18.9%). */
+  apr: number;
+  minimum: number;
+};
+
+/** Editable IRS-style figures. The math reads this object. It is not a set of hidden constants. */
+export type IraRules = {
+  year: number;
+  under50: number;
+  catchUp: number;
+  rothSingleStart: number;
+  rothSingleEnd: number;
+  rothJointStart: number;
+  rothJointEnd: number;
+  note: string;
 };
 
 export type MerchantRule = {
@@ -154,6 +219,11 @@ export type LedgerSnapshot = {
   imports: ImportBatch[];
   monthBudgets: MonthBudget[];
   savingsGoals: SavingsGoal[];
+  moneyBuckets: MoneyBucket[];
+  bucketMoves: BucketMove[];
+  netWorth: NetWorthPoint[];
+  debts: DebtItem[];
+  ira: IraRules;
   activeMonth: string;
   activeWeek: string;
 };
