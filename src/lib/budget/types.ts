@@ -10,12 +10,21 @@ export type HarborLook = "harbor" | "dusk" | "tide" | "brass";
 export type HarborMotion = "calm" | "lively";
 /** How much of the ledger to show. Missing on older ledgers — treat as simple. */
 export type DetailMode = "simple" | "nerd";
-/** Which Plan page opens first. Missing on older ledgers — monthly budgets. */
+/** Which Plan page opens first. "monthly" starts fresh. "buckets" carries leftovers. Missing means monthly. */
 export type BudgetStyle = "monthly" | "buckets";
 
+export type IncomeCadence = "monthly" | "twice-monthly" | "biweekly" | "weekly" | "irregular";
+
 export type IncomeStream = {
+  id: string;
   name: string;
-  monthly: number;
+  /** Amount of one paycheck, not always a month. */
+  amount: number;
+  cadence: IncomeCadence;
+  /** Words from the deposit description, such as an employer name. */
+  matchHints: string[];
+  /** Income category this source usually lands in. */
+  categoryId?: string | null;
 };
 
 export type Profile = {
@@ -41,8 +50,10 @@ export type Profile = {
   detail?: DetailMode;
   /** True after the person picks Simple or Nerd. Missing means they have not chosen yet. */
   detailChosen?: boolean;
-  /** Monthly budgets reset. Buckets keep leftovers. Missing means monthly. */
+  /** Monthly budgets reset. "buckets" carries what is left. Missing means monthly. */
   budgetStyle?: BudgetStyle;
+  /** First month carry-over counts. Kept when the style switches back to monthly. */
+  carryStartMonth?: string | null;
 };
 
 export type Category = {
@@ -79,6 +90,8 @@ export type Transaction = {
   status: TxStatus;
   /** Positive pieces that add up to the absolute amount. Only this row, only this month. */
   splits?: TxSplit[] | null;
+  /** Which account this row came from. Missing on older rows. */
+  accountId?: string | null;
 };
 
 export type TxSplit = {
@@ -187,7 +200,33 @@ export type ImportBatch = {
   added: number;
   skippedDuplicates: number;
   sourceLabel: string;
+  /** Which account this file belongs to. Missing on older batches. */
+  accountId?: string | null;
+  /** Balance the file reported, when it had one. */
+  endingBalance?: { amount: number; asOf: string } | null;
 };
+
+export type AccountKind = "checking" | "savings" | "credit" | "investment" | "retirement" | "other";
+
+export type Account = {
+  id: string;
+  name: string;
+  kind: AccountKind;
+  institution?: string | null;
+  createdAt: string;
+};
+
+/** A balance for one account. Investment and retirement accounts can live on these alone. */
+export type BalancePoint = {
+  id: string;
+  accountId: string;
+  date: string;
+  amount: number;
+  source: "file" | "entered";
+};
+
+/** A savings plan: money set aside for one purchase. Same stored shape as before. */
+export type SavingsPlan = MoneyBucket;
 
 export type RecurringGroup = {
   merchantKey: string;
@@ -248,6 +287,8 @@ export type LedgerSnapshot = {
   netWorth: NetWorthPoint[];
   debts: DebtItem[];
   ira: IraRules;
+  accounts: Account[];
+  balances: BalancePoint[];
   activeMonth: string;
   activeWeek: string;
 };

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ledgerBackup } from "@/lib/budget/backup";
 import { ledgerCsv, similarAppCsv, transactionsCsv } from "@/lib/budget/export-workbook";
 import { downloadBytes, downloadText } from "@/lib/budget/download";
 import { monthlySeries } from "@/lib/budget/totals";
@@ -19,6 +20,8 @@ export function ExportBar() {
   const netWorth = useBudgetStore((s) => s.netWorth) ?? [];
   const debts = useBudgetStore((s) => s.debts) ?? [];
   const ira = useBudgetStore((s) => s.ira);
+  const accounts = useBudgetStore((s) => s.accounts) ?? [];
+  const balances = useBudgetStore((s) => s.balances) ?? [];
   const resetAll = useBudgetStore((s) => s.resetAll);
   const restoreBackup = useBudgetStore((s) => s.restoreBackup);
   const [note, setNote] = useState<string | null>(null);
@@ -47,7 +50,7 @@ export function ExportBar() {
     setBusy(true);
     setNote(null);
     try {
-      const bytes = buildHarborWorkbook({ profile, categories, transactions, monthBudgets, savingsGoals, moneyBuckets, bucketMoves, netWorth, debts, ira });
+      const bytes = buildHarborWorkbook({ profile, categories, transactions, monthBudgets, savingsGoals, moneyBuckets, bucketMoves, netWorth, debts, ira, accounts, balances });
       publish(
         "harbor-ledger.xlsx",
         bytes,
@@ -67,7 +70,7 @@ export function ExportBar() {
     setBusy(true);
     setNote(null);
     try {
-      const bytes = buildHarborWorkbook({ profile, categories, transactions, monthBudgets, savingsGoals, moneyBuckets, bucketMoves, netWorth, debts, ira });
+      const bytes = buildHarborWorkbook({ profile, categories, transactions, monthBudgets, savingsGoals, moneyBuckets, bucketMoves, netWorth, debts, ira, accounts, balances });
       publish(
         "harbor-ledger-google-sheets.xlsx",
         bytes,
@@ -169,7 +172,24 @@ export function ExportBar() {
               downloadText(
                 "harbor-ledger-backup.json",
                 JSON.stringify(
-                  { profile, categories, transactions, merchantRules, monthBudgets, savingsGoals, moneyBuckets, bucketMoves, netWorth, debts, ira },
+                  ledgerBackup({
+                    profile,
+                    categories,
+                    transactions,
+                    merchantRules,
+                    imports: [],
+                    monthBudgets,
+                    savingsGoals,
+                    moneyBuckets,
+                    bucketMoves,
+                    netWorth,
+                    debts,
+                    ira,
+                    accounts,
+                    balances,
+                    activeMonth: "",
+                    activeWeek: "",
+                  }),
                   null,
                   2,
                 ),

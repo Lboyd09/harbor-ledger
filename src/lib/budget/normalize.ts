@@ -1,8 +1,12 @@
+import { migrateLedgerAccounts, isAccountKind } from "./accounts.ts";
 import { migrateGoals } from "./buckets.ts";
+import { expectedMonthlyOf } from "./income.ts";
 import { normalizeIra } from "./ira.ts";
 import { currentMonthKey, currentWeekKey, weekKeyFromDate } from "./parse-date.ts";
 import { DEFAULT_PROFILE } from "./presets.ts";
 import type {
+  Account,
+  BalancePoint,
   BucketMove,
   BudgetGoal,
   BudgetPeriod,
@@ -13,6 +17,8 @@ import type {
   HarborLook,
   HarborMotion,
   ImportBatch,
+  IncomeCadence,
+  IncomeStream,
   LedgerSnapshot,
   MerchantRule,
   MoneyBucket,
@@ -33,6 +39,20 @@ const GOALS: BudgetGoal[] = ["track", "save", "debt", "purchase", "live-within"]
 const LOOKS: HarborLook[] = ["harbor", "dusk", "tide", "brass"];
 const MOTIONS: HarborMotion[] = ["calm", "lively"];
 const DETAILS: DetailMode[] = ["simple", "nerd"];
+const CADENCES: IncomeCadence[] = ["monthly", "twice-monthly", "biweekly", "weekly", "irregular"];
+
+function normalizeStream(raw: Record<string, unknown>, index: number): IncomeStream {
+  const amount = Math.max(0, asNumber(raw.amount, asNumber(raw.monthly, 0)));
+  const cadence = CADENCES.includes(raw.cadence as IncomeCadence) ? (raw.cadence as IncomeCadence) : "monthly";
+  return {
+    id: asString(raw.id, `income_${index}`),
+    name: asString(raw.name, "Income"),
+    amount,
+    cadence,
+    matchHints: Array.isArray(raw.matchHints) ? raw.matchHints.filter((h): h is string => typeof h === "string") : [],
+    categoryId: typeof raw.categoryId === "string" && raw.categoryId ? raw.categoryId : null,
+  };
+}
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
@@ -58,15 +78,12 @@ function asBool(v: unknown, fallback = false): boolean {
 export function normalizeProfile(raw: unknown): Profile {
   const p = isRecord(raw) ? raw : {};
   const streamsRaw = Array.isArray(p.incomeStreams) ? p.incomeStreams : [];
-  const streams = streamsRaw.filter(isRecord).map((s) => ({
-    name: asString(s.name, "Income"),
-    monthly: Math.max(0, asNumber(s.monthly, 0)),
-  }));
+  const streams = streamsRaw.filter(isRecord).map((s, i) => normalizeStream(s, i));
   const monthly = Math.max(
     0,
     asNumber(
       p.monthlyIncome,
-      streams.reduce((s, x) => s + x.monthly, 0),
+      streams.reduce((s, x) => s + expectedMonthlyOf(x), 0),
     ),
   );
   const budgetPeriod: BudgetPeriod = PERIODS.includes(p.budgetPeriod as BudgetPeriod)
@@ -86,7 +103,9 @@ export function normalizeProfile(raw: unknown): Profile {
     usesTransit: asBool(p.usesTransit, false),
     hasPets: asBool(p.hasPets, false),
     monthlyIncome: monthly,
-    incomeStreams: streams.length ? streams : [{ name: "Paycheck", monthly }],
+    incomeStreams: streams.length
+      ? streams
+      : [{ id: "income_paycheck", name: "Paycheck", amount: monthly, cadence: "monthly", matchHints: [] }],
     buckets: Array.isArray(p.buckets) ? p.buckets.filter((b): b is string => typeof b === "string") : [],
     goals: Array.isArray(p.goals)
       ? (p.goals.filter((g) => GOALS.includes(g as BudgetGoal)) as BudgetGoal[])
@@ -98,6 +117,7 @@ export function normalizeProfile(raw: unknown): Profile {
     detail: DETAILS.includes(p.detail as DetailMode) ? (p.detail as DetailMode) : "simple",
     detailChosen: asBool(p.detailChosen, false),
     budgetStyle: p.budgetStyle === "buckets" ? "buckets" : ("monthly" as BudgetStyle),
+    carryStartMonth: /^\d{4}-\d{2}$/.test(asString(p.carryStartMonth)) ? asString(p.carryStartMonth) : null,
   };
 }
 
@@ -120,6 +140,7 @@ export function normalizeTransaction(raw: unknown, index = 0): Transaction | nul
     excluded: asBool(raw.excluded, false),
     status,
     splits: normalizeSplits(raw.splits),
+    accountId: typeof raw.accountId === "string" && raw.accountId ? raw.accountId : null,
   };
 }
 
@@ -169,6 +190,8 @@ export function normalizeSnapshot(raw: unknown): LedgerSnapshot | null {
         added: asNumber(b.added, 0),
         skippedDuplicates: asNumber(b.skippedDuplicates, 0),
         sourceLabel: asString(b.sourceLabel, ""),
+        accountId: typeof b.accountId === "string" && b.accountId ? b.accountId : null,
+        endingBalance: normalizeEnding(b.endingBalance),
       }))
     : [];
   const profile = normalizeProfile(inner.profile);
@@ -203,12 +226,18 @@ export function normalizeSnapshot(raw: unknown): LedgerSnapshot | null {
   const last = transactions[0]?.date;
   const activeWeek = asString(inner.activeWeek, last ? weekKeyFromDate(last) : currentWeekKey());
   const moneyBuckets = migrateGoals(savingsGoals, normalizeBuckets(inner.moneyBuckets), activeMonth);
+  const migrated = migrateLedgerAccounts({
+    accounts: normalizeAccounts(inner.accounts),
+    balances: normalizeBalances(inner.balances),
+    transactions,
+    imports,
+  });
   return {
     profile,
     categories,
-    transactions,
+    transactions: migrated.transactions,
     merchantRules,
-    imports,
+    imports: migrated.imports,
     monthBudgets,
     savingsGoals,
     moneyBuckets,
@@ -216,6 +245,8 @@ export function normalizeSnapshot(raw: unknown): LedgerSnapshot | null {
     netWorth: normalizeNetWorth(inner.netWorth),
     debts: normalizeDebts(inner.debts),
     ira: normalizeIra(inner.ira),
+    accounts: migrated.accounts,
+    balances: migrated.balances,
     activeMonth,
     activeWeek,
   };
@@ -236,9 +267,54 @@ export function emptySnapshot(): LedgerSnapshot {
     netWorth: [],
     debts: [],
     ira: normalizeIra(undefined),
+    accounts: [],
+    balances: [],
     activeMonth,
     activeWeek: currentWeekKey(),
   };
+}
+
+function normalizeEnding(raw: unknown): ImportBatch["endingBalance"] {
+  if (!isRecord(raw)) return null;
+  const asOf = asString(raw.asOf);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(asOf)) return null;
+  return { amount: asNumber(raw.amount, 0), asOf };
+}
+
+function normalizeAccounts(raw: unknown): Account[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter(isRecord).flatMap((a, i) => {
+    const name = asString(a.name).trim();
+    const kind = asString(a.kind);
+    if (!name || !isAccountKind(kind)) return [];
+    return [
+      {
+        id: asString(a.id, `acct_${i}`),
+        name,
+        kind,
+        institution: typeof a.institution === "string" && a.institution ? a.institution : null,
+        createdAt: asString(a.createdAt, "2020-01-01T00:00:00.000Z"),
+      },
+    ];
+  });
+}
+
+function normalizeBalances(raw: unknown): BalancePoint[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter(isRecord).flatMap((b, i) => {
+    const accountId = asString(b.accountId);
+    const date = asString(b.date);
+    if (!accountId || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return [];
+    return [
+      {
+        id: asString(b.id, `bal_${i}`),
+        accountId,
+        date,
+        amount: asNumber(b.amount, 0),
+        source: b.source === "entered" ? "entered" : "file",
+      },
+    ];
+  });
 }
 
 function normalizeBuckets(raw: unknown): MoneyBucket[] {

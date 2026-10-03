@@ -70,7 +70,7 @@ export function Onboarding({ initialPath = null, onExit }: { initialPath?: "inco
       housing,
       hasVehicle,
       monthlyIncome,
-      incomeStreams: [{ name: "Paycheck", monthly: monthlyIncome }],
+      incomeStreams: [{ id: "income_paycheck", name: "Paycheck", amount: monthlyIncome, cadence: "monthly", matchHints: [] }],
       buckets: slugs,
       goals: existing.goals?.length ? existing.goals : ["track"],
       completedOnboarding: true,

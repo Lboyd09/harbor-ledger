@@ -9,7 +9,9 @@ import { newId } from "@/lib/budget/ids";
 import { DEFAULT_IRA } from "@/lib/budget/ira";
 import { merchantKey } from "@/lib/budget/merchant";
 import { roundMoney } from "@/lib/budget/money";
-import { emptySnapshot, normalizeSnapshot } from "@/lib/budget/normalize";
+import { emptySnapshot, normalizeProfile, normalizeSnapshot } from "@/lib/budget/normalize";
+import { migrateLedgerAccounts } from "@/lib/budget/accounts";
+import { withBudgetStyle } from "@/lib/budget/style";
 import { currentMonthKey, currentWeekKey } from "@/lib/budget/parse-date";
 import { clearLedger, loadLedger, saveLedger } from "@/lib/budget/persist";
 import { paybackNotes, paybackPartnerId } from "@/lib/budget/payback";
@@ -19,6 +21,7 @@ import { SAMPLE_CSV, SAMPLE_PROFILE } from "@/lib/budget/sample";
 import type {
   BucketMove,
   BudgetPeriod,
+  BudgetStyle,
   Category,
   CsvPreview,
   DebtItem,
@@ -87,6 +90,7 @@ type State = LedgerSnapshot & {
   countHiddenDeposits: () => number;
   cancelSetup: () => void;
   patchProfile: (patch: Partial<Profile>) => void;
+  setBudgetStyle: (style: BudgetStyle, options?: { carryStartMonth?: string; today?: string }) => void;
   importPreview: (preview: CsvPreview, flipSign: boolean) => ImportResult;
   loadSample: () => void;
   deleteTransaction: (id: string) => void;
@@ -111,6 +115,8 @@ function snapshotOf(s: LedgerSnapshot): LedgerSnapshot {
     netWorth: s.netWorth ?? [],
     debts: s.debts ?? [],
     ira: s.ira ?? DEFAULT_IRA,
+    accounts: s.accounts ?? [],
+    balances: s.balances ?? [],
     activeMonth: s.activeMonth,
     activeWeek: s.activeWeek,
   };
@@ -258,10 +264,22 @@ export const useBudgetStore = create<State>()(
       setHydrated: () => {
         const s = get();
         const month = currentMonthKey();
+        const profile = normalizeProfile(s.profile);
+        const migrated = migrateLedgerAccounts({
+          accounts: s.accounts ?? [],
+          balances: s.balances ?? [],
+          transactions: s.transactions,
+          imports: s.imports ?? [],
+        });
         quiet(() =>
           set({
             hydrated: true,
             ...openToday(),
+            profile: { ...profile, detail: profile.detail === "nerd" ? "nerd" : "simple" },
+            transactions: migrated.transactions,
+            imports: migrated.imports,
+            accounts: migrated.accounts,
+            balances: migrated.balances,
             monthBudgets: s.monthBudgets ?? [],
             savingsGoals: s.savingsGoals ?? [],
             moneyBuckets: migrateGoals(s.savingsGoals ?? [], s.moneyBuckets ?? [], month),
@@ -269,7 +287,6 @@ export const useBudgetStore = create<State>()(
             netWorth: s.netWorth ?? [],
             debts: s.debts ?? [],
             ira: s.ira ?? DEFAULT_IRA,
-            profile: { ...s.profile, detail: s.profile.detail === "nerd" ? "nerd" : "simple" },
           }),
         );
       },
@@ -361,6 +378,10 @@ export const useBudgetStore = create<State>()(
       },
       patchProfile: (patch) => {
         set({ profile: { ...get().profile, ...patch, completedOnboarding: get().profile.completedOnboarding } });
+        schedulePersist();
+      },
+      setBudgetStyle: (style, options) => {
+        set({ profile: withBudgetStyle(get().profile, style, options) });
         schedulePersist();
       },
       resetAll: async () => {
@@ -971,6 +992,8 @@ export const useBudgetStore = create<State>()(
           netWorth: parsed.data.netWorth ?? [],
           debts: parsed.data.debts ?? [],
           ira: parsed.data.ira,
+          accounts: parsed.data.accounts ?? [],
+          balances: parsed.data.balances ?? [],
           imports: [
             {
               id: newId("imp"),
@@ -1018,6 +1041,8 @@ useBudgetStore.subscribe((state, prev) => {
     state.netWorth !== prev.netWorth ||
     state.debts !== prev.debts ||
     state.ira !== prev.ira ||
+    state.accounts !== prev.accounts ||
+    state.balances !== prev.balances ||
     state.activeMonth !== prev.activeMonth ||
     state.activeWeek !== prev.activeWeek
   ) {

@@ -1,4 +1,5 @@
 import { newId } from "./ids.ts";
+import { expectedMonthlyOf } from "./income.ts";
 import { roundPlan } from "./money.ts";
 import type { BudgetGoal, Category, IncomeStream, Profile } from "./types.ts";
 
@@ -12,7 +13,7 @@ export const DEFAULT_PROFILE: Profile = {
   usesTransit: false,
   hasPets: false,
   monthlyIncome: 0,
-  incomeStreams: [{ name: "Paycheck", monthly: 0 }],
+  incomeStreams: [{ id: "income_paycheck", name: "Paycheck", amount: 0, cadence: "monthly", matchHints: [] }],
   buckets: [],
   goals: ["track"],
   completedOnboarding: false,
@@ -90,17 +91,20 @@ export function buildPresetCategories(profile: Profile): Category[] {
   const used = new Set<string>();
 
   const streams: IncomeStream[] =
-    profile.incomeStreams?.length > 0 ? profile.incomeStreams : [{ name: "Paycheck", monthly: i }];
+    profile.incomeStreams?.length > 0
+      ? profile.incomeStreams
+      : [{ id: "income_paycheck", name: "Paycheck", amount: i, cadence: "monthly", matchHints: [] }];
 
   streams.forEach((stream, index) => {
     let slug = incomeSlug(stream, index);
     if (used.has(slug)) slug = `${slug}-${index + 1}`;
     used.add(slug);
+    const monthly = expectedMonthlyOf(stream);
     drafts.push({
       slug,
       name: stream.name.trim() || `Income ${index + 1}`,
       kind: "income",
-      planned: stream.monthly > 0 ? roundPlan(stream.monthly) : 0,
+      planned: monthly > 0 ? roundPlan(monthly) : 0,
     });
   });
 

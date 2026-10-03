@@ -66,8 +66,8 @@ export const SAMPLE_PROFILE = {
   hasPets: false,
   monthlyIncome: 3600,
   incomeStreams: [
-    { name: "Paycheck", monthly: 3360 },
-    { name: "Side work", monthly: 240 },
+    { id: "income_paycheck", name: "Paycheck", amount: 3360, cadence: "monthly" as const, matchHints: [] },
+    { id: "income_side", name: "Side work", amount: 240, cadence: "monthly" as const, matchHints: [] },
   ],
   buckets: [
     "housing",

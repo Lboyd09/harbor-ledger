@@ -1,4 +1,6 @@
+import { latestBalance } from "./accounts.ts";
 import { bucketBalance, fullLineOf } from "./buckets.ts";
+import { TERMS } from "../copy/terms.ts";
 import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
 import * as XLSX from "xlsx";
 import { displayMerchant } from "./merchant.ts";
@@ -8,7 +10,7 @@ import { groupPayees } from "./payees.ts";
 import { monthlySeries } from "./totals.ts";
 import { buildYearWorkbook } from "./year.ts";
 import { piecesOf } from "./splits.ts";
-import type { BucketMove, Category, DebtItem, IraRules, MoneyBucket, MonthBudget, NetWorthPoint, Profile, SavingsGoal, Transaction } from "./types.ts";
+import type { Account, BalancePoint, BucketMove, Category, DebtItem, IraRules, MoneyBucket, MonthBudget, NetWorthPoint, Profile, SavingsGoal, Transaction } from "./types.ts";
 
 type Row = (string | number)[];
 
@@ -172,6 +174,8 @@ export function buildHarborWorkbook(input: {
   netWorth?: NetWorthPoint[];
   debts?: DebtItem[];
   ira?: IraRules;
+  accounts?: Account[];
+  balances?: BalancePoint[];
 }): Uint8Array {
   const { profile, categories, transactions } = input;
   const budgets = input.monthBudgets ?? [];
@@ -181,6 +185,8 @@ export function buildHarborWorkbook(input: {
   const netWorth = input.netWorth ?? [];
   const debts = input.debts ?? [];
   const ira = input.ira;
+  const accounts = input.accounts ?? [];
+  const balances = input.balances ?? [];
   const months = monthlySeries(transactions, categories);
   const years = [...new Set(transactions.map((t) => t.date.slice(0, 4)).filter((y) => y.length === 4))].sort();
   const year = years.at(-1) ?? String(new Date().getFullYear());
@@ -252,6 +258,14 @@ export function buildHarborWorkbook(input: {
     ["Usual income plan", round2(book.planIncome)],
     ["Usual spending plan", round2(book.planExpenses)],
     ["Rows still needing a category", book.uncategorized],
+  ]);
+
+  add("Accounts", [
+    [TERMS.account, "Kind", "Latest balance", "As of"],
+    ...accounts.map((account) => {
+      const latest = latestBalance(account.id, balances);
+      return [account.name, account.kind, latest ? round2(latest.amount) : "", latest?.date ?? ""];
+    }),
   ]);
 
   add("Saving for", [
