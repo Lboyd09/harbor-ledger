@@ -11,6 +11,7 @@ import { merchantKey } from "@/lib/budget/merchant";
 import { roundMoney } from "@/lib/budget/money";
 import { emptySnapshot, normalizeProfile, normalizeSnapshot } from "@/lib/budget/normalize";
 import { migrateLedgerAccounts } from "@/lib/budget/accounts";
+import { applyCompleteSetup, type SetupExtras } from "@/lib/budget/onboarding-plan";
 import { withBudgetStyle } from "@/lib/budget/style";
 import { currentMonthKey, currentWeekKey } from "@/lib/budget/parse-date";
 import { clearLedger, loadLedger, saveLedger } from "@/lib/budget/persist";
@@ -52,7 +53,7 @@ type State = LedgerSnapshot & {
   setHydrated: () => void;
   hydrateLocal: () => void;
   loadRemote: () => Promise<void>;
-  completeSetup: (profile: Profile, categories: Category[]) => void;
+  completeSetup: (profile: Profile, categories: Category[], extras?: SetupExtras) => void;
   reopenSetup: () => void;
   resetAll: () => Promise<void>;
   setActiveMonth: (ym: string) => void;
@@ -176,15 +177,6 @@ async function flushPersist() {
     }
   });
   return persistChain;
-}
-
-function remapIds(oldCats: Category[], nextCats: Category[]) {
-  const map = new Map<string, string>();
-  for (const old of oldCats) {
-    const match = nextCats.find((c) => c.slug === old.slug) ?? nextCats.find((c) => c.name === old.name);
-    if (match) map.set(old.id, match.id);
-  }
-  return map;
 }
 
 function applyImportRows(
@@ -341,30 +333,8 @@ export const useBudgetStore = create<State>()(
           quiet(() => set({ hydrated: true, saveState: "error", saveError: message }));
         }
       },
-      completeSetup: (profile, categories) => {
-        const idMap = remapIds(get().categories, categories);
-        set({
-          profile: {
-            ...get().profile,
-            ...profile,
-            completedOnboarding: true,
-            detail: profile.detail ?? get().profile.detail ?? "simple",
-            detailChosen: true,
-          },
-          categories,
-          transactions: get().transactions.map((t) => ({
-            ...t,
-            categoryId: t.categoryId ? (idMap.get(t.categoryId) ?? null) : null,
-            splits: t.splits?.map((p) => ({ ...p, categoryId: idMap.get(p.categoryId) ?? p.categoryId })) ?? null,
-          })),
-          merchantRules: get()
-            .merchantRules.map((r) => ({ ...r, categoryId: idMap.get(r.categoryId) ?? "" }))
-            .filter((r) => r.categoryId),
-          moneyBuckets: (get().moneyBuckets ?? []).map((b) => ({
-            ...b,
-            categoryIds: b.categoryIds.map((id) => idMap.get(id)).filter((id): id is string => Boolean(id)),
-          })),
-        });
+      completeSetup: (profile, categories, extras) => {
+        set(applyCompleteSetup(get(), profile, categories, extras));
         void flushPersist();
       },
       reopenSetup: () => {

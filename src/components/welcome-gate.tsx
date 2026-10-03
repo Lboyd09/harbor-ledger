@@ -9,10 +9,10 @@ export function WelcomeGate() {
   const loadSample = useBudgetStore((s) => s.loadSample);
   const restoreBackup = useBudgetStore((s) => s.restoreBackup);
   const navigate = useNavigate();
-  const [path, setPath] = useState<"income" | "file" | null>(null);
+  const [started, setStarted] = useState(false);
   const [restoreError, setRestoreError] = useState<string | null>(null);
 
-  if (path) return <Onboarding initialPath={path} onExit={() => setPath(null)} />;
+  if (started) return <Onboarding onExit={() => setStarted(false)} />;
 
   async function onRestore(file: File) {
     setRestoreError(null);
@@ -31,24 +31,23 @@ export function WelcomeGate() {
         <HarborMark className="size-5 text-primary" />
         <p className="text-sm font-medium uppercase tracking-widest text-muted">Harbor Ledger</p>
       </div>
-      <h1 className="mt-4 font-display text-3xl font-semibold md:text-4xl">Give every dollar a job.</h1>
-      <p className="mt-3 text-muted">Harbor shows where your money goes. It never logs into your bank.</p>
-      <div className="mt-8 flex flex-col gap-2">
-        <Button className="w-full" onClick={() => setPath("income")}>
-          Start with my income and goals
-        </Button>
-        <Button variant="outline" className="w-full" onClick={() => setPath("file")}>
-          Start with my bank file
+      <h1 className="mt-4 font-display text-3xl font-semibold md:text-4xl">Let's set up your budget</h1>
+      <p className="mt-3 text-muted">
+        A few questions about you, then the app does most of the work. About five minutes. Nothing connects to your bank.
+      </p>
+      <div className="mt-8">
+        <Button className="w-full" onClick={() => setStarted(true)}>
+          Get started
         </Button>
       </div>
       <div className="mt-6 flex flex-col items-start gap-2 text-sm">
-        <button type="button" className="text-muted underline-offset-2 hover:underline" onClick={() => loadSample()}>
+        <button type="button" className="min-h-11 text-muted underline-offset-2 hover:underline" onClick={() => loadSample()}>
           Try the demo
         </button>
-        <button type="button" className="text-muted underline-offset-2 hover:underline" onClick={() => void navigate({ to: "/login" })}>
+        <button type="button" className="min-h-11 text-muted underline-offset-2 hover:underline" onClick={() => void navigate({ to: "/login" })}>
           Sign in
         </button>
-        <label className="cursor-pointer text-muted underline-offset-2 hover:underline">
+        <label className="flex min-h-11 cursor-pointer items-center text-muted underline-offset-2 hover:underline">
           Restore a backup
           <input
             type="file"

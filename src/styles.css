@@ -257,3 +257,50 @@ html[data-motion="calm"] .chart-rise .recharts-line-curve {
   color: #f6f1e7;
 }
 
+.jar {
+  position: relative;
+  height: 4.5rem;
+  width: 2.75rem;
+  overflow: hidden;
+  border: 2px solid color-mix(in srgb, var(--color-primary) 55%, transparent);
+  border-radius: 0.45rem 0.45rem 0.85rem 0.85rem;
+  background: var(--color-chip);
+}
+.jar-fill {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background: color-mix(in srgb, var(--color-primary) 72%, white);
+}
+.jar-refill {
+  animation: jar-refill 2.8s ease-in-out infinite;
+}
+.jar-carry-in {
+  animation: jar-carry-in 2.8s ease-in-out infinite;
+}
+@keyframes jar-refill {
+  0%,
+  18% {
+    height: 12%;
+  }
+  68%,
+  100% {
+    height: 88%;
+  }
+}
+@keyframes jar-carry-in {
+  0%,
+  16% {
+    height: 0%;
+  }
+  62%,
+  100% {
+    height: 70%;
+  }
+}
+html[data-motion="calm"] .jar-refill,
+html[data-motion="calm"] .jar-carry-in {
+  animation: none;
+}
+

@@ -48,7 +48,7 @@ function SetupEntry() {
   const catCount = useBudgetStore((s) => s.categories.length);
   const [fresh] = useState(() => txCount === 0 && catCount === 0);
   if (fresh) return <WelcomeGate />;
-  return <Onboarding initialPath={txCount > 0 ? "file" : "income"} />;
+  return <Onboarding />;
 }
 
 export function AppShell() {
