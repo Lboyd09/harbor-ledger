@@ -11,8 +11,8 @@ export function CashChart({
   bars: { key: string; fill: string }[];
   layout?: "horizontal" | "vertical";
 }) {
-  if (!data.length) return <p className="text-sm text-muted">Nothing to chart yet.</p>;
   const lively = useLivelyMotion();
+  if (!data.length) return <p className="text-sm text-muted">Nothing to chart yet.</p>;
   const height = layout === "vertical" ? Math.max(160, data.length * 36 + 16) : 224;
   return (
     <div className="w-full" style={{ height }}>

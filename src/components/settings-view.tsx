@@ -9,7 +9,6 @@ import { formatMoney } from "@/lib/budget/money";
 import type { DetailMode, HarborLook, HarborMotion } from "@/lib/budget/types";
 import { useBudgetStore } from "@/store/budget-store";
 import { ExportBar } from "./export-bar";
-import { StyleChoice } from "./style-choice";
 import { Button } from "./ui/button";
 import { Field, Input, Select } from "./ui/field";
 
@@ -39,8 +38,9 @@ export function SettingsView() {
           <p className="text-sm text-muted">If a file is already in, start with categories. Then set monthly amounts.</p>
           <div className="flex flex-col gap-2 text-sm">
             <Link to="/import" className="font-medium text-primary">Import a bank CSV</Link>
-            <Link to="/" className="font-medium text-primary">Month — categorize charges, or mark one paid back</Link>
-            <Link to="/plan" className="font-medium text-primary">Plan — budgets that reset, or buckets that keep what you don’t spend</Link>
+            <Link to="/" className="font-medium text-primary">Home — this month, merchants, and a bank file</Link>
+            <Link to="/plan" className="font-medium text-primary">Budget — amounts that start over each month</Link>
+            <Link to="/funds" className="font-medium text-primary">Funds — money that keeps what’s left</Link>
             <Link to="/categories" className="font-medium text-primary">Merchants — one category for a store</Link>
             <Link to="/grow" className="font-medium text-primary">Grow — debt, net worth, and calculators</Link>
           </div>
@@ -56,10 +56,7 @@ export function SettingsView() {
             Look
           </a>
           <a href="#mode" className="rounded-md border border-border bg-surface px-3 py-2">
-            Simple or More detail
-          </a>
-          <a href="#style" className="rounded-md border border-border bg-surface px-3 py-2">
-            Budgets or buckets
+            Show advanced tools
           </a>
           <a href="#ledger" className="rounded-md border border-border bg-surface px-3 py-2">
             Ledger
@@ -69,8 +66,11 @@ export function SettingsView() {
 
       <AccountPanel signedIn={Boolean(user)} email={user?.primaryEmail ?? ""} />
 
-      <div id="files">
+      <div id="files" className="space-y-3">
         <ExportBar />
+        <Link to="/year" className="inline-flex text-sm font-medium text-primary">
+          Look back at the calendar year
+        </Link>
       </div>
 
       <section id="look" className="space-y-3 rounded-lg border border-border bg-surface p-4">
@@ -104,17 +104,17 @@ export function SettingsView() {
       </section>
 
       <section id="mode" className="space-y-3 rounded-lg border border-border bg-surface p-4">
-        <h2 className="font-display text-xl font-semibold">Simple or More detail</h2>
+        <h2 className="font-display text-xl font-semibold">Show advanced tools</h2>
         <p className="text-sm text-muted">
-          Simple keeps the savings rate and a short note. More detail adds extra charts and a sandbox that never changes the real plan.
+          Off keeps the short notes. On adds extra charts. Payback, splits, merchants, and the year page stay available either way.
         </p>
-        <Field label="How much to show">
+        <Field label="Advanced tools">
           <Select
             value={profile.detail === "nerd" ? "nerd" : "simple"}
             onChange={(e) => patchProfile({ detail: e.target.value as DetailMode, detailChosen: true })}
           >
-            <option value="simple">Simple</option>
-            <option value="nerd">More detail</option>
+            <option value="simple">Off</option>
+            <option value="nerd">On</option>
           </Select>
         </Field>
         <div className="flex flex-wrap gap-3 text-sm">
@@ -128,17 +128,6 @@ export function SettingsView() {
             Grow calculators
           </Link>
         </div>
-      </section>
-
-      <section id="style" className="space-y-3 rounded-lg border border-border bg-surface p-4">
-        <h2 className="font-display text-xl font-semibold">Monthly budgets or buckets</h2>
-        <p className="text-sm text-muted">
-          This chooses which Plan page opens first. It does not convert categories you already have. A category is still only one or the other.
-        </p>
-        <StyleChoice
-          value={profile.budgetStyle === "buckets" ? "buckets" : "monthly"}
-          onChange={(budgetStyle) => patchProfile({ budgetStyle })}
-        />
       </section>
 
       <section id="ledger" className="space-y-3 rounded-lg border border-border bg-surface p-4">
@@ -167,7 +156,7 @@ export function SettingsView() {
         </Button>
         <p className="text-xs text-muted">Opens the setup questions. Your transactions stay.</p>
         <Link to="/plan" className="inline-flex text-sm font-medium text-primary">
-          Edit the usual plan and this month
+          Edit the monthly budget
         </Link>
       </section>
     </div>

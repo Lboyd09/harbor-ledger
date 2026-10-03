@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { safeToSpend } from "@/lib/budget/buckets";
+import { bucketBalance, safeToSpend } from "@/lib/budget/buckets";
 import { displayMerchant } from "@/lib/budget/merchant";
 import { formatMoney } from "@/lib/budget/money";
 import { groupMonth, type MonthGroup } from "@/lib/budget/month-view";
@@ -18,9 +18,90 @@ import { CategorizeCoach } from "./categorize-coach";
 import { CategorySelect } from "./category-select";
 import { LedgerTabs } from "./ledger-tabs";
 import { MonthRail } from "./month-rail";
+import { queueFundWizard } from "./fund-wizard";
 import { SummaryCard } from "./summary-card";
 import { Button } from "./ui/button";
 import { Input, Select } from "./ui/field";
+
+function HomeTop({
+  amount,
+  openCount,
+  coach,
+  setCoach,
+}: {
+  amount: number;
+  openCount: number;
+  coach: boolean;
+  setCoach: (next: boolean) => void;
+}) {
+  const [why, setWhy] = useState(false);
+  const funds = useBudgetStore((s) => s.moneyBuckets) ?? [];
+  const ym = useBudgetStore((s) => s.activeMonth);
+  const transactions = useBudgetStore((s) => s.transactions);
+  const categories = useBudgetStore((s) => s.categories);
+  const moves = useBudgetStore((s) => s.bucketMoves) ?? [];
+  return (
+    <div className="space-y-4">
+      <div className="flex items-start justify-between gap-3">
+        <h1 className="font-display text-3xl font-semibold md:text-4xl">Safe to spend: {formatMoney(amount, { signed: true })}</h1>
+        <button
+          type="button"
+          className="min-h-11 min-w-11 rounded-full border border-border text-sm"
+          aria-expanded={why}
+          aria-label="What does safe to spend mean?"
+          onClick={() => setWhy((v) => !v)}
+        >
+          ?
+        </button>
+      </div>
+      {why ? (
+        <p className="text-sm text-muted">
+          Income so far, minus this month’s amounts, minus what goes into funds, minus spending that is not already counted.
+        </p>
+      ) : null}
+      {coach ? (
+        <CategorizeCoach onClose={() => setCoach(false)} />
+      ) : openCount > 0 ? (
+        <section className="rounded-lg border border-primary/40 bg-surface p-4">
+          <h2 className="font-display text-xl font-semibold">Needs a look</h2>
+          <p className="mt-1 text-sm text-muted">
+            {openCount} charge{openCount === 1 ? "" : "s"} have no category.
+          </p>
+          <Button className="mt-3" onClick={() => setCoach(true)}>
+            Put them in categories
+          </Button>
+        </section>
+      ) : null}
+      <div>
+        <div className="mb-2 flex items-baseline justify-between">
+          <h2 className="font-display text-lg font-semibold">Funds</h2>
+          <Link to="/funds" className="text-sm font-medium text-primary">
+            See all
+          </Link>
+        </div>
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {funds.map((fund) => (
+            <Link key={fund.id} to="/funds" className="min-w-36 rounded-lg border border-border bg-surface p-3">
+              <div className="text-sm text-muted">{fund.name}</div>
+              <div className="font-display text-xl tabular">{formatMoney(bucketBalance(fund, ym, transactions, categories, moves))}</div>
+            </Link>
+          ))}
+          <Link
+            to="/funds"
+            className="flex min-w-36 items-center rounded-lg border border-dashed border-line p-3 text-sm"
+            onClick={() => queueFundWizard()}
+          >
+            Add a fund
+          </Link>
+        </div>
+      </div>
+      <Link to="/year" className="block rounded-lg border border-border bg-surface p-4">
+        <div className="font-medium">Look back</div>
+        <p className="text-sm text-muted">The calendar year, one month at a time. Charts and a spreadsheet are there too.</p>
+      </Link>
+    </div>
+  );
+}
 
 function dayLabel(iso: string) {
   return `${monthShort(iso.slice(0, 7))} ${Number(iso.slice(8, 10))}`;
@@ -152,21 +233,24 @@ export function MonthBoard() {
 
   if (!transactions.length) {
     return (
-      <div className="mx-auto max-w-lg space-y-4 py-8">
-        <h1 className="font-display text-3xl font-semibold">Start with one month</h1>
-        <p className="text-sm text-muted">
-          Import a bank file, then categorize each charge. That is the whole start. Tap a row later to split it or mark it paid back.
-        </p>
-        <div className="flex flex-wrap gap-2">
-          <Link to="/import">
-            <Button>Import a CSV</Button>
-          </Link>
-          <Link to="/categories">
-            <Button variant="outline">Merchants</Button>
-          </Link>
-          <Button variant="ghost" onClick={() => loadSample()}>
-            Try the demo
-          </Button>
+      <div className="space-y-6">
+        <HomeTop amount={safe.amount} openCount={layout.openCount} coach={coach} setCoach={setCoach} />
+        <div className="mx-auto max-w-lg space-y-4">
+          <h2 className="font-display text-2xl font-semibold">Start with one month</h2>
+          <p className="text-sm text-muted">
+            Import a bank file, then categorize each charge. That is the whole start. Tap a row later to split it or mark it paid back.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Link to="/import">
+              <Button>Import a CSV</Button>
+            </Link>
+            <Link to="/categories">
+              <Button variant="outline">Merchants</Button>
+            </Link>
+            <Button variant="ghost" onClick={() => loadSample()}>
+              Try the demo
+            </Button>
+          </div>
         </div>
       </div>
     );
@@ -174,10 +258,11 @@ export function MonthBoard() {
 
   return (
     <div className="space-y-6">
+      <HomeTop amount={safe.amount} openCount={layout.openCount} coach={coach} setCoach={setCoach} />
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-xs font-medium uppercase tracking-wide text-muted">{ledgerName || "This month"}</p>
-          <h1 className="font-display text-3xl font-semibold md:text-4xl">{monthLabel(ym)}</h1>
+          <h2 className="font-display text-2xl font-semibold">{monthLabel(ym)}</h2>
           <p className="mt-1 max-w-xl text-sm text-muted">
             Tap a category, then a charge. The box under the list applies that category to every charge with the same name, in every month.
           </p>
@@ -240,24 +325,6 @@ export function MonthBoard() {
             <MonthSheet rows={inMonth} categories={categories} ym={ym} />
           </SummaryCard>
         </div>
-        <p className="text-sm">
-          Safe to spend {formatMoney(safe.amount, { signed: true })}. Income so far, minus this month’s category amounts, minus what goes into buckets, minus spending that is not already in those amounts.
-        </p>
-
-        {coach ? <CategorizeCoach onClose={() => setCoach(false)} /> : null}
-        {!coach && layout.openCount > 0 ? (
-          <section className="rounded-lg border border-primary/40 bg-surface p-4">
-            <h2 className="font-display text-xl font-semibold">
-              {layout.openCount} transaction{layout.openCount === 1 ? "" : "s"} need a category
-            </h2>
-            <p className="mt-1 text-sm text-muted">
-              Do this before the month will make sense. You’ll see one charge at a time and tap where it belongs.
-            </p>
-            <Button className="mt-3" onClick={() => setCoach(true)}>
-              Categorize them
-            </Button>
-          </section>
-        ) : null}
 
         {inMonth.length === 0 ? (
           <EmptyMonth ym={ym} transactions={transactions} onJump={setActiveMonth} />
@@ -478,16 +545,16 @@ function Section({
                   </div>
                 ) : moneyBuckets.some((b) => b.categoryIds.includes(g.id)) ? (
                   <p className="mt-1 text-xs text-muted">
-                    This is a bucket. What you don’t spend stays.{" "}
-                    <Link to="/plan" className="text-primary">
-                      See it on Plan
+                    This is a fund. What you don’t spend stays.{" "}
+                    <Link to="/funds" className="text-primary">
+                      See it in Funds
                     </Link>
                   </p>
                 ) : stored && !g.open ? (
                   <p className="mt-1 text-xs text-muted">
                     No monthly amount yet.{" "}
                     <Link to="/plan" className="text-primary">
-                      Set one on Plan
+                      Set one on Budget
                     </Link>
                   </p>
                 ) : null}

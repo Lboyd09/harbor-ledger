@@ -23,7 +23,7 @@ export function parseDateToken(raw: string): string | null {
   let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
   if (m) return ymd(Number(m[1]), Number(m[2]), Number(m[3]));
 
-  m = s.match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4})$/);
+  m = s.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2,4})$/);
   if (m) {
     const a = Number(m[1]);
     const b = Number(m[2]);

@@ -312,3 +312,93 @@ export function linkCategoryState<T extends { id: string; plannedMonthly: number
     })),
   };
 }
+
+export const DEFAULT_FUND_VIEW = "year" as const;
+
+const MONTH_NAMES = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+
+export function monthName(ym: string): string {
+  const m = Number(ym.slice(5, 7));
+  return MONTH_NAMES[m - 1] ?? ym;
+}
+
+export type FundWindowStatus = "ahead" | "on" | "over";
+
+export type FundWindow = {
+  from: string;
+  through: string;
+  /** True when the fund is younger than 12 months, so the window starts at its start month. */
+  young: boolean;
+  label: string;
+  months: { ym: string; funded: number; spent: number }[];
+  funded: number;
+  used: number;
+  delta: number;
+  status: FundWindowStatus;
+};
+
+/** Rolling 12 months ending at throughYm. A younger fund starts at its start month. */
+export function fundWindow(
+  bucket: MoneyBucket,
+  throughYm: string,
+  transactions: Transaction[],
+  categories: Category[],
+): FundWindow {
+  const through = /^\d{4}-\d{2}$/.test(throughYm) ? throughYm : bucket.startMonth;
+  const back = shiftMonth(through, -11);
+  const young = bucket.startMonth > back;
+  const from = through < bucket.startMonth ? bucket.startMonth : young ? bucket.startMonth : back;
+  const months: { ym: string; funded: number; spent: number }[] = [];
+  if (from <= through) {
+    let ym = from;
+    let guard = 0;
+    while (ym <= through && guard < 18) {
+      const spent = roundMoney(
+        bucket.categoryIds.reduce((sum, id) => sum + categorySpend(transactions, categories, id, ym, ym), 0),
+      );
+      months.push({ ym, funded: fundingForMonth(bucket, ym), spent });
+      ym = shiftMonth(ym, 1);
+      guard += 1;
+    }
+  }
+  const shown = months.slice(-12);
+  const funded = roundMoney(shown.reduce((sum, row) => sum + row.funded, 0));
+  const used = roundMoney(shown.reduce((sum, row) => sum + row.spent, 0));
+  const delta = roundMoney(funded - used);
+  const status: FundWindowStatus = Math.abs(delta) <= 0.5 ? "on" : delta > 0 ? "ahead" : "over";
+  return {
+    from: shown[0]?.ym ?? from,
+    through,
+    young,
+    label: young ? `Since ${monthName(bucket.startMonth)}` : "Last 12 months",
+    months: shown,
+    funded,
+    used,
+    delta,
+    status,
+  };
+}
+
+/** Moves inside a month range. Used with fundWindow to check the balance identity. */
+export function fundMovesBetween(bucketId: string, from: string, through: string, moves: BucketMove[]): number {
+  let moved = 0;
+  for (const move of moves) {
+    if (move.ym < from || move.ym > through) continue;
+    if (move.toId === bucketId) moved += move.amount;
+    if (move.fromId === bucketId) moved -= move.amount;
+  }
+  return roundMoney(moved);
+}

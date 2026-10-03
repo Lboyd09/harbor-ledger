@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { parseBackup } from "./backup.ts";
-import { bucketBalance, fullLineOf, linkCategoryState, migrateGoals, safeToSpend, withMonthlyChange, withPaused } from "./buckets.ts";
+import { bucketBalance, fullLineOf, fundMovesBetween, fundWindow, DEFAULT_FUND_VIEW, linkCategoryState, migrateGoals, safeToSpend, withMonthlyChange, withPaused } from "./buckets.ts";
 import { suggestCategory } from "./categorize.ts";
 import { normalizeSnapshot } from "./normalize.ts";
 import type { Category, MoneyBucket, Transaction } from "./types.ts";
@@ -147,6 +147,51 @@ test("goals migrate once and old backups without buckets still open", () => {
   const empty = normalizeSnapshot({ categories: [pay], transactions: [], savingsGoals: [] });
   assert.ok(empty);
   assert.deepEqual(empty?.moneyBuckets, []);
+});
+
+test("a young fund window starts at the start month", () => {
+  const young: MoneyBucket = { ...groceries, startMonth: "2026-09", opening: 0, monthly: 100 };
+  const window = fundWindow(young, "2026-10", [], cats);
+  assert.equal(window.young, true);
+  assert.equal(window.label, "Since September");
+  assert.deepEqual(window.months.map((row) => row.ym), ["2026-09", "2026-10"]);
+  assert.equal(window.funded, 200);
+  assert.equal(DEFAULT_FUND_VIEW, "year");
+});
+
+test("ahead, on budget, and over come from money put in minus money used", () => {
+  const young: MoneyBucket = { ...groceries, startMonth: "2026-09", opening: 0, monthly: 100, categoryIds: ["food"] };
+  const spent = [tx({ id: "a", date: "2026-09-02", amount: -40, categoryId: "food" })];
+  const ahead = fundWindow(young, "2026-10", spent, cats);
+  assert.equal(ahead.status, "ahead");
+  assert.equal(ahead.delta, 160);
+  const even = fundWindow(young, "2026-09", [tx({ id: "b", date: "2026-09-02", amount: -100, categoryId: "food" })], cats);
+  assert.equal(even.status, "on");
+  const over = fundWindow(young, "2026-09", [tx({ id: "c", date: "2026-09-02", amount: -140, categoryId: "food" })], cats);
+  assert.equal(over.status, "over");
+  assert.equal(over.delta, -40);
+});
+
+test("put in and used match the balance when the window covers the whole fund", () => {
+  const young: MoneyBucket = { ...groceries, startMonth: "2026-09", opening: 40, monthly: 100, categoryIds: ["food"] };
+  const txs = [tx({ id: "a", date: "2026-09-02", amount: -25, categoryId: "food" })];
+  const moves = [{ id: "m", ym: "2026-10", amount: 15, fromId: null, toId: young.id }];
+  const window = fundWindow(young, "2026-10", txs, cats);
+  assert.equal(window.from, young.startMonth);
+  const moved = fundMovesBetween(young.id, young.startMonth, "2026-10", moves);
+  const covered = Math.round((young.opening + window.funded + moved - window.used) * 100) / 100;
+  assert.equal(covered, bucketBalance(young, "2026-10", txs, cats, moves));
+});
+
+test("old ledgers without fund fields still load", () => {
+  const legacy = normalizeSnapshot({
+    profile: { ledgerName: "Old", completedOnboarding: true },
+    categories: [pay],
+    transactions: [],
+  });
+  assert.ok(legacy);
+  assert.deepEqual(legacy?.moneyBuckets, []);
+  assert.equal(legacy?.profile.completedOnboarding, true);
 });
 
 test("import suggestion prefers the last category the person set", () => {

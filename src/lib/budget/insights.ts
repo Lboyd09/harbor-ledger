@@ -79,9 +79,9 @@ export function monthReview(input: {
     .map((b) => ({ name: b.name, balance: bucketBalance(b, input.ym, input.transactions, input.categories, input.moves) }))
     .filter((row) => row.balance < -0.5);
   let action = "Nothing needs a move this month.";
-  if (negative[0]) action = `${negative[0].name} is short. Move money in from another bucket or from unassigned.`;
-  else if (over[0]) action = `${over[0].name} ran past its plan. Trim it, or link it to a bucket if it should carry.`;
-  else if (rolled[0]) action = `${rolled[0].name} kept what you did not spend. Leave it there, or move some to a goal.`;
+  if (negative[0]) action = `${negative[0].name} is short. Move money in from another fund, or from money not given a job yet.`;
+  else if (over[0]) action = `${over[0].name} ran past its amount. Spend less next month, or keep what's left in a fund.`;
+  else if (rolled[0]) action = `${rolled[0].name} kept what you did not spend. Leave it there, or move some.`;
   const spent = input.transactions
     .filter((t) => monthKeyFromDate(t.date) === input.ym && t.amount < 0)
     .reduce((s, t) => s + -t.amount, 0);

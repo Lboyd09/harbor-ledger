@@ -272,7 +272,7 @@ export function DesktopOverview() {
         </section>
         <section className="rounded-lg border border-border bg-surface p-4">
           <h2 className="font-display text-xl font-semibold">Expense categories</h2>
-          <p className="mt-1 text-sm text-muted">Largest buckets first. Over means the year ran past the monthly plan.</p>
+          <p className="mt-1 text-sm text-muted">Largest categories first. Over means the year ran past the monthly amount.</p>
           <table className="mt-3 w-full text-sm">
             <thead>
               <tr className="border-b border-border text-muted">

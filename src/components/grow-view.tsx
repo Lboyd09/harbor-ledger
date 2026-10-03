@@ -595,7 +595,7 @@ function EmergencyFund({ book }: { book: { expenses: number; activeMonths: numbe
           </div>
         ))}
       </div>
-      <p className="text-xs text-muted">{DISCLAIMER} Set this aside as a bucket on Plan.</p>
+      <p className="text-xs text-muted">{DISCLAIMER} Set this aside as a fund.</p>
     </section>
   );
 }
@@ -787,7 +787,7 @@ function GoalTool() {
           <Input className="mt-1" inputMode="decimal" value={months} onChange={(e) => setMonths(e.target.value)} />
         </label>
       </div>
-      <p className="text-xs text-muted">{DISCLAIMER} Put this amount on a bucket if you want Harbor to keep it.</p>
+      <p className="text-xs text-muted">{DISCLAIMER} Put this amount in a fund if you want Harbor to keep it.</p>
     </section>
   );
 }

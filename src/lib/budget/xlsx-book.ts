@@ -240,8 +240,8 @@ export function buildHarborWorkbook(input: {
     ["Money back from a store lowers spending. It is not income."],
     ["Paid back means someone repaid a purchase, so neither row is income or spending."],
     ["A month budget replaces the usual plan for that month only."],
-    ["Categories reset every month. Buckets keep what you don't spend."],
-    ["Money moved into a bucket is not income and not spending."],
+    ["A budget starts over every month. A fund keeps what's left."],
+    ["Money moved into a fund is not income and not spending."],
   ]);
 
   add("Overview", [
@@ -260,7 +260,7 @@ export function buildHarborWorkbook(input: {
   ]);
 
   const through = months.at(-1)?.ym ?? year + "-12";
-  add("Buckets", [
+  add("Funds", [
     ["Name", "Monthly", "Yearly", "Opening", "Start", "Target", "By", "Balance", "Full line", "Paused", "Linked categories"],
     ...buckets.map((b) => [
       b.name,
@@ -281,7 +281,7 @@ export function buildHarborWorkbook(input: {
       m.id,
       m.ym,
       round2(m.amount),
-      m.fromId ? (buckets.find((b) => b.id === m.fromId)?.name ?? m.fromId) : "Unassigned",
+      m.fromId ? (buckets.find((b) => b.id === m.fromId)?.name ?? m.fromId) : "Not given a job yet",
       buckets.find((b) => b.id === m.toId)?.name ?? m.toId,
     ]),
   ]);

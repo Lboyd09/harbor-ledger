@@ -73,9 +73,13 @@ export function GuideCard() {
         </li>
         <li>
           <Link to="/plan" className="text-primary underline-offset-2 hover:underline">
-            Plan
+            Budget
           </Link>{" "}
-          is the usual budget, a one-month change, and saving for a purchase.{" "}
+          is the monthly amount that starts over.{" "}
+          <Link to="/funds" className="text-primary underline-offset-2 hover:underline">
+            Funds
+          </Link>{" "}
+          keep what you don’t spend.{" "}
           <Link to="/year" className="text-primary underline-offset-2 hover:underline">
             Year
           </Link>{" "}

@@ -67,7 +67,7 @@ type State = LedgerSnapshot & {
   addGoal: (goal: Omit<SavingsGoal, "id">) => void;
   updateGoal: (id: string, patch: Partial<Omit<SavingsGoal, "id">>) => void;
   removeGoal: (id: string) => void;
-  addBucket: (bucket: Omit<MoneyBucket, "id">) => void;
+  addBucket: (bucket: Omit<MoneyBucket, "id">) => string;
   updateBucket: (id: string, patch: Partial<Omit<MoneyBucket, "id">>) => void;
   removeBucket: (id: string) => void;
   linkBucketCategory: (bucketId: string, categoryId: string) => string;
@@ -535,7 +535,7 @@ export const useBudgetStore = create<State>()(
       },
       addBucket: (bucket) => {
         const name = bucket.name.trim();
-        if (!name) return;
+        if (!name) return "";
         const yearly = bucket.yearly && bucket.yearly > 0 ? bucket.yearly : null;
         const monthly = yearly ? roundMoney(yearly / 12) : Math.max(0, bucket.monthly);
         const next: MoneyBucket = {
@@ -558,6 +558,7 @@ export const useBudgetStore = create<State>()(
         };
         set({ moneyBuckets: [...(get().moneyBuckets ?? []), next] });
         schedulePersist();
+        return next.id;
       },
       updateBucket: (id, patch) => {
         const asOf = get().activeMonth;

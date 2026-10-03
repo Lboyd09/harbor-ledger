@@ -1,6 +1,6 @@
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
-import { CalendarDays, CalendarRange, Settings, Sprout, Wallet } from "lucide-react";
-import { useEffect } from "react";
+import { Home, PiggyBank, Settings, Sprout, Wallet } from "lucide-react";
+import { useEffect, useState } from "react";
 import { UserButton } from "@/lib/auth/gates";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { cn } from "@/lib/cn";
@@ -10,10 +10,10 @@ import { Onboarding } from "./onboarding";
 import { WelcomeGate } from "./welcome-gate";
 
 const NAV = [
-  { to: "/", label: "Month", icon: CalendarDays },
-  { to: "/plan", label: "Plan", icon: Wallet },
+  { to: "/", label: "Home", icon: Home },
+  { to: "/plan", label: "Budget", icon: Wallet },
+  { to: "/funds", label: "Funds", icon: PiggyBank },
   { to: "/grow", label: "Grow", icon: Sprout },
-  { to: "/year", label: "Year", icon: CalendarRange },
   { to: "/settings", label: "Account", icon: Settings },
 ] as const;
 
@@ -43,6 +43,14 @@ function SavePill() {
   return null;
 }
 
+function SetupEntry() {
+  const txCount = useBudgetStore((s) => s.transactions.length);
+  const catCount = useBudgetStore((s) => s.categories.length);
+  const [fresh] = useState(() => txCount === 0 && catCount === 0);
+  if (fresh) return <WelcomeGate />;
+  return <Onboarding initialPath={txCount > 0 ? "file" : "income"} />;
+}
+
 export function AppShell() {
   const { user, isPending } = useCurrentUserState();
   const hydrated = useBudgetStore((s) => s.hydrated);
@@ -51,10 +59,13 @@ export function AppShell() {
   const done = useBudgetStore((s) => s.profile.completedOnboarding);
   const path = useRouterState({ select: (s) => s.location.pathname });
   const current =
-    NAV.find((n) => n.to === path)?.label ??
-    (path === "/import" || path === "/categories" ? "Month" : "Harbor");
-  const txCount = useBudgetStore((s) => s.transactions.length);
-  const catCount = useBudgetStore((s) => s.categories.length);
+    path === "/" || path === "/categories" || path === "/import"
+      ? "Home"
+      : path === "/funds"
+        ? "Funds"
+        : path === "/year"
+          ? "Year"
+          : (NAV.find((n) => n.to === path)?.label ?? "Harbor");
   const ledgerName = useBudgetStore((s) => s.profile.ledgerName);
   const accent = useBudgetStore((s) => s.profile.accent ?? "harbor");
   const motion = useBudgetStore((s) => s.profile.motion ?? "lively");
@@ -80,11 +91,6 @@ export function AppShell() {
     return <Outlet />;
   }
 
-  if (!user && !done) {
-    if (txCount > 0 || catCount > 0) return <Onboarding initialStep={1} />;
-    return <WelcomeGate />;
-  }
-
   if (!hydrated || (isPending && !user)) {
     return (
       <div className="flex min-h-dvh flex-col items-center justify-center gap-2 bg-bg px-6 text-center">
@@ -94,7 +100,10 @@ export function AppShell() {
     );
   }
 
-  if (!done) return <Onboarding />;
+  if (!done) {
+    if (!user) return <SetupEntry />;
+    return <Onboarding />;
+  }
 
   return (
     <div className="min-h-dvh bg-bg text-fg">
@@ -109,7 +118,10 @@ export function AppShell() {
         <nav className="flex flex-1 flex-col gap-1 px-3">
           {NAV.map((item) => {
             const Icon = item.icon;
-            const on = item.to === "/" ? path === "/" || path === "/categories" || path === "/import" : path === item.to;
+            const on =
+              item.to === "/"
+                ? path === "/" || path === "/categories" || path === "/import"
+                : path === item.to;
             return (
               <Link
                 key={item.to}
