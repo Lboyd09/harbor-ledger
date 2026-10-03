@@ -11,6 +11,7 @@ import { cn } from "@/lib/cn";
 import { useBudgetStore } from "@/store/budget-store";
 import { useLivelyMotion } from "./use-lively-motion";
 import { SummaryCard } from "./summary-card";
+import { FillJar } from "./money-visual";
 import { Button } from "./ui/button";
 import { Input } from "./ui/field";
 
@@ -53,7 +54,7 @@ export function GrowView() {
     return balance > best.balance ? { name: b.name, balance } : best;
   }, { name: "Leftover", balance: Math.max(0, book.net) });
 
-  const [calc, setCalc] = useState<"work" | "monthly" | "roth">("work");
+  const [calc, setCalc] = useState<"work" | "monthly" | "roth" | "debt" | "worth" | "emergency" | "free">("emergency");
   const [principal, setPrincipal] = useState(String(Math.max(0, Math.round(surplus.balance))));
   const [years, setYears] = useState("10");
   const [monthly, setMonthly] = useState("200");
@@ -99,7 +100,7 @@ export function GrowView() {
       <div>
         <h1 className="font-display text-3xl font-semibold">Grow</h1>
         <p className="mt-1 max-w-xl text-sm text-muted">
-          One projection at a time, starting from money already in this ledger. {DISCLAIMER}
+          Pick one question. The numbers start from this ledger. Add a debt or a net-worth snapshot yourself — Harbor never logs into a bank. {DISCLAIMER}
         </p>
       </div>
 
@@ -118,32 +119,37 @@ export function GrowView() {
             {review.rolled.length ? (
               review.rolled.map((row) => (
                 <li key={row.name}>
-                  {row.name} rolled {formatMoney(row.delta)} forward.
+                  {row.name} kept {formatMoney(row.delta)} from earlier months.
                 </li>
               ))
             ) : (
-              <li>No bucket grew past last month.</li>
+              <li>Nothing extra was saved past last month.</li>
             )}
             {review.over.length ? <li>Over plan: {review.over.join(", ")}.</li> : <li>No category ran past its plan.</li>}
           </ul>
         </SummaryCard>
       </div>
 
-      <div className="flex flex-wrap gap-1">
+      <div className="grid gap-2 sm:grid-cols-2">
         {(
           [
-            ["work", "Put it to work"],
-            ["monthly", "Monthly contribution"],
-            ["roth", "Roth vs traditional"],
+            ["emergency", "Emergency fund", "Months of spending, from this year."],
+            ["debt", "Pay off a debt", "Add the balance, the rate, and the minimum."],
+            ["worth", "Net worth", "Type what you own. Nothing connects to a bank."],
+            ["work", "Invest a lump sum", "Savings, a taxable account, or an IRA."],
+            ["monthly", "Save every month", "Contributions versus growth."],
+            ["roth", "Roth or traditional", "After tax, now versus retirement."],
+            ["free", "When work is optional", "The 4% rule and your savings rate."],
           ] as const
-        ).map(([id, label]) => (
+        ).map(([id, label, hint]) => (
           <button
             key={id}
             type="button"
             onClick={() => setCalc(id)}
-            className={cn("min-h-11 rounded-md px-3 text-sm", calc === id ? "bg-primary text-primary-fg" : "border border-border bg-surface")}
+            className={cn("min-h-16 rounded-lg border px-3 py-2 text-left", calc === id ? "border-primary bg-chip" : "border-border bg-surface")}
           >
-            {label}
+            <div className="text-sm font-medium">{label}</div>
+            <div className="text-xs text-muted">{hint}</div>
           </button>
         ))}
       </div>
@@ -152,6 +158,23 @@ export function GrowView() {
         <input type="checkbox" checked={today} onChange={(e) => setToday(e.target.checked)} />
         Today's dollars
       </label>
+
+      {calc === "emergency" ? <EmergencyFund book={book} /> : null}
+      {calc === "debt" ? <DebtTool debts={debts} addDebt={addDebt} removeDebt={removeDebt} /> : null}
+      {calc === "worth" ? (
+        <WorthTool netWorth={netWorth} addNetWorth={addNetWorth} removeNetWorth={removeNetWorth} lively={lively} />
+      ) : null}
+      {calc === "free" ? (
+        <SummaryCard
+          label="Work optional in"
+          value={yearsToFi(Math.max(0, book.savingsRate)) == null ? "—" : `${yearsToFi(Math.max(0, book.savingsRate))} years`}
+          sentence={
+            book.activeMonths
+              ? `The 4% rule wants about ${formatMoney((book.expenses / book.activeMonths) * 12 / 0.04)}, 25 times a year of spending. This uses your ${Math.round(book.savingsRate * 100)}% savings rate and a 5% return after inflation.`
+              : "Import spending for a few months before this is useful."
+          }
+        />
+      ) : null}
 
       {calc === "work" ? (
         <section className="space-y-3">
@@ -295,7 +318,21 @@ export function GrowView() {
         </div>
       ) : null}
 
-      {nerd ? <NerdGrow bookRate={book.savingsRate} annualSpend={book.activeMonths ? (book.expenses / book.activeMonths) * 12 : 0} debts={debts} netWorth={netWorth} categories={categories} addDebt={addDebt} removeDebt={removeDebt} addNetWorth={addNetWorth} removeNetWorth={removeNetWorth} lively={lively} /> : null}
+      {calc === "free" && nerd ? (
+        <NerdGrow
+          bookRate={book.savingsRate}
+          annualSpend={book.activeMonths ? (book.expenses / book.activeMonths) * 12 : 0}
+          debts={debts}
+          netWorth={netWorth}
+          categories={categories}
+          addDebt={addDebt}
+          removeDebt={removeDebt}
+          addNetWorth={addNetWorth}
+          removeNetWorth={removeNetWorth}
+          lively={lively}
+          sandboxOnly
+        />
+      ) : null}
     </div>
   );
 }
@@ -320,6 +357,7 @@ function NerdGrow({
   addNetWorth,
   removeNetWorth,
   lively,
+  sandboxOnly,
 }: {
   bookRate: number;
   annualSpend: number;
@@ -331,6 +369,7 @@ function NerdGrow({
   addNetWorth: (p: { date: string; amount: number; note: string }) => void;
   removeNetWorth: (id: string) => void;
   lively: boolean;
+  sandboxOnly?: boolean;
 }) {
   const fi = yearsToFi(Math.max(0, bookRate));
   const target = annualSpend > 0 ? annualSpend / 0.04 : 0;
@@ -349,6 +388,31 @@ function NerdGrow({
     "month",
   );
   const income = categories.filter((c) => c.kind === "income").reduce((s, c) => s + c.plannedMonthly, 0);
+  if (sandboxOnly) {
+    return (
+      <section className="space-y-2 rounded-lg border border-border bg-surface p-4">
+        <h3 className="font-display text-lg font-semibold">Try a different plan</h3>
+        <p className="text-sm text-muted">
+          This is a copy. Income plan {formatMoney(income)}. Leftover would be {formatMoney(income - plan.expenses, { signed: true })}. It does not change the real plan.
+        </p>
+        <ul className="space-y-2">
+          {sandbox.map((c) => (
+            <li key={c.id} className="grid grid-cols-2 items-center gap-2">
+              <span className="text-sm">{c.name}</span>
+              <Input
+                inputMode="decimal"
+                aria-label={`Sandbox plan for ${c.name}`}
+                value={String(c.plannedMonthly)}
+                onChange={(e) =>
+                  setSandbox((rows) => rows.map((row) => (row.id === c.id ? { ...row, plannedMonthly: Number(e.target.value) || 0 } : row)))
+                }
+              />
+            </li>
+          ))}
+        </ul>
+      </section>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -473,3 +537,186 @@ function NerdGrow({
     </div>
   );
 }
+
+function EmergencyFund({ book }: { book: { expenses: number; activeMonths: number } }) {
+  const monthly = book.activeMonths > 0 ? book.expenses / book.activeMonths : 0;
+  return (
+    <section className="space-y-3 rounded-lg border border-border bg-surface p-4">
+      <h2 className="font-display text-xl font-semibold">How big should the cushion be?</h2>
+      <p className="text-sm text-muted">
+        {monthly > 0
+          ? `Months with spending averaged ${formatMoney(monthly)}. Three months covers a surprise. Six months covers a longer gap.`
+          : "Import a few months of spending. This uses that average. It is not a bank balance."}
+      </p>
+      <div className="grid grid-cols-3 gap-3">
+        {[1, 3, 6].map((m) => (
+          <div key={m} className="text-center">
+            <div className="flex justify-center">
+              <FillJar pct={(m / 6) * 100} />
+            </div>
+            <div className="mt-2 text-sm">{m} month{m === 1 ? "" : "s"}</div>
+            <div className="font-display text-lg tabular">{formatMoney(monthly * m)}</div>
+          </div>
+        ))}
+      </div>
+      <p className="text-xs text-muted">{DISCLAIMER} Set this aside on Plan with Keep leftovers, or as “Saving for something.”</p>
+    </section>
+  );
+}
+
+function DebtTool({
+  debts,
+  addDebt,
+  removeDebt,
+}: {
+  debts: { id: string; name: string; balance: number; apr: number; minimum: number }[];
+  addDebt: (d: { name: string; balance: number; apr: number; minimum: number }) => void;
+  removeDebt: (id: string) => void;
+}) {
+  const [name, setName] = useState("");
+  const [balance, setBalance] = useState("");
+  const [apr, setApr] = useState("");
+  const [minimum, setMinimum] = useState("");
+  const [extra, setExtra] = useState("50");
+  const extraN = Math.max(0, Number(extra) || 0);
+  const snow = payoffPlan(debts, extraN, "snowball");
+  const ava = payoffPlan(debts, extraN, "avalanche");
+  return (
+    <section className="space-y-3 rounded-lg border border-border bg-surface p-4">
+      <h2 className="font-display text-xl font-semibold">Pay off a debt</h2>
+      <p className="text-sm text-muted">
+        Type each card or loan. Harbor compares two orders: smallest balance first (snowball) and highest interest first (avalanche). Extra money is on top of the minimums.
+      </p>
+      {debts.length ? (
+        <>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-md border border-border p-3">
+              <div className="text-sm font-medium">Smallest balance first</div>
+              <div className="mt-1 font-display text-2xl">{snow.unfinished ? "50+ years" : `${snow.months} months`}</div>
+              <p className="text-xs text-muted">{formatMoney(snow.interest)} interest</p>
+              <div className="mt-2 h-2 overflow-hidden rounded-full bg-chip">
+                <div className="h-full bg-primary" style={{ width: snow.unfinished ? "8%" : "100%" }} />
+              </div>
+            </div>
+            <div className="rounded-md border border-border p-3">
+              <div className="text-sm font-medium">Highest interest first</div>
+              <div className="mt-1 font-display text-2xl">{ava.unfinished ? "50+ years" : `${ava.months} months`}</div>
+              <p className="text-xs text-muted">{formatMoney(ava.interest)} interest</p>
+              <div className="mt-2 h-2 overflow-hidden rounded-full bg-chip">
+                <div className="h-full bg-primary" style={{ width: ava.unfinished ? "8%" : "100%" }} />
+              </div>
+            </div>
+          </div>
+          <label className="block text-xs text-muted">
+            Extra payment each month
+            <Input className="mt-1 max-w-xs" inputMode="decimal" value={extra} onChange={(e) => setExtra(e.target.value)} />
+          </label>
+          <ul className="space-y-1 text-sm">
+            {debts.map((d) => (
+              <li key={d.id} className="flex items-center justify-between gap-2">
+                <span>
+                  {d.name} · {formatMoney(d.balance)} · {d.apr}% · min {formatMoney(d.minimum)}
+                </span>
+                <button type="button" className="text-xs text-muted" onClick={() => removeDebt(d.id)}>
+                  Remove
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : (
+        <p className="rounded-md bg-chip px-3 py-2 text-sm">No debts yet. Add one below. A name, what you owe, the interest rate, and the minimum payment are enough.</p>
+      )}
+      <div className="grid gap-2 sm:grid-cols-4">
+        <Input aria-label="Debt name" placeholder="Card or loan" value={name} onChange={(e) => setName(e.target.value)} />
+        <Input aria-label="Balance" inputMode="decimal" placeholder="Balance" value={balance} onChange={(e) => setBalance(e.target.value)} />
+        <Input aria-label="APR" inputMode="decimal" placeholder="Interest %" value={apr} onChange={(e) => setApr(e.target.value)} />
+        <Input aria-label="Minimum" inputMode="decimal" placeholder="Minimum" value={minimum} onChange={(e) => setMinimum(e.target.value)} />
+      </div>
+      <Button
+        size="sm"
+        disabled={!name.trim() || !(Number(balance) > 0)}
+        onClick={() => {
+          addDebt({ name, balance: Number(balance), apr: Number(apr) || 0, minimum: Number(minimum) || 0 });
+          setName("");
+          setBalance("");
+          setApr("");
+          setMinimum("");
+        }}
+      >
+        Add this debt
+      </Button>
+      <p className="text-xs text-muted">{DISCLAIMER}</p>
+    </section>
+  );
+}
+
+function WorthTool({
+  netWorth,
+  addNetWorth,
+  removeNetWorth,
+  lively,
+}: {
+  netWorth: { id: string; date: string; amount: number; note: string }[];
+  addNetWorth: (p: { date: string; amount: number; note: string }) => void;
+  removeNetWorth: (id: string) => void;
+  lively: boolean;
+}) {
+  const [date, setDate] = useState("");
+  const [worth, setWorth] = useState("");
+  const [note, setNote] = useState("");
+  const latest = netWorth.at(-1);
+  return (
+    <section className="space-y-3 rounded-lg border border-border bg-surface p-4">
+      <h2 className="font-display text-xl font-semibold">Net worth</h2>
+      <p className="text-sm text-muted">
+        Add what you own minus what you owe, as one number, whenever you feel like it. Cash, savings, and investments, minus debts. Harbor cannot see your bank.
+      </p>
+      <div className="font-display text-3xl tabular">{latest ? formatMoney(latest.amount) : "—"}</div>
+      <p className="text-xs text-muted">{latest ? `Last entered ${latest.date}.` : "Nothing entered yet."}</p>
+      {netWorth.length > 1 ? (
+        <div className="chart-rise h-40 w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={netWorth.map((p) => ({ name: p.date.slice(0, 7), Amount: p.amount }))}>
+              <CartesianGrid stroke="var(--color-border)" vertical={false} />
+              <XAxis dataKey="name" tick={{ fontSize: 11, fill: "var(--color-muted)" }} />
+              <YAxis tick={{ fontSize: 11, fill: "var(--color-muted)" }} width={48} />
+              <Tooltip formatter={(v) => formatMoney(Number(Array.isArray(v) ? v[0] : v))} />
+              <Line type="monotone" dataKey="Amount" stroke="var(--color-primary)" dot={false} isAnimationActive={lively} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      ) : null}
+      <ul className="text-sm">
+        {netWorth.map((p) => (
+          <li key={p.id} className="flex justify-between gap-2 py-1">
+            <span>
+              {p.date} · {formatMoney(p.amount)} {p.note}
+            </span>
+            <button type="button" className="text-xs text-muted" onClick={() => removeNetWorth(p.id)}>
+              Remove
+            </button>
+          </li>
+        ))}
+      </ul>
+      <div className="grid gap-2 sm:grid-cols-3">
+        <Input aria-label="Date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+        <Input aria-label="Amount" inputMode="decimal" placeholder="Total" value={worth} onChange={(e) => setWorth(e.target.value)} />
+        <Input aria-label="Note" placeholder="Note, optional" value={note} onChange={(e) => setNote(e.target.value)} />
+      </div>
+      <Button
+        size="sm"
+        disabled={!/^\d{4}-\d{2}-\d{2}$/.test(date)}
+        onClick={() => {
+          addNetWorth({ date, amount: Number(worth) || 0, note });
+          setDate("");
+          setWorth("");
+          setNote("");
+        }}
+      >
+        Save this snapshot
+      </Button>
+    </section>
+  );
+}
+

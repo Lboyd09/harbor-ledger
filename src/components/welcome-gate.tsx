@@ -15,7 +15,7 @@ export function WelcomeGate() {
   const [setup, setSetup] = useState(false);
   const [restoreError, setRestoreError] = useState<string | null>(null);
 
-  if (setup) return <Onboarding initialStep={1} />;
+  if (setup) return <Onboarding initialStep={0} />;
 
   async function onRestore(file: File) {
     setRestoreError(null);
@@ -40,7 +40,7 @@ export function WelcomeGate() {
       </div>
       <h1 className="mt-4 font-display text-3xl font-semibold md:text-4xl">How much do you want to see?</h1>
       <p className="mt-3 text-muted">
-        A harbor is where you count what arrived and what left. Pick Simple or Nerd before the ledger opens. You can change it later in Account.
+        Setup walks you through the bank file, categories, and monthly amounts before the ledger opens. You can change this later in Account.
       </p>
       <div className="mt-5 grid gap-2 sm:grid-cols-2">
         <button
@@ -56,27 +56,27 @@ export function WelcomeGate() {
           onClick={() => pick("nerd")}
           className={`feature-card min-h-24 rounded-lg border p-4 text-left ${detail === "nerd" && chosen ? "border-primary bg-chip" : "border-border bg-surface"}`}
         >
-          <div className="font-medium">Nerd</div>
-          <p className="mt-1 text-sm text-muted">Drift, repeating charges, debt payoff, and a sandbox that does not touch the real plan.</p>
+          <div className="font-medium">More detail</div>
+          <p className="mt-1 text-sm text-muted">The same ledger, plus extra charts and a sandbox that does not change your plan.</p>
         </button>
       </div>
       <ul className="mt-6 space-y-2 text-sm">
-        <li>Categories reset every month. Buckets keep what you don't spend.</li>
-        <li>Divide one deposit, or mark a purchase paid back. Neither double-counts.</li>
-        <li>Grow projects leftover money. It is an estimate, not advice.</li>
+        <li>Most categories start over each month. Keep leftovers is only for something you’re saving for.</li>
+        <li>After a file is imported, Month walks you through anything without a category.</li>
+        <li>Someone paid you back is a button on the charge, not a category.</li>
       </ul>
       <div className="mt-8 flex flex-col gap-2">
-        <Button className="w-full" disabled={!chosen} onClick={() => void navigate({ to: "/login" })}>
+        <Button className="w-full" disabled={!chosen} onClick={() => setSetup(true)}>
+          Set up my money
+        </Button>
+        <Button variant="outline" className="w-full" disabled={!chosen} onClick={() => void navigate({ to: "/login" })}>
           Sign in
         </Button>
-        <Button variant="outline" className="w-full" disabled={!chosen} onClick={() => loadSample()}>
+        <Button variant="ghost" className="w-full" disabled={!chosen} onClick={() => loadSample()}>
           Try the demo
         </Button>
-        <Button variant="ghost" className="w-full" disabled={!chosen} onClick={() => setSetup(true)}>
-          Set up my household
-        </Button>
       </div>
-      {!chosen ? <p className="mt-3 text-sm text-muted">Choose Simple or Nerd first.</p> : null}
+      {!chosen ? <p className="mt-3 text-sm text-muted">Choose Simple or More detail first.</p> : null}
       <label className="mt-6 inline-flex min-h-11 cursor-pointer items-center text-sm text-muted underline-offset-2 hover:underline">
         Restore a backup JSON
         <input

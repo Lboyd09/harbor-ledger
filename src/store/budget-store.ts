@@ -72,6 +72,8 @@ type State = LedgerSnapshot & {
   removeBucket: (id: string) => void;
   linkBucketCategory: (bucketId: string, categoryId: string) => string;
   unlinkBucketCategory: (bucketId: string, categoryId: string) => void;
+  /** On: leftovers stay in this category. Off: it starts over each month. */
+  setKeepsLeftovers: (categoryId: string, on: boolean) => void;
   moveBucketMoney: (move: Omit<BucketMove, "id">) => void;
   addNetWorth: (point: Omit<NetWorthPoint, "id">) => void;
   removeNetWorth: (id: string) => void;
@@ -581,16 +583,72 @@ export const useBudgetStore = create<State>()(
         });
         if (!linked) return "That category is not in this ledger.";
         const name = get().categories.find((c) => c.id === categoryId)?.name ?? "That category";
-        const bucket = (get().moneyBuckets ?? []).find((b) => b.id === bucketId)?.name ?? "the bucket";
-        set(linked);
+        const bucket = (get().moneyBuckets ?? []).find((b) => b.id === bucketId)?.name ?? "that savings";
+        set({
+          categories: linked.categories,
+          monthBudgets: linked.monthBudgets,
+          moneyBuckets: linked.buckets,
+        });
         schedulePersist();
-        return `${name} now feeds ${bucket}. Its monthly budget was cleared so it is not counted twice. Categories reset every month. Buckets keep what you don't spend.`;
+        return `${name} now comes out of ${bucket}. The monthly amount was cleared so it is not counted twice.`;
       },
       unlinkBucketCategory: (bucketId, categoryId) => {
         set({
           moneyBuckets: (get().moneyBuckets ?? []).map((b) =>
             b.id === bucketId ? { ...b, categoryIds: b.categoryIds.filter((id) => id !== categoryId) } : b,
           ),
+        });
+        schedulePersist();
+      },
+      setKeepsLeftovers: (categoryId, on) => {
+        const cat = get().categories.find((c) => c.id === categoryId);
+        if (!cat || cat.kind !== "expense") return;
+        const buckets = get().moneyBuckets ?? [];
+        if (!on) {
+          const host = buckets.find((b) => b.categoryIds.includes(categoryId));
+          const monthly = host?.monthly ?? cat.plannedMonthly;
+          const moneyBuckets = buckets.flatMap((b) => {
+            if (!b.categoryIds.includes(categoryId)) return [b];
+            const categoryIds = b.categoryIds.filter((id) => id !== categoryId);
+            const onlyThis = categoryIds.length === 0 && !b.target && !b.fromGoalId && b.opening === 0;
+            if (onlyThis) return [];
+            return [{ ...b, categoryIds }];
+          });
+          set({
+            moneyBuckets,
+            categories: get().categories.map((c) => (c.id === categoryId ? { ...c, plannedMonthly: monthly } : c)),
+          });
+          schedulePersist();
+          return;
+        }
+        if (buckets.some((b) => b.categoryIds.includes(categoryId))) return;
+        const id = newId("bucket");
+        const linked = linkCategoryState({
+          categories: get().categories,
+          monthBudgets: get().monthBudgets ?? [],
+          buckets: [
+            ...buckets,
+            {
+              id,
+              name: cat.name,
+              monthly: cat.plannedMonthly,
+              yearly: null,
+              categoryIds: [],
+              target: null,
+              by: null,
+              startMonth: get().activeMonth,
+              opening: 0,
+              fromGoalId: null,
+            },
+          ],
+          categoryId,
+          bucketId: id,
+        });
+        if (!linked) return;
+        set({
+          categories: linked.categories,
+          monthBudgets: linked.monthBudgets,
+          moneyBuckets: linked.buckets,
         });
         schedulePersist();
       },

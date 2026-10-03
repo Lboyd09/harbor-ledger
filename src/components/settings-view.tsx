@@ -31,8 +31,19 @@ export function SettingsView() {
       <div>
         <h1 className="font-display text-3xl font-semibold">Account & settings</h1>
         <p className="mt-2 text-sm text-muted">
-          Sign-in, the look of the ledger, and the file you hand to Excel or Google Sheets.
+          Import, categories, how much detail to show, and the file for Excel or Google Sheets.
         </p>
+        <section className="mt-4 space-y-2 rounded-lg border border-border bg-surface p-4">
+          <h2 className="font-display text-lg font-semibold">Do this next</h2>
+          <p className="text-sm text-muted">If a file is already in, start with categories. Then set monthly amounts.</p>
+          <div className="flex flex-col gap-2 text-sm">
+            <Link to="/import" className="font-medium text-primary">Import a bank CSV</Link>
+            <Link to="/" className="font-medium text-primary">Month — categorize charges, or mark one paid back</Link>
+            <Link to="/plan" className="font-medium text-primary">Plan — monthly amounts and Keep leftovers</Link>
+            <Link to="/categories" className="font-medium text-primary">Merchants — one category for a store</Link>
+            <Link to="/grow" className="font-medium text-primary">Grow — debt, net worth, and calculators</Link>
+          </div>
+        </section>
         <div className="mt-4 flex flex-wrap gap-2 text-sm">
           <a href="#account" className="rounded-md border border-border bg-surface px-3 py-2">
             Account
@@ -44,7 +55,7 @@ export function SettingsView() {
             Look
           </a>
           <a href="#mode" className="rounded-md border border-border bg-surface px-3 py-2">
-            Simple or Nerd
+            Simple or More detail
           </a>
           <a href="#ledger" className="rounded-md border border-border bg-surface px-3 py-2">
             Ledger
@@ -89,9 +100,9 @@ export function SettingsView() {
       </section>
 
       <section id="mode" className="space-y-3 rounded-lg border border-border bg-surface p-4">
-        <h2 className="font-display text-xl font-semibold">Simple or Nerd</h2>
+        <h2 className="font-display text-xl font-semibold">Simple or More detail</h2>
         <p className="text-sm text-muted">
-          Simple keeps the savings rate and a short month-end note. Nerd adds drift, repeating charges, debt payoff, and a sandbox that never changes the real plan.
+          Simple keeps the savings rate and a short note. More detail adds extra charts and a sandbox that never changes the real plan.
         </p>
         <Field label="How much to show">
           <Select
@@ -99,7 +110,7 @@ export function SettingsView() {
             onChange={(e) => patchProfile({ detail: e.target.value as DetailMode, detailChosen: true })}
           >
             <option value="simple">Simple</option>
-            <option value="nerd">Nerd</option>
+            <option value="nerd">More detail</option>
           </Select>
         </Field>
         <div className="flex flex-wrap gap-3 text-sm">

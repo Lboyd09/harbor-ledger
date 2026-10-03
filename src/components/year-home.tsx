@@ -16,6 +16,68 @@ import { Button } from "./ui/button";
 import { YearSheet } from "./year-sheet";
 import { YearSwitcher } from "./year-switcher";
 
+function CategoryYear({
+  id,
+  book,
+  transactions,
+  onClose,
+  onOpenMonth,
+}: {
+  id: string;
+  book: YearWorkbook;
+  transactions: Transaction[];
+  onClose: () => void;
+  onOpenMonth: (ym: string) => void;
+}) {
+  const row = [...book.incomeRows, ...book.expenseRows].find((r) => r.id === id);
+  if (!row) return null;
+  const max = Math.max(1, ...row.months.map((n) => Math.abs(n)));
+  const yearKey = book.months[0]?.slice(0, 4) ?? "";
+  const recent = transactions
+    .filter((t) => t.categoryId === id && t.date.startsWith(yearKey))
+    .slice()
+    .sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id))
+    .slice(0, 8);
+  return (
+    <section className="detail-in rounded-lg border border-primary/40 bg-surface p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="font-display text-xl font-semibold">{row.name}</h2>
+          <p className="text-sm text-muted">
+            {formatMoney(row.yearTotal)} this year. Tap a month to open it.
+          </p>
+        </div>
+        <button type="button" className="text-sm text-muted" onClick={onClose}>
+          Close
+        </button>
+      </div>
+      <div className="mt-4 flex items-end gap-1">
+        {book.months.map((ym, i) => {
+          const n = Math.abs(row.months[i] ?? 0);
+          const h = Math.max(4, Math.round((n / max) * 72));
+          return (
+            <button key={ym} type="button" className="flex flex-1 flex-col items-center gap-1" onClick={() => onOpenMonth(ym)}>
+              <span className="w-full rounded-sm bg-primary/80" style={{ height: h }} />
+              <span className="text-[10px] text-muted">{monthShort(ym).slice(0, 1)}</span>
+            </button>
+          );
+        })}
+      </div>
+      <ul className="mt-4 divide-y divide-border text-sm">
+        {recent.map((t) => (
+          <li key={t.id} className="flex justify-between gap-2 py-2">
+            <span>
+              {t.date} · {t.description}
+            </span>
+            <span className="tabular">{formatMoney(t.amount, { signed: true })}</span>
+          </li>
+        ))}
+        {recent.length === 0 ? <li className="py-2 text-muted">No rows in this category.</li> : null}
+      </ul>
+    </section>
+  );
+}
+
 function tone(status: MonthStatus) {
   if (status === "over") return "text-danger";
   if (status === "on-track") return "text-good";
@@ -33,6 +95,8 @@ export function YearHome() {
   const moves = useBudgetStore((s) => s.bucketMoves) ?? [];
   const navigate = useNavigate();
   const [panel, setPanel] = useState<"summary" | "charts" | "grid">("summary");
+  const [picked, setPicked] = useState<string | null>(null);
+  const [patterns, setPatterns] = useState(false);
   const year = activeMonth.slice(0, 4);
   const book = useMemo(() => buildYearWorkbook(transactions, categories, year), [transactions, categories, year]);
 
@@ -72,13 +136,11 @@ export function YearHome() {
         <div>
           <h1 className="font-display text-3xl font-semibold md:text-4xl">{year}</h1>
           <p className="mt-1 max-w-xl text-sm text-muted">
-            Income and expenses stay in two lists. The spreadsheet under this page is the same year as a grid.
+            Open a month, or tap a category below it to see that income or expense.
           </p>
         </div>
         <YearSwitcher />
       </div>
-
-      {nerd ? <YearNerd year={year} ym={activeMonth} transactions={transactions} categories={categories} /> : null}
 
       <div className="flex flex-wrap gap-1">
         {(
@@ -125,7 +187,7 @@ export function YearHome() {
           {review.rolled.length ? (
             <p>Rolled forward: {review.rolled.map((r) => `${r.name} ${formatMoney(r.delta)}`).join(", ")}.</p>
           ) : (
-            <p>Nothing extra rolled into a bucket.</p>
+            <p>Nothing extra was saved past the monthly amount.</p>
           )}
           <p>{review.over.length ? `Over plan: ${review.over.join(", ")}.` : "No category ran past its plan."}</p>
         </SummaryCard>
@@ -140,27 +202,9 @@ export function YearHome() {
         </section>
       ) : (
         <>
-      <section className="rounded-lg border border-border bg-surface p-4">
-        <h2 className="font-display text-xl font-semibold">Income and spending</h2>
-        <p className="mt-1 mb-3 text-sm text-muted">
-          Green is money you kept. Red is money you spent. A purchase someone paid you back for is in neither bar.
-        </p>
-        <div className="chart-rise">
-        <CashChart
-          data={chart}
-          bars={[
-            { key: "In", fill: "var(--color-good)" },
-            { key: "Out", fill: "var(--color-danger)" },
-          ]}
-        />
-        </div>
-      </section>
-
       <section>
         <h2 className="font-display text-xl font-semibold">Open a month</h2>
-        <p className="mt-1 mb-3 text-sm text-muted">
-          {book.monthsOnTrack} of {book.activeMonths || 0} months with activity stayed on plan.
-        </p>
+        <p className="mt-1 mb-3 text-sm text-muted">Tap a month to edit its transactions.</p>
         <MonthRail
           months={monthsOfYear(year)}
           active={activeMonth}
@@ -169,15 +213,17 @@ export function YearHome() {
         />
       </section>
 
+      {picked ? <CategoryYear id={picked} book={book} transactions={transactions} onClose={() => setPicked(null)} onOpenMonth={openMonth} /> : null}
+
       <div className="grid gap-6 lg:grid-cols-2">
-        <List title="Income" hint="Money in this year — paychecks and other deposits">
+        <List title="Income" hint="Tap one to see the year">
           {income.map((r) => (
-            <Row key={r.id} name={r.name} amount={formatMoney(r.yearTotal)} note={`${formatMoney(r.typical)} typical / mo`} />
+            <Row key={r.id} name={r.name} amount={formatMoney(r.yearTotal)} note={`${formatMoney(r.typical)} typical / mo`} onClick={() => setPicked(r.id)} />
           ))}
           <Row name="Total income" amount={formatMoney(book.income)} strong />
           {income.length === 0 ? <p className="px-4 py-4 text-sm text-muted">No income categorized yet.</p> : null}
         </List>
-        <List title="Expenses" hint="Money out this year — never mixed with income">
+        <List title="Expenses" hint="Tap one to see the year">
           {expenses.map((r) => (
             <Row
               key={r.id}
@@ -185,17 +231,34 @@ export function YearHome() {
               amount={formatMoney(r.yearTotal)}
               note={statusLabel(r.status)}
               noteClass={tone(r.status)}
+              onClick={() => setPicked(r.id)}
             />
           ))}
           <Row name="Total expenses" amount={formatMoney(book.expenses)} strong />
         </List>
       </div>
 
-      <section className="space-y-3">
-        <h2 className="font-display text-xl font-semibold">Year spreadsheet</h2>
-        <p className="text-sm text-muted">The full grid is also under Spreadsheet, above.</p>
-        <YearSheet embedded />
+      <section className="rounded-lg border border-border bg-surface p-4">
+        <h2 className="font-display text-xl font-semibold">Income and spending</h2>
+        <p className="mt-1 mb-3 text-sm text-muted">Green stayed. Red left. A purchase someone paid back is in neither bar.</p>
+        <div className="chart-rise">
+          <CashChart
+            data={chart}
+            bars={[
+              { key: "In", fill: "var(--color-good)" },
+              { key: "Out", fill: "var(--color-danger)" },
+            ]}
+          />
+        </div>
       </section>
+      {nerd ? (
+        <div>
+          <Button variant="outline" size="sm" onClick={() => setPatterns((v) => !v)}>
+            {patterns ? "Hide patterns" : "Patterns in this year"}
+          </Button>
+          {patterns ? <div className="mt-3"><YearNerd year={year} ym={activeMonth} transactions={transactions} categories={categories} /></div> : null}
+        </div>
+      ) : null}
         </>
       )}
     </div>
@@ -274,7 +337,7 @@ function YearNerd({
   const subs = subscriptionFlags(transactions).slice(0, 8);
   return (
     <section className="space-y-3 rounded-lg border border-border bg-surface p-4">
-      <h2 className="font-display text-xl font-semibold">Nerd notes</h2>
+      <h2 className="font-display text-xl font-semibold">Patterns</h2>
       <div>
         <h3 className="text-sm font-medium">Spending by weekday</h3>
         <div className="mt-2 grid grid-cols-7 gap-1">
@@ -347,20 +410,36 @@ function Row({
   note,
   noteClass,
   strong,
+  onClick,
 }: {
   name: string;
   amount: string;
   note?: string;
   noteClass?: string;
   strong?: boolean;
+  onClick?: () => void;
 }) {
-  return (
-    <li className={cn("flex items-baseline justify-between gap-3 px-4 py-3", strong && "bg-chip font-medium")}>
+  const body = (
+    <>
       <div>
         <div>{name}</div>
         {note ? <div className={cn("text-xs text-muted", noteClass)}>{note}</div> : null}
       </div>
       <div className="tabular">{amount}</div>
+    </>
+  );
+  if (!onClick) {
+    return <li className={cn("flex items-baseline justify-between gap-3 px-4 py-3", strong && "bg-chip font-medium")}>{body}</li>;
+  }
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={onClick}
+        className={cn("flex min-h-12 w-full items-baseline justify-between gap-3 px-4 py-3 text-left hover:bg-chip", strong && "bg-chip font-medium")}
+      >
+        {body}
+      </button>
     </li>
   );
 }

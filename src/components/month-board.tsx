@@ -6,7 +6,6 @@ import { displayMerchant } from "@/lib/budget/merchant";
 import { formatMoney } from "@/lib/budget/money";
 import { groupMonth, type MonthGroup } from "@/lib/budget/month-view";
 import { currentMonthKey, monthKeyFromDate, monthLabel, monthShort, shiftMonth } from "@/lib/budget/parse-date";
-import { hasMonthOverride, planAmount } from "@/lib/budget/plans";
 import { closestAmount, paybackNote } from "@/lib/budget/payback";
 import { piecesOf } from "@/lib/budget/splits";
 import { downloadText } from "@/lib/budget/download";
@@ -15,6 +14,7 @@ import { buildYearWorkbook, monthsOfYear, statusLabel } from "@/lib/budget/year"
 import { cn } from "@/lib/cn";
 import { useBudgetStore } from "@/store/budget-store";
 import { CashChart } from "./cash-chart";
+import { CategorizeCoach } from "./categorize-coach";
 import { CategorySelect } from "./category-select";
 import { MonthRail } from "./month-rail";
 import { SummaryCard } from "./summary-card";
@@ -76,6 +76,15 @@ export function MonthBoard() {
   const [focus, setFocus] = useState<string | null>(null);
   const [divideKey, setDivideKey] = useState<string | null>(null);
   const [paybackId, onPayback] = useState<string | null>(null);
+  const [coach, setCoach] = useState(false);
+
+  useEffect(() => {
+    if (typeof sessionStorage === "undefined") return;
+    if (sessionStorage.getItem("harbor-open-categorize") === "1") {
+      sessionStorage.removeItem("harbor-open-categorize");
+      setCoach(true);
+    }
+  }, []);
 
   const year = ym.slice(0, 4);
   const book = useMemo(() => buildYearWorkbook(transactions, categories, year), [transactions, categories, year]);
@@ -116,7 +125,7 @@ export function MonthBoard() {
       <div className="mx-auto max-w-lg space-y-4 py-8">
         <h1 className="font-display text-3xl font-semibold">Start with one month</h1>
         <p className="text-sm text-muted">
-          Import a bank CSV. Income and expenses stay in two lists. Open a row to divide a deposit, or choose Payback on an expense.
+          Import a bank file, then categorize each charge. That is the whole start. Tap a row later to split it or mark it paid back.
         </p>
         <div className="flex flex-wrap gap-2">
           <Link to="/import">
@@ -140,7 +149,7 @@ export function MonthBoard() {
           <p className="text-xs font-medium uppercase tracking-wide text-muted">{ledgerName || "This month"}</p>
           <h1 className="font-display text-3xl font-semibold md:text-4xl">{monthLabel(ym)}</h1>
           <p className="mt-1 max-w-xl text-sm text-muted">
-            Income is money you kept. Expenses are money you spent. Open a row to divide one deposit or charge into two categories. On an expense, Payback is in the category list.
+            Tap a row to change its category, split it in two, or mark that someone paid you back.
           </p>
         </div>
         <div className="flex items-center gap-1">
@@ -193,23 +202,35 @@ export function MonthBoard() {
           <SummaryCard
             label="Left"
             value={formatMoney(layout.incomeTotal - layout.expenseTotal, { signed: true })}
-            sentence="Income minus expenses. Bucket moves are not in this number."
+            sentence="Income minus expenses. Money you set aside is not in this number."
             warn={layout.incomeTotal - layout.expenseTotal < 0}
           >
             <MonthSheet rows={inMonth} categories={categories} ym={ym} />
           </SummaryCard>
         </div>
-        <p className="text-sm">Safe to spend: {formatMoney(safe.amount, { signed: true })} after bucket funding and spending outside buckets.</p>
+        <p className="text-sm">
+          Safe to spend {formatMoney(safe.amount, { signed: true })}. That is income, minus money you set aside, minus spending that starts over next month.
+        </p>
+
+        {coach ? <CategorizeCoach onClose={() => setCoach(false)} /> : null}
+        {!coach && layout.openCount > 0 ? (
+          <section className="rounded-lg border border-primary/40 bg-surface p-4">
+            <h2 className="font-display text-xl font-semibold">
+              {layout.openCount} transaction{layout.openCount === 1 ? "" : "s"} need a category
+            </h2>
+            <p className="mt-1 text-sm text-muted">
+              Do this before the month will make sense. You’ll see one charge at a time and tap where it belongs.
+            </p>
+            <Button className="mt-3" onClick={() => setCoach(true)}>
+              Categorize them
+            </Button>
+          </section>
+        ) : null}
 
         {inMonth.length === 0 ? (
           <EmptyMonth ym={ym} transactions={transactions} onJump={setActiveMonth} />
         ) : null}
 
-        {layout.openCount > 0 ? (
-          <p className="rounded-md border border-warn/40 bg-chip px-4 py-3 text-sm">
-            {layout.openCount} charge{layout.openCount === 1 ? "" : "s"} in {monthLabel(ym)} still need a category. They are at the top of each list.
-          </p>
-        ) : null}
         {notice ? <p className="rounded-md bg-chip px-4 py-3 text-sm">{notice}</p> : null}
 
         <label className="flex max-w-md flex-col gap-1">
@@ -260,7 +281,7 @@ export function MonthBoard() {
         <Section
           title="Income"
           kicker="Money in"
-          hint="Money you kept. Open a row to divide one deposit into two categories. Another deposit can use a different one."
+          hint="Tap a category to see the charges. Tap a charge to change where it goes."
           groups={income}
           empty="No income in this month."
           tone="in"
@@ -274,12 +295,11 @@ export function MonthBoard() {
           onCategory={onCategory}
           onNotice={setNotice}
           ym={ym}
-          monthBudgets={monthBudgets}
         />
         <Section
           title="Expenses"
           kicker="Money out"
-          hint="Money you spent. Payback is at the bottom of the category list. The box on the category is this month only."
+          hint="Each bar is spent against the monthly amount. Tap the category, then a charge, to move it or mark it paid back."
           groups={expenses}
           empty="No expenses in this month."
           tone="out"
@@ -293,7 +313,6 @@ export function MonthBoard() {
           onCategory={onCategory}
           onNotice={setNotice}
           ym={ym}
-          monthBudgets={monthBudgets}
         />
 
         {hiddenOut.length ? (
@@ -357,7 +376,6 @@ function Section({
   onCategory,
   onNotice,
   ym,
-  monthBudgets,
 }: {
   title: string;
   kicker: string;
@@ -375,10 +393,10 @@ function Section({
   onCategory: (id: string, merchantKey: string, sample: string, categoryId: string | null) => void;
   onNotice: (message: string) => void;
   ym: string;
-  monthBudgets: { categoryId: string; ym: string; amount: number }[];
 }) {
-  const setMonthPlan = useBudgetStore((s) => s.setMonthPlan);
   const monthTx = useBudgetStore((s) => s.transactions);
+  const moneyBuckets = useBudgetStore((s) => s.moneyBuckets) ?? [];
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
   return (
     <section className={cn("rounded-xl border p-3 md:p-4", tone === "in" ? "border-good/40" : "border-danger/35")}>
       <div className="mb-3 px-1">
@@ -394,41 +412,55 @@ function Section({
           const pct = g.plan > 0 ? Math.min(100, Math.round((Math.max(0, g.total) / g.plan) * 100)) : 0;
           const state = over ? "Over" : behind ? "Behind" : g.plan > 0 ? "On track" : "";
           const stored = categories.find((c) => c.id === g.id);
+          const expanded = openGroups[g.id] ?? g.open;
           return (
             <div key={g.id} className="overflow-hidden rounded-lg border border-border bg-surface">
               <div className={cn("border-l-4 px-4 py-3", g.open ? "border-warn" : tone === "in" ? "border-good" : "border-danger")}>
-                <div className="flex flex-wrap items-start justify-between gap-3">
+                <button
+                  type="button"
+                  className="flex w-full flex-wrap items-start justify-between gap-3 text-left"
+                  aria-expanded={expanded}
+                  onClick={() => setOpenGroups((cur) => ({ ...cur, [g.id]: !expanded }))}
+                >
                   <div>
                     <div className="font-medium">{g.name}</div>
                     <div className={cn("text-xs", over || behind ? "text-danger" : "text-muted")}>
-                      {g.transactions.length} row{g.transactions.length === 1 ? "" : "s"}
+                      {g.transactions.length} charge{g.transactions.length === 1 ? "" : "s"}
                       {state ? ` · ${state}` : ""}
+                      {expanded ? " · hide" : " · show"}
                     </div>
                   </div>
                   <div className={cn("tabular font-medium", tone === "in" ? "text-good" : "text-danger")}>{formatMoney(g.total)}</div>
-                </div>
-                {stored && stored.id !== "money-back" ? (
-                  <label className="mt-2 flex max-w-xs flex-col gap-1 text-xs text-muted">
-                    This month only
-                    <Input
-                      inputMode="decimal"
-                      aria-label={`This month's budget for ${g.name}`}
-                      value={hasMonthOverride(stored.id, ym, monthBudgets) ? String(planAmount(stored, ym, monthBudgets)) : ""}
-                      placeholder={stored.plannedMonthly ? `Usual ${stored.plannedMonthly}` : "Uses usual plan"}
-                      onChange={(e) => {
-                        const raw = e.target.value.trim();
-                        setMonthPlan(stored.id, ym, raw ? Number(raw) || 0 : null);
-                      }}
-                    />
-                    <span>Usual plan {formatMoney(stored.plannedMonthly)}. Clear the box to use it.</span>
-                  </label>
-                ) : null}
+                </button>
                 {g.plan > 0 ? (
-                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-chip">
-                    <div className={cn("h-full transition-[width] duration-300", over ? "bg-danger" : "bg-primary")} style={{ width: `${pct}%` }} />
+                  <div className="mt-2">
+                    <div className="h-2.5 overflow-hidden rounded-full bg-chip">
+                      <div className={cn("h-full", over ? "bg-danger" : "bg-primary")} style={{ width: `${pct}%` }} />
+                    </div>
+                    <p className="mt-1 text-xs text-muted">
+                      {formatMoney(Math.max(0, g.total))} of {formatMoney(g.plan)}.{" "}
+                      <Link to="/plan" className="text-primary">
+                        Change the amount
+                      </Link>
+                    </p>
                   </div>
+                ) : moneyBuckets.some((b) => b.categoryIds.includes(g.id)) ? (
+                  <p className="mt-1 text-xs text-muted">
+                    Keeps leftovers. What you don’t spend stays.{" "}
+                    <Link to="/plan" className="text-primary">
+                      See it on Plan
+                    </Link>
+                  </p>
+                ) : stored && !g.open ? (
+                  <p className="mt-1 text-xs text-muted">
+                    No monthly amount yet.{" "}
+                    <Link to="/plan" className="text-primary">
+                      Set one on Plan
+                    </Link>
+                  </p>
                 ) : null}
               </div>
+              {expanded ? (
               <ul className="divide-y divide-border border-t border-border">
                 {g.transactions.map((t) => {
                   const paid = t.status === "reimbursement";
@@ -478,24 +510,32 @@ function Section({
                         ) : null
                       }
                       category={
+                        open || g.open ? (
                         <div className="space-y-1">
                           <CategorySelect
                             categories={categories}
                             kind={tone === "in" ? "income" : "expense"}
-                            payback={tone === "out" && t.status !== "refund"}
-                            value={paid || (open && paybackId === t.id) ? "__payback__" : t.categoryId}
-                            onPayback={() => {
-                              onFocus(key);
-                              onDivide(null);
-                              onPayback(t.id);
-                            }}
+                            value={t.categoryId}
                             onChange={(id) => {
                               if (paid) useBudgetStore.getState().undoPaidBack(t.id);
                               onPayback(null);
                               onCategory(t.id, t.merchantKey, t.description, id);
                             }}
                           />
-                          {t.status === "posted" && !paid ? (
+                          {open && tone === "out" && t.status === "posted" && !pieces ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                onFocus(key);
+                                onDivide(null);
+                                onPayback(t.id);
+                              }}
+                            >
+                              Someone paid me back
+                            </Button>
+                          ) : null}
+                          {open && t.status === "posted" && !paid ? (
                             <button
                               type="button"
                               className="min-h-8 text-xs text-muted hover:text-fg"
@@ -505,7 +545,7 @@ function Section({
                                 onDivide(key);
                               }}
                             >
-                              Divide this row
+                              Split into two categories
                             </button>
                           ) : null}
                           {otherCats.length ? (
@@ -514,6 +554,9 @@ function Section({
                             </p>
                           ) : null}
                         </div>
+                        ) : (
+                          <span className="text-xs text-muted">Tap the name</span>
+                        )
                       }
                       details={
                         open && paybackId === t.id ? (
@@ -541,6 +584,7 @@ function Section({
                   );
                 })}
               </ul>
+              ) : null}
             </div>
           );
         })}
@@ -573,22 +617,23 @@ function RowTools({
   return (
     <div className="mt-2 space-y-3 text-sm">
       {t.status === "reimbursement" ? (
-        <p className="text-muted">
-          Out of this month{note ? ` — ${note}` : ". Someone paid this back."}{" "}
-          <Quiet
+        <div className="rounded-md border border-border bg-bg p-3">
+          <p className="font-medium">This was paid back{note ? ` — ${note}` : ""}.</p>
+          <p className="mt-1 text-muted">It is not spending and the matching deposit is not income.</p>
+          <Button
+            className="mt-2"
+            size="sm"
+            variant="outline"
             onClick={() => {
               useBudgetStore.getState().undoPaidBack(t.id);
-              onNotice("Counted again.");
+              onNotice("Counted as spending again.");
             }}
           >
-            Undo payback
-          </Quiet>
-        </p>
+            Undo — count it again
+          </Button>
+        </div>
       ) : (
-        <p className="text-muted">
-          This row only. Another charge with the same name can use a different category. The overall category stays on
-          the dropdown.
-        </p>
+        <p className="text-muted">Changing the category here changes only this row.</p>
       )}
       {t.status === "posted" ? (
         <SplitEditor t={t} tone={tone} categories={categories} onNotice={onNotice} openNow={Boolean(divide)} />
@@ -776,13 +821,13 @@ function PaybackMatch({
 
   return (
     <div className="mt-2 max-w-lg space-y-2 rounded-md border border-border bg-bg p-3">
-      <p className="font-medium">Match the money that paid this back</p>
-      <p className="text-xs text-muted">
+      <p className="font-medium">Which deposit paid this back?</p>
+      <p className="text-sm text-muted">
         {close && suggested
-          ? `Closest in this month: ${dayLabel(suggested.date)} · ${displayMerchant(suggested.description)} · ${formatMoney(suggested.amount)}. Matching takes both rows out of the month.`
+          ? `${displayMerchant(suggested.description)} on ${dayLabel(suggested.date)} is ${formatMoney(suggested.amount)}, close to this charge. Tap it, then confirm. Both rows leave income and spending.`
           : suggested
-            ? `Nothing is close to ${formatMoney(Math.abs(t.amount))}. Nearest is listed first. Pick it only if that money really paid this back.`
-            : "No deposit to match yet. You can still leave this purchase out of spending."}
+            ? `Nothing lines up with ${formatMoney(Math.abs(t.amount))}. The nearest deposit is first. Pick it only if that money really paid this.`
+            : "There is no deposit to match. You can still leave this purchase out of spending."}
       </p>
       {list.length ? (
         <ul className="max-h-48 space-y-1 overflow-y-auto">
@@ -793,7 +838,7 @@ function PaybackMatch({
                 <button
                   type="button"
                   onClick={() => setPick(x.id)}
-                  className={`flex w-full items-center justify-between gap-2 rounded-md px-2 py-2 text-left text-sm ${on ? "bg-chip" : "hover:bg-chip"}`}
+                  className={`flex min-h-12 w-full items-center justify-between gap-2 rounded-md border px-3 py-2 text-left text-sm ${on ? "border-primary bg-chip" : "border-transparent hover:bg-chip"}`}
                 >
                   <span>
                     {dayLabel(x.date)} · {displayMerchant(x.description)}
@@ -817,7 +862,7 @@ function PaybackMatch({
             onClose();
           }}
         >
-          {chosen ? "Cancel both out" : "Leave out of spending"}
+          {chosen ? "These cancel each other out" : "Leave this purchase out of spending"}
         </Button>
         <Button size="sm" variant="ghost" onClick={onClose}>
           Cancel

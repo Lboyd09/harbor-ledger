@@ -174,8 +174,18 @@ export function ImportWizard() {
           </p>
           <div className="flex flex-wrap gap-3">
             {result.uncategorized > 0 ? (
-              <Link to="/categories" className="text-primary underline-offset-2 hover:underline">
-                Categorize repeating merchants
+              <Link
+                to="/"
+                className="text-primary underline-offset-2 hover:underline"
+                onClick={() => {
+                  try {
+                    sessionStorage.setItem("harbor-open-categorize", "1");
+                  } catch {
+                    /* ignore */
+                  }
+                }}
+              >
+                Categorize them now
               </Link>
             ) : null}
             <Link to="/" className="text-primary underline-offset-2 hover:underline">
