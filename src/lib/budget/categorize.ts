@@ -17,6 +17,30 @@ function resolveSlug(slug: string, categories: Category[]): Category | undefined
   return undefined;
 }
 
+function pickMerchantRule(rules: MerchantRule[], merchantKeyValue: string, amount: number): MerchantRule | undefined {
+  const side: "in" | "out" = amount < 0 ? "out" : "in";
+  return (
+    rules.find((r) => r.merchantKey === merchantKeyValue && r.side === side) ??
+    rules.find((r) => r.merchantKey === merchantKeyValue && !r.side)
+  );
+}
+
+/** Replace the standing category for a merchant. A side keeps income and expenses apart. */
+export function replaceMerchantRule(
+  rules: MerchantRule[],
+  key: string,
+  categoryId: string | null,
+  side?: "in" | "out",
+): MerchantRule[] {
+  const rest = rules.filter((r) => {
+    if (r.merchantKey !== key) return true;
+    if (!side) return false;
+    return Boolean(r.side) && r.side !== side;
+  });
+  if (!categoryId) return rest;
+  return [...rest, side ? { merchantKey: key, categoryId, side } : { merchantKey: key, categoryId }];
+}
+
 export function suggestCategory(
   description: string,
   amount: number,
@@ -25,7 +49,7 @@ export function suggestCategory(
   merchantKeyValue: string,
   history: Pick<Transaction, "merchantKey" | "categoryId" | "userSet" | "date">[] = [],
 ): SuggestResult {
-  const rule = rules.find((r) => r.merchantKey === merchantKeyValue);
+  const rule = pickMerchantRule(rules, merchantKeyValue, amount);
   if (rule && categories.some((c) => c.id === rule.categoryId)) {
     return { categoryId: rule.categoryId, reason: "rule", pattern: null };
   }

@@ -4,6 +4,7 @@ import { parseCsvText, remapPreview } from "@/lib/budget/csv";
 import { formatMoney } from "@/lib/budget/money";
 import type { ColumnRole, CsvPreview } from "@/lib/budget/types";
 import { useBudgetStore } from "@/store/budget-store";
+import { LedgerTabs } from "./ledger-tabs";
 import { Button } from "./ui/button";
 import { Select } from "./ui/field";
 
@@ -52,6 +53,7 @@ export function ImportWizard() {
 
   return (
     <div className="space-y-6">
+      <LedgerTabs page="import" />
       <div>
         <h1 className="font-display text-2xl font-semibold md:text-3xl">Import a bank CSV</h1>
         <p className="mt-2 max-w-2xl text-sm text-muted">

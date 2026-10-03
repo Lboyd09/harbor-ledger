@@ -16,6 +16,7 @@ import { useBudgetStore } from "@/store/budget-store";
 import { CashChart } from "./cash-chart";
 import { CategorizeCoach } from "./categorize-coach";
 import { CategorySelect } from "./category-select";
+import { LedgerTabs } from "./ledger-tabs";
 import { MonthRail } from "./month-rail";
 import { SummaryCard } from "./summary-card";
 import { Button } from "./ui/button";
@@ -55,6 +56,35 @@ function countsLabel(t: Transaction) {
   if (t.status === "reimbursement") return t.amount < 0 ? "Paid back — not spending" : "Paid back — not income";
   if (t.status === "refund") return "Money back — lowers spending";
   return "Yes";
+}
+
+function ChargeCategory({
+  t,
+  tone,
+  categories,
+  onPick,
+}: {
+  t: Transaction;
+  tone: "in" | "out";
+  categories: Category[];
+  onPick: (id: string | null, every: boolean) => void;
+}) {
+  const [every, setEvery] = useState(true);
+  const name = displayMerchant(t.description);
+  return (
+    <>
+      <CategorySelect
+        categories={categories}
+        kind={tone === "in" ? "income" : "expense"}
+        value={t.categoryId}
+        onChange={(id) => onPick(id, every)}
+      />
+      <label className="flex min-h-8 items-start gap-2 text-xs text-muted">
+        <input type="checkbox" className="mt-0.5" checked={every} onChange={(e) => setEvery(e.target.checked)} />
+        <span>Every {name}, in every month</span>
+      </label>
+    </>
+  );
 }
 
 export function MonthBoard() {
@@ -149,7 +179,7 @@ export function MonthBoard() {
           <p className="text-xs font-medium uppercase tracking-wide text-muted">{ledgerName || "This month"}</p>
           <h1 className="font-display text-3xl font-semibold md:text-4xl">{monthLabel(ym)}</h1>
           <p className="mt-1 max-w-xl text-sm text-muted">
-            Tap a row to change its category, split it in two, or mark that someone paid you back.
+            Tap a category, then a charge. The box under the list applies that category to every charge with the same name, in every month.
           </p>
         </div>
         <div className="flex items-center gap-1">
@@ -164,6 +194,8 @@ export function MonthBoard() {
           </Button>
         </div>
       </div>
+
+      <LedgerTabs page="month" />
 
       <MonthRail
         months={monthsOfYear(year)}
@@ -209,7 +241,7 @@ export function MonthBoard() {
           </SummaryCard>
         </div>
         <p className="text-sm">
-          Safe to spend {formatMoney(safe.amount, { signed: true })}. That is income, minus money you set aside, minus spending that starts over next month.
+          Safe to spend {formatMoney(safe.amount, { signed: true })}. Income so far, minus this month’s category amounts, minus what goes into buckets, minus spending that is not already in those amounts.
         </p>
 
         {coach ? <CategorizeCoach onClose={() => setCoach(false)} /> : null}
@@ -446,7 +478,7 @@ function Section({
                   </div>
                 ) : moneyBuckets.some((b) => b.categoryIds.includes(g.id)) ? (
                   <p className="mt-1 text-xs text-muted">
-                    Keeps leftovers. What you don’t spend stays.{" "}
+                    This is a bucket. What you don’t spend stays.{" "}
                     <Link to="/plan" className="text-primary">
                       See it on Plan
                     </Link>
@@ -512,14 +544,23 @@ function Section({
                       category={
                         open || g.open ? (
                         <div className="space-y-1">
-                          <CategorySelect
+                          <ChargeCategory
+                            t={t}
+                            tone={tone}
                             categories={categories}
-                            kind={tone === "in" ? "income" : "expense"}
-                            value={t.categoryId}
-                            onChange={(id) => {
-                              if (paid) useBudgetStore.getState().undoPaidBack(t.id);
+                            onPick={(id, every) => {
+                              if (t.status === "reimbursement") useBudgetStore.getState().undoPaidBack(t.id);
                               onPayback(null);
-                              onCategory(t.id, t.merchantKey, t.description, id);
+                              if (every) {
+                                useBudgetStore.getState().setMerchantCategory(t.merchantKey, id, tone);
+                                onNotice(
+                                  id
+                                    ? `Every ${displayMerchant(t.description)} now uses this category, in every month.`
+                                    : `Cleared every ${displayMerchant(t.description)}.`,
+                                );
+                              } else {
+                                onCategory(t.id, t.merchantKey, t.description, id);
+                              }
                             }}
                           />
                           {open && tone === "out" && t.status === "posted" && !pieces ? (
@@ -609,7 +650,6 @@ function RowTools({
   const patchTransaction = useBudgetStore((s) => s.patchTransaction);
   const deleteTransaction = useBudgetStore((s) => s.deleteTransaction);
   const countAsIncome = useBudgetStore((s) => s.countAsIncome);
-  const setTransactionCategory = useBudgetStore((s) => s.setTransactionCategory);
   const paycheck = isPaycheck(categories, t);
   const note = paybackNote(t.notes);
   const pieces = piecesOf(t);
@@ -633,22 +673,12 @@ function RowTools({
           </Button>
         </div>
       ) : (
-        <p className="text-muted">Changing the category here changes only this row.</p>
+        <p className="text-muted">Changing the category here follows the box above. Uncheck it to change only this row.</p>
       )}
       {t.status === "posted" ? (
         <SplitEditor t={t} tone={tone} categories={categories} onNotice={onNotice} openNow={Boolean(divide)} />
       ) : null}
       <div className="flex flex-wrap gap-3">
-        {t.categoryId && t.status === "posted" ? (
-          <Quiet
-            onClick={() => {
-              setTransactionCategory(t.id, t.categoryId, true);
-              onNotice("Every row with this name now uses that category.");
-            }}
-          >
-            Use this category for every {displayMerchant(t.description)}
-          </Quiet>
-        ) : null}
         {t.status === "refund" ? (
           <Quiet
             onClick={() => {

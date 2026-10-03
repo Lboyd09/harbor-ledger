@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { parseBackup } from "./backup.ts";
-import { bucketBalance, linkCategoryState, migrateGoals, safeToSpend } from "./buckets.ts";
+import { bucketBalance, fullLineOf, linkCategoryState, migrateGoals, safeToSpend, withMonthlyChange, withPaused } from "./buckets.ts";
 import { suggestCategory } from "./categorize.ts";
 import { normalizeSnapshot } from "./normalize.ts";
 import type { Category, MoneyBucket, Transaction } from "./types.ts";
@@ -62,7 +62,7 @@ test("bucket balance carries funding and ignores payback, refunds, and splits ou
   assert.equal(bucketBalance(groceries, "2026-07", transactions, cats, []), 183);
 });
 
-test("safe to spend does not charge bucket spending twice", () => {
+test("safe to spend uses monthly amounts, bucket funding, and leftover spending once", () => {
   const transactions = [
     tx({ id: "in", date: "2026-07-01", amount: 1000, categoryId: "pay" }),
     tx({ id: "g", date: "2026-07-02", amount: -40, categoryId: "food" }),
@@ -78,8 +78,38 @@ test("safe to spend does not charge bucket spending twice", () => {
   assert.equal(safe.income, 1000);
   assert.equal(safe.funding, 100);
   assert.equal(safe.moved, 10);
-  assert.equal(safe.spent, 100);
-  assert.equal(safe.amount, 790);
+  assert.equal(safe.plans, 1100);
+  assert.equal(safe.spent, 0);
+  assert.equal(safe.amount, 1000 - 1100 - 100 - 10);
+});
+
+test("a rate change does not rewrite months already funded", () => {
+  const changed = withMonthlyChange(groceries, 250, "2026-07");
+  assert.equal(changed.monthly, 250);
+  assert.equal(changed.pastRates?.find((r) => r.ym === "2026-06")?.monthly, 100);
+  assert.equal(changed.pastRates?.find((r) => r.ym === "2026-07")?.monthly, 100);
+  assert.equal(changed.monthlyFrom, "2026-08");
+  const transactions = [tx({ id: "1", date: "2026-06-02", amount: -30, categoryId: "food" })];
+  assert.equal(bucketBalance(changed, "2026-06", transactions, cats, []), 110);
+  assert.equal(bucketBalance(changed, "2026-08", transactions, cats, []), 110 + 100 + 250);
+});
+
+test("paused months add nothing, and unpausing does not backfill them", () => {
+  const paused = withPaused(groceries, true, "2026-07");
+  assert.equal(paused.paused, true);
+  const transactions = [tx({ id: "1", date: "2026-06-02", amount: -30, categoryId: "food" })];
+  assert.equal(bucketBalance(paused, "2026-06", transactions, cats, []), 110);
+  assert.equal(bucketBalance(paused, "2026-07", transactions, cats, []), 110);
+  const resumed = withPaused(paused, false, "2026-09");
+  assert.equal(resumed.paused, false);
+  assert.equal(bucketBalance(resumed, "2026-08", transactions, cats, []), 110);
+  assert.equal(bucketBalance(resumed, "2026-09", transactions, cats, []), 210);
+});
+
+test("full line is the target, or three months when there is no target", () => {
+  assert.equal(fullLineOf(groceries), 300);
+  assert.equal(fullLineOf({ ...groceries, target: 800 }), 800);
+  assert.equal(fullLineOf({ ...groceries, target: 800, fullLine: 500 }), 500);
 });
 
 test("linking a category clears its budget", () => {

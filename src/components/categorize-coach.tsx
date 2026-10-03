@@ -40,7 +40,7 @@ export function CategorizeCoach({ onClose, doneLabel = "Back to the month" }: { 
   const name = displayMerchant(current.description);
 
   function pick(cat: Category) {
-    if (also) setMerchantCategory(current.merchantKey, cat.id);
+    if (also) setMerchantCategory(current.merchantKey, cat.id, incoming ? "in" : "out");
     else setTransactionCategory(current.id, cat.id, false);
     setAlso(true);
   }
@@ -54,7 +54,7 @@ export function CategorizeCoach({ onClose, doneLabel = "Back to the month" }: { 
         </button>
       </div>
       <p className="mt-1 text-sm text-muted">
-        {left.length} still need a category. Tap one. If the box stays checked, every other charge from this name gets the same category.
+        {left.length} still need a category. Tap one. If the box stays checked, every charge from this name uses it, in every month.
       </p>
       <div className="mt-3 h-2 overflow-hidden rounded-full bg-chip">
         <div className="h-full bg-primary" style={{ width: `${Math.round(done * 100)}%` }} />
@@ -82,7 +82,7 @@ export function CategorizeCoach({ onClose, doneLabel = "Back to the month" }: { 
       </div>
       <label className="mt-4 flex min-h-11 items-center gap-2 text-sm">
         <input type="checkbox" checked={also} onChange={(e) => setAlso(e.target.checked)} />
-        Use this for every {name}
+        Use this for every {name}, in every month
       </label>
       <button type="button" className="mt-2 text-sm text-muted underline-offset-2 hover:underline" onClick={() => patchTransaction(current.id, { excluded: true })}>
         Skip — leave this one out of the budget

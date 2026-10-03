@@ -1,8 +1,8 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { linkCategoryState, migrateGoals } from "@/lib/budget/buckets";
+import { linkCategoryState, migrateGoals, withMonthlyChange, withPaused } from "@/lib/budget/buckets";
 import { parseBackup } from "@/lib/budget/backup";
-import { suggestCategory } from "@/lib/budget/categorize";
+import { replaceMerchantRule, suggestCategory } from "@/lib/budget/categorize";
 import { parseCsvText, applyAmountFlip } from "@/lib/budget/csv";
 import { fingerprint } from "@/lib/budget/fingerprint";
 import { newId } from "@/lib/budget/ids";
@@ -60,7 +60,7 @@ type State = LedgerSnapshot & {
   removeCategory: (id: string) => void;
   setMonthPlan: (categoryId: string, ym: string, amount: number | null) => void;
   setTransactionCategory: (id: string, categoryId: string | null, applyToMerchant: boolean) => void;
-  setMerchantCategory: (merchantKey: string, categoryId: string | null) => void;
+  setMerchantCategory: (merchantKey: string, categoryId: string | null, side?: "in" | "out") => void;
   applyRecommendedPlans: (year: string) => number;
   patchTransaction: (id: string, patch: Partial<Pick<Transaction, "excluded" | "status" | "notes">>) => void;
   setSplits: (id: string, splits: TxSplit[] | null) => void;
@@ -449,7 +449,8 @@ export const useBudgetStore = create<State>()(
         const tx = get().transactions.find((t) => t.id === id);
         if (!tx) return;
         if (applyToMerchant) {
-          get().setMerchantCategory(tx.merchantKey, categoryId);
+          const side = tx.amount < 0 || tx.status === "refund" ? "out" : "in";
+          get().setMerchantCategory(tx.merchantKey, categoryId, side);
           return;
         }
         set({
@@ -457,11 +458,17 @@ export const useBudgetStore = create<State>()(
         });
         schedulePersist();
       },
-      setMerchantCategory: (key, categoryId) => {
+      setMerchantCategory: (key, categoryId, side) => {
+        const match = (t: { merchantKey: string; amount: number; status: string }) => {
+          if (t.merchantKey !== key) return false;
+          if (!side) return true;
+          if (side === "out") return t.amount < 0 || t.status === "refund";
+          return t.amount > 0 && t.status !== "refund";
+        };
         set({
-          merchantRules: get().merchantRules.filter((r) => r.merchantKey !== key),
+          merchantRules: replaceMerchantRule(get().merchantRules, key, categoryId, side),
           transactions: get().transactions.map((t) =>
-            t.merchantKey === key ? { ...t, categoryId, userSet: true } : t,
+            match(t) ? { ...t, categoryId, userSet: true, splits: null } : t,
           ),
         });
         schedulePersist();
@@ -542,22 +549,39 @@ export const useBudgetStore = create<State>()(
           startMonth: /^\d{4}-\d{2}$/.test(bucket.startMonth) ? bucket.startMonth : get().activeMonth,
           opening: Math.max(0, bucket.opening || 0),
           fromGoalId: null,
+          monthlyFrom: /^\d{4}-\d{2}$/.test(bucket.startMonth) ? bucket.startMonth : get().activeMonth,
+          pastRates: [],
+          paused: false,
+          pausedFrom: null,
+          fullLine: bucket.fullLine && bucket.fullLine > 0 ? bucket.fullLine : null,
+          nudgeDismissedYm: null,
         };
         set({ moneyBuckets: [...(get().moneyBuckets ?? []), next] });
         schedulePersist();
       },
       updateBucket: (id, patch) => {
+        const asOf = get().activeMonth;
         set({
           moneyBuckets: (get().moneyBuckets ?? []).map((b) => {
             if (b.id !== id) return b;
-            const yearly = patch.yearly === undefined ? b.yearly : patch.yearly && patch.yearly > 0 ? patch.yearly : null;
-            const monthly =
-              patch.yearly && patch.yearly > 0
-                ? roundMoney(patch.yearly / 12)
-                : patch.monthly != null
-                  ? Math.max(0, patch.monthly)
-                  : b.monthly;
-            return { ...b, ...patch, yearly, monthly, name: (patch.name ?? b.name).trim() || b.name };
+            let next = { ...b };
+            if (patch.name != null) next.name = patch.name.trim() || b.name;
+            if (patch.target !== undefined) next.target = patch.target && patch.target > 0 ? patch.target : null;
+            if (patch.by !== undefined) next.by = patch.by && /^\d{4}-\d{2}$/.test(patch.by) ? patch.by : null;
+            if (patch.fullLine !== undefined) next.fullLine = patch.fullLine && patch.fullLine > 0 ? patch.fullLine : null;
+            if (patch.nudgeDismissedYm !== undefined) next.nudgeDismissedYm = patch.nudgeDismissedYm;
+            if (patch.categoryIds) next.categoryIds = patch.categoryIds;
+            if (patch.opening != null) next.opening = Math.max(0, patch.opening);
+            const yearly = patch.yearly && patch.yearly > 0 ? patch.yearly : null;
+            if (patch.yearly && patch.yearly > 0) {
+              next = withMonthlyChange(next, roundMoney(patch.yearly / 12), asOf);
+              next.yearly = yearly;
+            } else if (patch.monthly != null && patch.monthly !== b.monthly) {
+              next = withMonthlyChange(next, patch.monthly, asOf);
+              if (patch.yearly === null) next.yearly = null;
+            }
+            if (patch.paused != null && patch.paused !== Boolean(b.paused)) next = withPaused(next, patch.paused, asOf);
+            return next;
           }),
         });
         schedulePersist();
@@ -610,7 +634,13 @@ export const useBudgetStore = create<State>()(
           const moneyBuckets = buckets.flatMap((b) => {
             if (!b.categoryIds.includes(categoryId)) return [b];
             const categoryIds = b.categoryIds.filter((id) => id !== categoryId);
-            const onlyThis = categoryIds.length === 0 && !b.target && !b.fromGoalId && b.opening === 0;
+            const onlyThis =
+              categoryIds.length === 0 &&
+              !b.target &&
+              !b.fromGoalId &&
+              b.opening === 0 &&
+              !(b.pastRates && b.pastRates.length) &&
+              !b.paused;
             if (onlyThis) return [];
             return [{ ...b, categoryIds }];
           });
@@ -639,6 +669,12 @@ export const useBudgetStore = create<State>()(
               startMonth: get().activeMonth,
               opening: 0,
               fromGoalId: null,
+              monthlyFrom: get().activeMonth,
+              pastRates: [],
+              paused: false,
+              pausedFrom: null,
+              fullLine: null,
+              nudgeDismissedYm: null,
             },
           ],
           categoryId,

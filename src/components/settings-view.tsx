@@ -9,6 +9,7 @@ import { formatMoney } from "@/lib/budget/money";
 import type { DetailMode, HarborLook, HarborMotion } from "@/lib/budget/types";
 import { useBudgetStore } from "@/store/budget-store";
 import { ExportBar } from "./export-bar";
+import { StyleChoice } from "./style-choice";
 import { Button } from "./ui/button";
 import { Field, Input, Select } from "./ui/field";
 
@@ -39,7 +40,7 @@ export function SettingsView() {
           <div className="flex flex-col gap-2 text-sm">
             <Link to="/import" className="font-medium text-primary">Import a bank CSV</Link>
             <Link to="/" className="font-medium text-primary">Month — categorize charges, or mark one paid back</Link>
-            <Link to="/plan" className="font-medium text-primary">Plan — monthly amounts and Keep leftovers</Link>
+            <Link to="/plan" className="font-medium text-primary">Plan — budgets that reset, or buckets that keep what you don’t spend</Link>
             <Link to="/categories" className="font-medium text-primary">Merchants — one category for a store</Link>
             <Link to="/grow" className="font-medium text-primary">Grow — debt, net worth, and calculators</Link>
           </div>
@@ -56,6 +57,9 @@ export function SettingsView() {
           </a>
           <a href="#mode" className="rounded-md border border-border bg-surface px-3 py-2">
             Simple or More detail
+          </a>
+          <a href="#style" className="rounded-md border border-border bg-surface px-3 py-2">
+            Budgets or buckets
           </a>
           <a href="#ledger" className="rounded-md border border-border bg-surface px-3 py-2">
             Ledger
@@ -124,6 +128,17 @@ export function SettingsView() {
             Grow calculators
           </Link>
         </div>
+      </section>
+
+      <section id="style" className="space-y-3 rounded-lg border border-border bg-surface p-4">
+        <h2 className="font-display text-xl font-semibold">Monthly budgets or buckets</h2>
+        <p className="text-sm text-muted">
+          This chooses which Plan page opens first. It does not convert categories you already have. A category is still only one or the other.
+        </p>
+        <StyleChoice
+          value={profile.budgetStyle === "buckets" ? "buckets" : "monthly"}
+          onChange={(budgetStyle) => patchProfile({ budgetStyle })}
+        />
       </section>
 
       <section id="ledger" className="space-y-3 rounded-lg border border-border bg-surface p-4">

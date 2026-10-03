@@ -6,6 +6,7 @@ import type {
   BucketMove,
   BudgetGoal,
   BudgetPeriod,
+  BudgetStyle,
   Category,
   DebtItem,
   DetailMode,
@@ -96,6 +97,7 @@ export function normalizeProfile(raw: unknown): Profile {
     motion: MOTIONS.includes(p.motion as HarborMotion) ? (p.motion as HarborMotion) : "lively",
     detail: DETAILS.includes(p.detail as DetailMode) ? (p.detail as DetailMode) : "simple",
     detailChosen: asBool(p.detailChosen, false),
+    budgetStyle: p.budgetStyle === "buckets" ? "buckets" : ("monthly" as BudgetStyle),
   };
 }
 
@@ -155,6 +157,7 @@ export function normalizeSnapshot(raw: unknown): LedgerSnapshot | null {
     ? rulesRaw.filter(isRecord).map((r) => ({
         merchantKey: asString(r.merchantKey),
         categoryId: asString(r.categoryId),
+        side: r.side === "in" || r.side === "out" ? r.side : undefined,
       }))
     : [];
   const importsRaw = inner.imports;
@@ -250,6 +253,18 @@ function normalizeBuckets(raw: unknown): MoneyBucket[] {
     const by = asString(b.by);
     const targetRaw = b.target;
     const target = targetRaw == null || targetRaw === "" ? null : Math.max(0, asNumber(targetRaw, 0));
+    const fullRaw = b.fullLine;
+    const fullLine = fullRaw == null || fullRaw === "" ? null : Math.max(0, asNumber(fullRaw, 0));
+    const monthlyFrom = asString(b.monthlyFrom);
+    const pausedFrom = asString(b.pausedFrom);
+    const nudge = asString(b.nudgeDismissedYm);
+    const pastRates = Array.isArray(b.pastRates)
+      ? b.pastRates.filter(isRecord).flatMap((r) => {
+          const ym = asString(r.ym);
+          if (!/^\d{4}-\d{2}$/.test(ym)) return [];
+          return [{ ym, monthly: Math.max(0, asNumber(r.monthly, 0)) }];
+        })
+      : [];
     return [
       {
         id: asString(b.id, `bucket_${i}`),
@@ -262,6 +277,12 @@ function normalizeBuckets(raw: unknown): MoneyBucket[] {
         startMonth,
         opening: Math.max(0, asNumber(b.opening, 0)),
         fromGoalId: typeof b.fromGoalId === "string" && b.fromGoalId ? b.fromGoalId : null,
+        monthlyFrom: /^\d{4}-\d{2}$/.test(monthlyFrom) ? monthlyFrom : startMonth,
+        pastRates,
+        paused: asBool(b.paused, false),
+        pausedFrom: /^\d{4}-\d{2}$/.test(pausedFrom) ? pausedFrom : null,
+        fullLine: fullLine && fullLine > 0 ? Math.round(fullLine * 100) / 100 : null,
+        nudgeDismissedYm: /^\d{4}-\d{2}$/.test(nudge) ? nudge : null,
       },
     ];
   });

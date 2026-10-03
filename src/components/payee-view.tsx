@@ -4,6 +4,7 @@ import { displayMerchant } from "@/lib/budget/merchant";
 import { groupPayees, type PayeeGroup } from "@/lib/budget/payees";
 import { useBudgetStore } from "@/store/budget-store";
 import { CategorySelect } from "./category-select";
+import { LedgerTabs } from "./ledger-tabs";
 import { Input } from "./ui/field";
 
 type Filter = "all" | "open" | "bills";
@@ -12,6 +13,7 @@ export function PayeeView() {
   const transactions = useBudgetStore((s) => s.transactions);
   const categories = useBudgetStore((s) => s.categories);
   const setMerchantCategory = useBudgetStore((s) => s.setMerchantCategory);
+  const rules = useBudgetStore((s) => s.merchantRules) ?? [];
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [notice, setNotice] = useState<string | null>(null);
@@ -36,9 +38,10 @@ export function PayeeView() {
       <div>
         <h1 className="font-display text-2xl font-semibold md:text-3xl">Merchants</h1>
         <p className="mt-2 max-w-2xl text-sm text-muted">
-          Money in and money out are separate. Changing a category updates every charge from that name. One row on the month page can still differ.
+          This is the rule for a name. It applies in every month, not just the one you imported. Income and expenses stay separate. One charge on the month page can still be different.
         </p>
       </div>
+      <LedgerTabs page="merchants" />
       {openCount > 0 ? (
         <p className="rounded-md border border-warn/40 bg-chip px-4 py-3 text-sm">
           {openCount} row{openCount === 1 ? "" : "s"} still need a category.
@@ -82,9 +85,10 @@ export function PayeeView() {
           rows={income}
           amount={(g) => formatMoney(g.totalIn)}
           categories={categories}
+          saved={(g) => rules.some((r) => r.merchantKey === g.merchantKey && r.categoryId === g.categoryId && (r.side === "in" || !r.side)) && !g.mixed}
           onPick={(g, id) => {
-            setMerchantCategory(g.merchantKey, id);
-            setNotice(`Updated ${g.count} row${g.count === 1 ? "" : "s"} for ${displayMerchant(g.sample)}.`);
+            setMerchantCategory(g.merchantKey, id, "in");
+            setNotice(`Every deposit from ${displayMerchant(g.sample)} now uses this category.`);
           }}
           empty={transactions.length ? "No income merchants match." : "Import a CSV to see who pays you."}
         />
@@ -95,9 +99,10 @@ export function PayeeView() {
           amount={(g) => formatMoney(g.totalOut)}
           extra={(g) => (g.returned > 0 ? ` · ${formatMoney(g.returned)} given back` : "")}
           categories={categories}
+          saved={(g) => rules.some((r) => r.merchantKey === g.merchantKey && r.categoryId === g.categoryId && (r.side === "out" || !r.side)) && !g.mixed}
           onPick={(g, id) => {
-            setMerchantCategory(g.merchantKey, id);
-            setNotice(`Updated ${g.count} row${g.count === 1 ? "" : "s"} for ${displayMerchant(g.sample)}.`);
+            setMerchantCategory(g.merchantKey, id, "out");
+            setNotice(`Every charge from ${displayMerchant(g.sample)} now uses this category, in every month.`);
           }}
           empty={transactions.length ? "No spending merchants match." : "Import a CSV to see where money went."}
         />
@@ -113,6 +118,7 @@ function MerchantList({
   amount,
   extra,
   categories,
+  saved,
   onPick,
   empty,
 }: {
@@ -122,6 +128,7 @@ function MerchantList({
   amount: (g: PayeeGroup) => string;
   extra?: (g: PayeeGroup) => string;
   categories: ReturnType<typeof useBudgetStore.getState>["categories"];
+  saved: (g: PayeeGroup) => boolean;
   onPick: (g: PayeeGroup, id: string | null) => void;
   empty: string;
 }) {
@@ -143,6 +150,7 @@ function MerchantList({
                 <div className="mt-1 text-sm text-muted">
                   {g.count} time{g.count === 1 ? "" : "s"}
                   {g.unassigned ? ` · ${g.unassigned} open` : ""}
+                  {g.mixed ? " · not all the same yet" : ""}
                   {extra ? extra(g) : ""}
                 </div>
               </div>
@@ -154,6 +162,18 @@ function MerchantList({
               kind={title === "Income" ? "income" : "expense"}
               onChange={(id) => onPick(g, id)}
             />
+            {saved(g) ? (
+              <p className="text-xs text-muted">Saved. New charges with this name use this category, in every month.</p>
+            ) : (
+              <button
+                type="button"
+                className="min-h-11 text-left text-sm font-medium text-primary disabled:text-muted"
+                disabled={!g.categoryId}
+                onClick={() => onPick(g, g.categoryId)}
+              >
+                {g.mixed ? "Make every charge use the category above" : "Save this category for every month"}
+              </button>
+            )}
           </li>
         ))}
         {rows.length === 0 ? <li className="p-6 text-sm text-muted">{empty}</li> : null}

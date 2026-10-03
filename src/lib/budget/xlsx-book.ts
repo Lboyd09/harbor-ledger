@@ -1,4 +1,4 @@
-import { bucketBalance } from "./buckets.ts";
+import { bucketBalance, fullLineOf } from "./buckets.ts";
 import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
 import * as XLSX from "xlsx";
 import { displayMerchant } from "./merchant.ts";
@@ -261,7 +261,7 @@ export function buildHarborWorkbook(input: {
 
   const through = months.at(-1)?.ym ?? year + "-12";
   add("Buckets", [
-    ["Name", "Monthly", "Yearly", "Opening", "Start", "Target", "By", "Balance", "Linked categories"],
+    ["Name", "Monthly", "Yearly", "Opening", "Start", "Target", "By", "Balance", "Full line", "Paused", "Linked categories"],
     ...buckets.map((b) => [
       b.name,
       round2(b.monthly),
@@ -271,6 +271,8 @@ export function buildHarborWorkbook(input: {
       b.target ?? "",
       b.by ?? "",
       round2(bucketBalance(b, through, transactions, categories, moves)),
+      round2(fullLineOf(b)),
+      b.paused ? "yes" : "",
       b.categoryIds.map((id) => categoryLabel(categories, id)).join(", "),
     ]),
     [],

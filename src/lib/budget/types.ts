@@ -10,6 +10,8 @@ export type HarborLook = "harbor" | "dusk" | "tide" | "brass";
 export type HarborMotion = "calm" | "lively";
 /** How much of the ledger to show. Missing on older ledgers — treat as simple. */
 export type DetailMode = "simple" | "nerd";
+/** Which Plan page opens first. Missing on older ledgers — monthly budgets. */
+export type BudgetStyle = "monthly" | "buckets";
 
 export type IncomeStream = {
   name: string;
@@ -39,6 +41,8 @@ export type Profile = {
   detail?: DetailMode;
   /** True after the person picks Simple or Nerd. Missing means they have not chosen yet. */
   detailChosen?: boolean;
+  /** Monthly budgets reset. Buckets keep leftovers. Missing means monthly. */
+  budgetStyle?: BudgetStyle;
 };
 
 export type Category = {
@@ -92,14 +96,21 @@ export type SavingsGoal = {
   by: string | null;
 };
 
+/** A locked monthly funding amount. Used so a later change does not rewrite the past. */
+export type BucketRate = {
+  ym: string;
+  monthly: number;
+};
+
 /**
  * Money set aside that carries forward.
  * Not the same as profile.buckets, which is only the onboarding category list.
+ * A linked category is a bucket, not also a monthly budget.
  */
 export type MoneyBucket = {
   id: string;
   name: string;
-  /** Amount added each month from the start month, inclusive. */
+  /** Amount added each month from monthlyFrom forward, unless that month is locked or paused. */
   monthly: number;
   /** When set, the person typed a year total. monthly is that number divided by 12. */
   yearly: number | null;
@@ -112,6 +123,17 @@ export type MoneyBucket = {
   opening: number;
   /** Set when this bucket was created from a savings goal, so reload does not copy it again. */
   fromGoalId?: string | null;
+  /** First month that uses `monthly`. Earlier months use pastRates. Missing means startMonth. */
+  monthlyFrom?: string;
+  /** Funding already locked for past months. */
+  pastRates?: BucketRate[];
+  /** Paused buckets get no funding from pausedFrom forward. */
+  paused?: boolean;
+  pausedFrom?: string | null;
+  /** Jar fill line. Missing means the target, or three times the monthly amount. */
+  fullLine?: number | null;
+  /** YYYY-MM when the extra-money note was dismissed. Shown again the next month. */
+  nudgeDismissedYm?: string | null;
 };
 
 /** A transfer between buckets, or from unassigned money (fromId null). Not income and not spending. */
@@ -154,6 +176,8 @@ export type IraRules = {
 export type MerchantRule = {
   merchantKey: string;
   categoryId: string;
+  /** Income and expenses can keep different categories for the same name. Missing means both. */
+  side?: "in" | "out";
 };
 
 export type ImportBatch = {

@@ -52,7 +52,7 @@ export function AppShell() {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const current =
     NAV.find((n) => n.to === path)?.label ??
-    (path === "/import" ? "Import" : path === "/categories" ? "Merchants" : "Harbor");
+    (path === "/import" || path === "/categories" ? "Month" : "Harbor");
   const txCount = useBudgetStore((s) => s.transactions.length);
   const catCount = useBudgetStore((s) => s.categories.length);
   const ledgerName = useBudgetStore((s) => s.profile.ledgerName);
@@ -109,7 +109,7 @@ export function AppShell() {
         <nav className="flex flex-1 flex-col gap-1 px-3">
           {NAV.map((item) => {
             const Icon = item.icon;
-            const on = path === item.to;
+            const on = item.to === "/" ? path === "/" || path === "/categories" || path === "/import" : path === item.to;
             return (
               <Link
                 key={item.to}
@@ -160,7 +160,7 @@ export function AppShell() {
       <nav className="safe-nav fixed inset-x-0 bottom-0 z-10 grid grid-cols-5 border-t border-border bg-surface md:hidden">
         {NAV.map((item) => {
           const Icon = item.icon;
-          const on = path === item.to;
+          const on = item.to === "/" ? path === "/" || path === "/categories" || path === "/import" : path === item.to;
           return (
             <Link
               key={item.to}

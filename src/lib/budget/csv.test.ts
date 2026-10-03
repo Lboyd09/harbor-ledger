@@ -5,7 +5,7 @@ import { parseAmountToken } from "./money.ts";
 import { parseDateToken } from "./parse-date.ts";
 import { merchantKey } from "./merchant.ts";
 import { matchKeywordSlug } from "./keywords.ts";
-import { suggestCategory } from "./categorize.ts";
+import { replaceMerchantRule, suggestCategory } from "./categorize.ts";
 import { findRecurring } from "./recurring.ts";
 import { SAMPLE_CSV } from "./sample.ts";
 import { parseBackup } from "./backup.ts";
@@ -81,6 +81,37 @@ test("refund stays in expense bucket", () => {
   assert.equal(hit.categoryId, dining?.id);
   const unknown = suggestCategory("RANDOM PERSON ZILCH", 50, cats, [], "RANDOM");
   assert.equal(unknown.categoryId, null);
+});
+
+test("a merchant rule sticks, and income does not overwrite expenses", () => {
+  const cats = buildPresetCategories({
+    ledgerName: "t",
+    household: "single",
+    dependents: 0,
+    lifeStage: "early-career",
+    housing: "rent",
+    hasVehicle: false,
+    usesTransit: false,
+    hasPets: false,
+    monthlyIncome: 3000,
+    incomeStreams: [{ name: "Paycheck", monthly: 3000 }],
+    buckets: ["food", "other"],
+    goals: ["track"],
+    completedOnboarding: true,
+    budgetPeriod: "month",
+  });
+  const food = cats.find((c) => c.slug === "food");
+  const pay = cats.find((c) => c.kind === "income");
+  assert.ok(food && pay);
+  const rules = replaceMerchantRule(replaceMerchantRule([], "ACME", food.id, "out"), "ACME", pay.id, "in");
+  const spend = suggestCategory("ACME", -20, cats, rules, "ACME");
+  const deposit = suggestCategory("ACME", 20, cats, rules, "ACME");
+  assert.equal(spend.categoryId, food.id);
+  assert.equal(spend.reason, "rule");
+  assert.equal(deposit.categoryId, pay.id);
+  const changed = replaceMerchantRule(rules, "ACME", pay.id, "out");
+  assert.equal(suggestCategory("ACME", -20, cats, changed, "ACME").categoryId, pay.id);
+  assert.equal(suggestCategory("ACME", 20, cats, changed, "ACME").categoryId, pay.id);
 });
 
 test("recurring netflix monthly", () => {

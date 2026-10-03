@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { bucketBalance } from "@/lib/budget/buckets";
-import { MARKET_RATES, SAVINGS_RATES, monthlyPath, payoffPlan, projectLump, rothVsTraditional, yearsToFi } from "@/lib/budget/grow-math";
+import { MARKET_RATES, SAVINGS_RATES, inflated, loanCompare, monthlyForGoal, monthlyPath, monthsToTarget, payoffPlan, projectBoth, projectLump, rothVsTraditional, yearsToDouble, yearsToFi } from "@/lib/budget/grow-math";
 import { monthReview } from "@/lib/budget/insights";
 import { DEFAULT_IRA, iraLimit, rothRoom } from "@/lib/budget/ira";
 import { formatMoney } from "@/lib/budget/money";
@@ -54,8 +54,15 @@ export function GrowView() {
     return balance > best.balance ? { name: b.name, balance } : best;
   }, { name: "Leftover", balance: Math.max(0, book.net) });
 
-  const [calc, setCalc] = useState<"work" | "monthly" | "roth" | "debt" | "worth" | "emergency" | "free">("emergency");
+  const [calc, setCalc] = useState<"work" | "monthly" | "roth" | "debt" | "worth" | "emergency" | "free" | "goal" | "both" | "loan" | "inflation" | "double" | "reach">("emergency");
   const [principal, setPrincipal] = useState(String(Math.max(0, Math.round(surplus.balance))));
+  useEffect(() => {
+    const n = Number(new URLSearchParams(window.location.search).get("lump"));
+    if (Number.isFinite(n) && n > 0) {
+      setPrincipal(String(Math.round(n)));
+      setCalc("work");
+    }
+  }, []);
   const [years, setYears] = useState("10");
   const [monthly, setMonthly] = useState("200");
   const [rate, setRate] = useState("7");
@@ -110,7 +117,7 @@ export function GrowView() {
           value={book.income > 0 ? `${Math.round(book.savingsRate * 100)}%` : "—"}
           sentence={
             book.income > 0
-              ? `${formatMoney(book.net)} left of ${formatMoney(book.income)} income in ${year}.`
+              ? `${formatMoney(book.net)} left of ${formatMoney(book.income)} income in ${year}. A common guide is to keep about 20% of income.`
               : "Import a year of income before this means anything."
           }
         />
@@ -130,27 +137,48 @@ export function GrowView() {
         </SummaryCard>
       </div>
 
-      <div className="grid gap-2 sm:grid-cols-2">
+      <div className="space-y-4">
         {(
           [
-            ["emergency", "Emergency fund", "Months of spending, from this year."],
-            ["debt", "Pay off a debt", "Add the balance, the rate, and the minimum."],
-            ["worth", "Net worth", "Type what you own. Nothing connects to a bank."],
-            ["work", "Invest a lump sum", "Savings, a taxable account, or an IRA."],
-            ["monthly", "Save every month", "Contributions versus growth."],
-            ["roth", "Roth or traditional", "After tax, now versus retirement."],
-            ["free", "When work is optional", "The 4% rule and your savings rate."],
+            ["Everyday", [
+              ["emergency", "Emergency fund", "Months of spending, from this year."],
+              ["goal", "Save for a goal", "What to set aside each month."],
+              ["free", "When work is optional", "The 4% rule and your savings rate."],
+            ]],
+            ["Debts", [
+              ["debt", "Pay off a debt", "Add the balance, the rate, and the minimum."],
+              ["loan", "A loan or mortgage", "The payment, and what extra saves."],
+            ]],
+            ["Investing", [
+              ["work", "Invest a lump sum", "One amount, left alone."],
+              ["monthly", "Save every month", "What you add, with no starting pile."],
+              ["both", "Lump sum and monthly", "A pile plus what you add."],
+              ["reach", "How long to reach a number", "A pile, a monthly add, and a target."],
+              ["double", "How long to double", "At this rate, when the money doubles."],
+              ["inflation", "What money buys later", "The same dollars after inflation."],
+              ["roth", "Roth or traditional", "After tax, now versus retirement."],
+            ]],
+            ["What you own", [
+              ["worth", "Net worth", "Type what you own minus what you owe."],
+            ]],
           ] as const
-        ).map(([id, label, hint]) => (
-          <button
-            key={id}
-            type="button"
-            onClick={() => setCalc(id)}
-            className={cn("min-h-16 rounded-lg border px-3 py-2 text-left", calc === id ? "border-primary bg-chip" : "border-border bg-surface")}
-          >
-            <div className="text-sm font-medium">{label}</div>
-            <div className="text-xs text-muted">{hint}</div>
-          </button>
+        ).map(([group, items]) => (
+          <section key={group}>
+            <h2 className="text-sm font-medium text-muted">{group}</h2>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+              {items.map(([id, label, hint]) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setCalc(id)}
+                  className={cn("min-h-16 rounded-lg border px-3 py-2 text-left", calc === id ? "border-primary bg-chip" : "border-border bg-surface")}
+                >
+                  <div className="text-sm font-medium">{label}</div>
+                  <div className="text-xs text-muted">{hint}</div>
+                </button>
+              ))}
+            </div>
+          </section>
         ))}
       </div>
 
@@ -160,7 +188,9 @@ export function GrowView() {
       </label>
 
       {calc === "emergency" ? <EmergencyFund book={book} /> : null}
+      {calc === "goal" ? <GoalTool /> : null}
       {calc === "debt" ? <DebtTool debts={debts} addDebt={addDebt} removeDebt={removeDebt} /> : null}
+      {calc === "loan" ? <LoanTool /> : null}
       {calc === "worth" ? (
         <WorthTool netWorth={netWorth} addNetWorth={addNetWorth} removeNetWorth={removeNetWorth} lively={lively} />
       ) : null}
@@ -238,6 +268,12 @@ export function GrowView() {
           <p className="text-xs text-muted">{DISCLAIMER}</p>
         </section>
       ) : null}
+
+      {calc === "both" ? <BothTool principal={principal} setPrincipal={setPrincipal} years={years} setYears={setYears} monthly={monthly} setMonthly={setMonthly} rate={rate} setRate={setRate} today={today} inflationRate={inflationRate} lively={lively} /> : null}
+
+      {calc === "inflation" ? <InflationTool /> : null}
+      {calc === "double" ? <DoubleTool /> : null}
+      {calc === "reach" ? <ReachTool principal={principal} setPrincipal={setPrincipal} /> : null}
 
       {calc === "roth" ? (
         <section className="space-y-3">
@@ -559,7 +595,7 @@ function EmergencyFund({ book }: { book: { expenses: number; activeMonths: numbe
           </div>
         ))}
       </div>
-      <p className="text-xs text-muted">{DISCLAIMER} Set this aside on Plan with Keep leftovers, or as “Saving for something.”</p>
+      <p className="text-xs text-muted">{DISCLAIMER} Set this aside as a bucket on Plan.</p>
     </section>
   );
 }
@@ -719,4 +755,277 @@ function WorthTool({
     </section>
   );
 }
+
+function GoalTool() {
+  const [target, setTarget] = useState("6000");
+  const [have, setHave] = useState("0");
+  const [months, setMonths] = useState("12");
+  const need = monthlyForGoal(Number(target) || 0, Number(have) || 0, Math.max(0, Number(months) || 0));
+  const pct = Number(target) > 0 ? ((Number(have) || 0) / Number(target)) * 100 : 0;
+  return (
+    <section className="space-y-3 rounded-lg border border-border bg-surface p-4">
+      <h2 className="font-display text-xl font-semibold">Save for a goal</h2>
+      <p className="text-sm text-muted">Type the price, what you already have, and how many months you want to take. This does not change your plan.</p>
+      <div className="flex items-center gap-3">
+        <FillJar pct={pct} />
+        <div>
+          <div className="text-xs text-muted">Set aside each month</div>
+          <div className="font-display text-3xl tabular">{formatMoney(need)}</div>
+        </div>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-3">
+        <label className="text-xs text-muted">
+          Goal
+          <Input className="mt-1" inputMode="decimal" value={target} onChange={(e) => setTarget(e.target.value)} />
+        </label>
+        <label className="text-xs text-muted">
+          Already saved
+          <Input className="mt-1" inputMode="decimal" value={have} onChange={(e) => setHave(e.target.value)} />
+        </label>
+        <label className="text-xs text-muted">
+          Months
+          <Input className="mt-1" inputMode="decimal" value={months} onChange={(e) => setMonths(e.target.value)} />
+        </label>
+      </div>
+      <p className="text-xs text-muted">{DISCLAIMER} Put this amount on a bucket if you want Harbor to keep it.</p>
+    </section>
+  );
+}
+
+function BothTool({
+  principal,
+  setPrincipal,
+  years,
+  setYears,
+  monthly,
+  setMonthly,
+  rate,
+  setRate,
+  today,
+  inflationRate,
+  lively,
+}: {
+  principal: string;
+  setPrincipal: (v: string) => void;
+  years: string;
+  setYears: (v: string) => void;
+  monthly: string;
+  setMonthly: (v: string) => void;
+  rate: string;
+  setRate: (v: string) => void;
+  today: boolean;
+  inflationRate: number;
+  lively: boolean;
+}) {
+  const path = projectBoth({
+    principal: Math.max(0, Number(principal) || 0),
+    monthly: Math.max(0, Number(monthly) || 0),
+    years: Math.max(0, Number(years) || 0),
+    rate: (Number(rate) || 0) / 100,
+    inflation: inflationRate,
+    today,
+  });
+  const end = path.at(-1);
+  return (
+    <section className="space-y-3">
+      <p className="text-sm text-muted">A starting amount and a monthly add, together. The chart splits what you put in from the ending balance.</p>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <label className="text-xs text-muted">
+          Starting amount
+          <Input className="mt-1" inputMode="decimal" value={principal} onChange={(e) => setPrincipal(e.target.value)} />
+        </label>
+        <label className="text-xs text-muted">
+          Each month
+          <Input className="mt-1" inputMode="decimal" value={monthly} onChange={(e) => setMonthly(e.target.value)} />
+        </label>
+        <label className="text-xs text-muted">
+          Years
+          <Input className="mt-1" inputMode="decimal" value={years} onChange={(e) => setYears(e.target.value)} />
+        </label>
+        <label className="text-xs text-muted">
+          Rate %
+          <Input className="mt-1" inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)} />
+        </label>
+      </div>
+      <SummaryCard
+        label="Ending balance"
+        value={formatMoney(end?.balance ?? 0)}
+        sentence={`${formatMoney(end?.contributed ?? 0)} is money you put in. The rest is growth.`}
+      >
+        <div className="chart-rise h-52 w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={path}>
+              <CartesianGrid stroke="var(--color-border)" vertical={false} />
+              <XAxis dataKey="year" tick={{ fontSize: 12, fill: "var(--color-muted)" }} />
+              <YAxis tick={{ fontSize: 11, fill: "var(--color-muted)" }} width={48} />
+              <Tooltip formatter={(v) => formatMoney(Number(Array.isArray(v) ? v[0] : v))} />
+              <Line type="monotone" dataKey="contributed" stroke="var(--color-muted)" dot={false} isAnimationActive={lively} name="Contributed" />
+              <Line type="monotone" dataKey="balance" stroke="var(--color-primary)" strokeWidth={2} dot={false} isAnimationActive={lively} name="Balance" />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      </SummaryCard>
+      <p className="text-xs text-muted">{DISCLAIMER}</p>
+    </section>
+  );
+}
+
+function LoanTool() {
+  const [balance, setBalance] = useState("20000");
+  const [apr, setApr] = useState("6.5");
+  const [years, setYears] = useState("5");
+  const [extra, setExtra] = useState("50");
+  const result = loanCompare({
+    balance: Number(balance) || 0,
+    apr: Number(apr) || 0,
+    years: Number(years) || 1,
+    extra: Number(extra) || 0,
+  });
+  return (
+    <section className="space-y-3 rounded-lg border border-border bg-surface p-4">
+      <h2 className="font-display text-xl font-semibold">A loan or mortgage</h2>
+      <p className="text-sm text-muted">Type what you owe, the interest rate, and how many years the loan is. Extra is on top of the regular payment.</p>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="rounded-md border border-border p-3">
+          <div className="text-sm font-medium">Regular payment</div>
+          <div className="mt-1 font-display text-2xl tabular">{formatMoney(result.payment)}</div>
+          <p className="text-xs text-muted">
+            {result.unfinished ? "Does not finish in 50 years." : `${result.months} months, ${formatMoney(result.interest)} interest.`}
+          </p>
+        </div>
+        <div className="rounded-md border border-border p-3">
+          <div className="text-sm font-medium">With extra</div>
+          <div className="mt-1 font-display text-2xl tabular">{result.extraMonths} months</div>
+          <p className="text-xs text-muted">
+            {formatMoney(result.extraInterest)} interest. You save {formatMoney(Math.max(0, result.interest - result.extraInterest))} and {Math.max(0, result.months - result.extraMonths)} months.
+          </p>
+        </div>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <label className="text-xs text-muted">
+          Balance
+          <Input className="mt-1" aria-label="Loan balance" inputMode="decimal" value={balance} onChange={(e) => setBalance(e.target.value)} />
+        </label>
+        <label className="text-xs text-muted">
+          Interest %
+          <Input className="mt-1" aria-label="Loan interest" inputMode="decimal" value={apr} onChange={(e) => setApr(e.target.value)} />
+        </label>
+        <label className="text-xs text-muted">
+          Years
+          <Input className="mt-1" aria-label="Loan years" inputMode="decimal" value={years} onChange={(e) => setYears(e.target.value)} />
+        </label>
+        <label className="text-xs text-muted">
+          Extra each month
+          <Input className="mt-1" aria-label="Extra payment" inputMode="decimal" value={extra} onChange={(e) => setExtra(e.target.value)} />
+        </label>
+      </div>
+      <p className="text-xs text-muted">Balance, interest %, years, extra each month. {DISCLAIMER}</p>
+    </section>
+  );
+}
+
+function InflationTool() {
+  const [amount, setAmount] = useState("10000");
+  const [years, setYears] = useState("10");
+  const [rate, setRate] = useState("2.5");
+  const result = inflated(Number(amount) || 0, Number(years) || 0, Number(rate) || 0);
+  return (
+    <section className="space-y-3 rounded-lg border border-border bg-surface p-4">
+      <h2 className="font-display text-xl font-semibold">What money buys later</h2>
+      <p className="text-sm text-muted">Prices rise. The same pile of cash buys less. This is not a guess about the stock market.</p>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <SummaryCard label="Prices if they rise" value={formatMoney(result.later)} sentence={`What ${formatMoney(Number(amount) || 0)} of today’s goods might cost in ${years || 0} years.`} />
+        <SummaryCard label="Buying power" value={formatMoney(result.buyingPower)} sentence="What today’s pile would be worth in today’s prices, if it just sat there." />
+      </div>
+      <div className="grid gap-2 sm:grid-cols-3">
+        <label className="text-xs text-muted">
+          Amount today
+          <Input className="mt-1" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
+        </label>
+        <label className="text-xs text-muted">
+          Years
+          <Input className="mt-1" inputMode="decimal" value={years} onChange={(e) => setYears(e.target.value)} />
+        </label>
+        <label className="text-xs text-muted">
+          Inflation %
+          <Input className="mt-1" inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)} />
+        </label>
+      </div>
+      <p className="text-xs text-muted">{DISCLAIMER}</p>
+    </section>
+  );
+}
+
+function spanLabel(months: number) {
+  const years = Math.floor(months / 12);
+  const rest = months % 12;
+  if (years === 0) return `${rest} month${rest === 1 ? "" : "s"}`;
+  if (rest === 0) return `${years} year${years === 1 ? "" : "s"}`;
+  return `${years} year${years === 1 ? "" : "s"} and ${rest} month${rest === 1 ? "" : "s"}`;
+}
+
+function DoubleTool() {
+  const [rate, setRate] = useState("7");
+  const [amount, setAmount] = useState("10000");
+  const years = yearsToDouble(Number(rate) || 0);
+  const doubled = years == null ? 0 : (Number(amount) || 0) * 2;
+  return (
+    <section className="space-y-3 rounded-lg border border-border bg-surface p-4">
+      <h2 className="font-display text-xl font-semibold">How long to double</h2>
+      <p className="text-sm text-muted">Type a yearly rate. This is compound growth, not a promise. A savings account and the stock market are not the same rate.</p>
+      <div className="font-display text-3xl tabular">{years == null ? "—" : `About ${years} years`}</div>
+      <p className="text-sm text-muted">{years == null ? "The rate has to be above zero." : `${formatMoney(Number(amount) || 0)} becomes about ${formatMoney(doubled)}.`}</p>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <label className="text-xs text-muted">
+          Amount
+          <Input className="mt-1" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
+        </label>
+        <label className="text-xs text-muted">
+          Yearly rate %
+          <Input className="mt-1" inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)} />
+        </label>
+      </div>
+      <p className="text-xs text-muted">{DISCLAIMER}</p>
+    </section>
+  );
+}
+
+function ReachTool({ principal, setPrincipal }: { principal: string; setPrincipal: (v: string) => void }) {
+  const [monthly, setMonthly] = useState("200");
+  const [rate, setRate] = useState("7");
+  const [target, setTarget] = useState("100000");
+  const months = monthsToTarget({
+    principal: Number(principal) || 0,
+    monthly: Number(monthly) || 0,
+    apr: Number(rate) || 0,
+    target: Number(target) || 0,
+  });
+  return (
+    <section className="space-y-3 rounded-lg border border-border bg-surface p-4">
+      <h2 className="font-display text-xl font-semibold">How long to reach a number</h2>
+      <p className="text-sm text-muted">Start with what you have, add something each month, and type the number you want. This does not change your plan.</p>
+      <div className="font-display text-3xl tabular">{months == null ? "Not within 50 years" : months === 0 ? "You are already there" : spanLabel(months)}</div>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <label className="text-xs text-muted">
+          Already saved
+          <Input className="mt-1" inputMode="decimal" value={principal} onChange={(e) => setPrincipal(e.target.value)} />
+        </label>
+        <label className="text-xs text-muted">
+          Add each month
+          <Input className="mt-1" inputMode="decimal" value={monthly} onChange={(e) => setMonthly(e.target.value)} />
+        </label>
+        <label className="text-xs text-muted">
+          Yearly rate %
+          <Input className="mt-1" inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)} />
+        </label>
+        <label className="text-xs text-muted">
+          Target
+          <Input className="mt-1" inputMode="decimal" value={target} onChange={(e) => setTarget(e.target.value)} />
+        </label>
+      </div>
+      <p className="text-xs text-muted">{DISCLAIMER}</p>
+    </section>
+  );
+}
+
 

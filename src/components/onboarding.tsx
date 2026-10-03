@@ -5,10 +5,12 @@ import { formatMoney } from "@/lib/budget/money";
 import { currentMonthKey } from "@/lib/budget/parse-date";
 import { SPEND_BUCKETS, buildPresetCategories, defaultBuckets } from "@/lib/budget/presets";
 import type { Category, DetailMode, Household, Housing, Profile } from "@/lib/budget/types";
+import type { BudgetStyle } from "@/lib/budget/types";
 import { useBudgetStore } from "@/store/budget-store";
 import { CategorizeCoach } from "./categorize-coach";
 import { HarborMark } from "./harbor-mark";
-import { FillJar, SpendMeter } from "./money-visual";
+import { FillJar } from "./money-visual";
+import { StyleChoice } from "./style-choice";
 import { Button } from "./ui/button";
 import { Field, Input, Select } from "./ui/field";
 
@@ -28,6 +30,8 @@ export function Onboarding({ initialStep = 0 }: { initialStep?: number }) {
   const [step, setStep] = useState(open > 0 && initialStep > 0 ? 4 : initialStep);
   const [detail, setDetail] = useState<DetailMode>(existing.detail === "nerd" ? "nerd" : "simple");
   const [picked, setPicked] = useState(Boolean(existing.detailChosen));
+  const [style, setStyle] = useState<BudgetStyle>(existing.budgetStyle === "buckets" ? "buckets" : "monthly");
+  const [styleTouched, setStyleTouched] = useState(Boolean(existing.detailChosen));
   const [ledgerName, setLedgerName] = useState(existing.ledgerName || "");
   const [household, setHousehold] = useState<Household>(existing.household || "single");
   const [housing, setHousing] = useState<Housing>(existing.housing || "rent");
@@ -55,8 +59,9 @@ export function Onboarding({ initialStep = 0 }: { initialStep?: number }) {
       budgetPeriod: existing.budgetPeriod || "month",
       detail,
       detailChosen: true,
+      budgetStyle: style,
     }),
-    [existing, ledgerName, household, housing, hasVehicle, monthlyIncome, buckets, detail],
+    [existing, ledgerName, household, housing, hasVehicle, monthlyIncome, buckets, detail, style],
   );
 
   function stageCategories() {
@@ -105,28 +110,25 @@ export function Onboarding({ initialStep = 0 }: { initialStep?: number }) {
 
       {step === 0 ? (
         <div className="mt-6 space-y-4">
-          <h1 className="font-display text-3xl font-semibold">Three things, then you’re in.</h1>
-          <ol className="space-y-3 text-sm">
-            <li className="rounded-lg border border-border bg-surface p-3">
-              <div className="font-medium">1. Bring in the bank file</div>
-              <p className="text-muted">A CSV. Harbor does not log into a bank. Then you tap a category for anything it couldn’t guess.</p>
-            </li>
-            <li className="rounded-lg border border-border bg-surface p-3">
-              <div className="font-medium">2. Give each category a monthly amount</div>
-              <div className="mt-2">
-                <SpendMeter spent={40} plan={100} />
-              </div>
-              <p className="mt-2 text-muted">The bar is what you spent against what you allowed. Next month it starts over.</p>
-            </li>
-            <li className="flex gap-3 rounded-lg border border-border bg-surface p-3">
-              <FillJar pct={55} />
-              <div>
-                <div className="font-medium">3. Turn on Keep leftovers only when you’re saving</div>
-                <p className="text-muted">A car or a trip keeps what you don’t spend. Groceries usually should not.</p>
-              </div>
-            </li>
-          </ol>
-          <p className="text-sm">How much detail do you want after setup? You can change this in Account.</p>
+          <h1 className="font-display text-3xl font-semibold">How should a category behave?</h1>
+          <p className="text-sm text-muted">
+            Tap one picture. You can change it later in Account. A category is only one of these, never both.
+          </p>
+          <StyleChoice
+            value={styleTouched ? style : null}
+            onChange={(next) => {
+              setStyle(next);
+              setStyleTouched(true);
+            }}
+          />
+          <p className="text-sm">
+            {styleTouched && style === "buckets"
+              ? "Buckets keep what you don’t spend. The jar fills as the money stays. Plan opens on Buckets. You can still have categories that reset every month."
+              : styleTouched
+                ? "Monthly budgets reset. The bar is what you spent of the amount you allowed. Plan opens on Budget. You can turn one category into a bucket later."
+                : "Monthly budgets start over each month. Buckets keep what you don’t spend."}
+          </p>
+          <p className="text-sm">How much extra do you want to see after setup?</p>
           <div className="grid gap-2 sm:grid-cols-2">
             <button type="button" onClick={() => { setDetail("simple"); setPicked(true); }} className={`min-h-16 rounded-lg border p-3 text-left ${picked && detail === "simple" ? "border-primary bg-chip" : "border-border bg-surface"}`}>
               <div className="font-medium">Simple</div>
@@ -137,7 +139,8 @@ export function Onboarding({ initialStep = 0 }: { initialStep?: number }) {
               <p className="text-xs text-muted">Extra charts and a plan sandbox. Same ledger.</p>
             </button>
           </div>
-          <Button disabled={!picked} onClick={() => setStep(1)}>Continue</Button>
+          <Button disabled={!picked || !styleTouched} onClick={() => setStep(1)}>Continue</Button>
+          {!picked || !styleTouched ? <p className="text-sm text-muted">Tap a picture, then Simple or More detail.</p> : null}
           {updating ? (
             <Button variant="ghost" onClick={() => cancelSetup()}>Back to the ledger</Button>
           ) : null}
@@ -283,7 +286,7 @@ export function Onboarding({ initialStep = 0 }: { initialStep?: number }) {
           <h1 className="font-display text-2xl font-semibold">Saving for something?</h1>
           <div className="flex items-center gap-3">
             <FillJar pct={40} />
-            <p className="text-sm text-muted">Optional. This keeps what you add. It is not a bill, and it is not income. You can also turn on Keep leftovers later on a category in Plan.</p>
+            <p className="text-sm text-muted">Optional. A bucket keeps what you add. It is not a bill, and it is not income. You can also make a category into a bucket later on Plan.</p>
           </div>
           <Field label="Name">
             <Input value={saveName} placeholder="Car, trip, emergency" onChange={(e) => setSaveName(e.target.value)} />
@@ -302,8 +305,8 @@ export function Onboarding({ initialStep = 0 }: { initialStep?: number }) {
         <div className="mt-6 space-y-4">
           <h1 className="font-display text-2xl font-semibold">Where everything is</h1>
           <ul className="space-y-2 text-sm">
-            <li><span className="font-medium">Month</span> — your charges. If any need a category, the button is at the top. Open a row to split it or tap “Someone paid me back.”</li>
-            <li><span className="font-medium">Plan</span> — monthly amounts, the bar, and Keep leftovers. Saving for something is on this page.</li>
+            <li><span className="font-medium">Month</span> — your charges, then Merchants (the rule for a store, in every month), then Import.</li>
+            <li><span className="font-medium">Plan</span> — Budget or Buckets. A category is only one. Budgets reset. Buckets keep what you don’t spend.</li>
             <li><span className="font-medium">Grow</span> — emergency fund, debt payoff, net worth, and the other calculators. You type debts and net worth. Nothing connects to a bank.</li>
             <li><span className="font-medium">Year</span> — tap a month, or tap a category under it.</li>
             <li><span className="font-medium">Account</span> — import another file, the look, Simple or More detail, Excel.</li>

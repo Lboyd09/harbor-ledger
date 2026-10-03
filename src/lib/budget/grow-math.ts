@@ -148,3 +148,105 @@ export function yearsToFi(savingsRate: number, realReturn = 0.05, withdrawal = 0
   const n = Math.log(targetOverSave * realReturn + 1) / Math.log(1 + realReturn);
   return roundMoney(n);
 }
+
+/** Monthly amount to reach a goal. Months is inclusive of the month you start. */
+export function monthlyForGoal(target: number, already: number, months: number): number {
+  const left = Math.max(0, target - already);
+  if (months <= 0) return roundMoney(left);
+  return roundMoney(left / months);
+}
+
+/** Starting balance plus a monthly deposit. Rate is annual. */
+export function projectBoth(input: {
+  principal: number;
+  monthly: number;
+  years: number;
+  rate: number;
+  inflation: number;
+  today: boolean;
+}): { year: number; contributed: number; balance: number }[] {
+  const r = input.rate / 12;
+  const points: { year: number; contributed: number; balance: number }[] = [];
+  let balance = Math.max(0, input.principal);
+  const months = Math.max(0, Math.round(input.years * 12));
+  for (let m = 1; m <= months; m++) {
+    balance = balance * (1 + r) + Math.max(0, input.monthly);
+    if (m % 12 === 0 || m === months) {
+      const year = m / 12;
+      points.push({
+        year,
+        contributed: roundMoney(input.principal + input.monthly * m),
+        balance: roundMoney(deflate(balance, input.inflation, year, input.today)),
+      });
+    }
+  }
+  if (!points.length) points.push({ year: 0, contributed: roundMoney(input.principal), balance: roundMoney(input.principal) });
+  return points;
+}
+
+export function inflated(amount: number, years: number, inflationPct: number): { later: number; buyingPower: number } {
+  const rate = Math.max(0, inflationPct) / 100;
+  const later = roundMoney(amount * Math.pow(1 + rate, Math.max(0, years)));
+  const buyingPower = roundMoney(amount / Math.pow(1 + rate, Math.max(0, years)));
+  return { later, buyingPower };
+}
+
+/** Standard loan payment, then the same loan with an extra monthly payment. */
+export function loanCompare(input: { balance: number; apr: number; years: number; extra: number }): {
+  payment: number;
+  months: number;
+  interest: number;
+  extraMonths: number;
+  extraInterest: number;
+  unfinished: boolean;
+} {
+  const balance = Math.max(0, input.balance);
+  const years = Math.max(1, Math.round(input.years));
+  const r = Math.max(0, input.apr) / 100 / 12;
+  const n = years * 12;
+  const payment = r === 0 ? balance / n : (balance * r) / (1 - Math.pow(1 + r, -n));
+  function run(extra: number) {
+    let left = balance;
+    let interest = 0;
+    const pay = payment + Math.max(0, extra);
+    for (let m = 1; m <= 600; m++) {
+      const charge = left * r;
+      interest += charge;
+      left = left + charge - pay;
+      if (left <= 0.5) return { months: m, interest: roundMoney(interest), unfinished: false };
+    }
+    return { months: 600, interest: roundMoney(interest), unfinished: true };
+  }
+  const base = run(0);
+  const extra = run(input.extra);
+  return {
+    payment: roundMoney(payment),
+    months: base.months,
+    interest: base.interest,
+    extraMonths: extra.months,
+    extraInterest: extra.interest,
+    unfinished: base.unfinished,
+  };
+}
+
+/** Years for a balance to double at a yearly rate. Null if the rate is not positive. */
+export function yearsToDouble(aprPercent: number): number | null {
+  const rate = aprPercent / 100;
+  if (!(rate > 0)) return null;
+  return roundMoney(Math.log(2) / Math.log(1 + rate));
+}
+
+/** Months until a starting amount plus a monthly add reaches a target. Null if it never does within 50 years. */
+export function monthsToTarget(input: { principal: number; monthly: number; apr: number; target: number }): number | null {
+  const target = Math.max(0, input.target);
+  let balance = Math.max(0, input.principal);
+  if (balance + 0.005 >= target) return 0;
+  const r = Math.max(0, input.apr) / 100 / 12;
+  const add = Math.max(0, input.monthly);
+  if (add <= 0 && r <= 0) return null;
+  for (let month = 1; month <= 600; month++) {
+    balance = balance * (1 + r) + add;
+    if (balance + 0.005 >= target) return month;
+  }
+  return null;
+}
