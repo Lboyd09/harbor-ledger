@@ -1,56 +1,55 @@
-# Prompt 2 of 5: Onboarding rewrite
+# Prompt 3 of 5: Import into accounts, and sort charges automatically
 
 ## Commit
 
-[e74e1da](https://github.com/Lboyd09/harbor-ledger/commit/e74e1da41b3204c50a35ba227c2eda37c521fed0) on `main`.
+[dc11eff](https://github.com/Lboyd09/harbor-ledger/commit/dc11effb32727e5268337bf315302ceba29f0f48) on `main`.
 
-Setup is one path of seven steps. The welcome screen has one start button. There is no bank-file path in setup. Typecheck passed. Lint has 0 errors and the same 7 warnings as before. The new plan tests passed (24 with the existing budget tests). `npm test` still stops on the same 11 pre-existing sandbox script failures, so that script never reaches the app tests. Those were run directly.
+Each bank file belongs to one account. Sure charges get a category on their own. Everything else waits on the import screen with a suggestion ready to accept. The Account screen lists the accounts and can switch leftover style later. Typecheck passed. Lint has 0 errors and the same 7 warnings as before. The new sorting tests and the existing budget tests passed (54 when run directly). `npm test` still stops on the same pre-existing sandbox script failures, so that script never reaches the app tests.
 
-Walked it in the browser as a first-time user: Step 1 of 7 through Step 7 of 7, no bank file asked, no jargon, housing amount kept, income total shown, style required before continuing, accounts and a savings plan saved, then reopening setup showed the paycheck, the style, the balance, and the savings plan already filled in.
+Walked it as a first-time user: finished setup, imported a small file into a new checking account, saw “We sorted 3 of 7 charges for you,” accepted three suggestions, and found Everyday checking at $2,866.50 on Account. Switching to “Carry over what's left” kept the account, the balance, and all seven charges. September still shows Kroger.
 
 ## Signatures
 
-- `answersToProfile(answers: SetupAnswers, options?: { today?: string }): SetupProfileFields`
-- `suggestedCategorySlugs(answers: SetupAnswers): string[]`
-- `selectedSlugs(answers: SetupAnswers): string[]`
-- `suggestAmounts(answers: SetupAnswers, expectedMonthlyIncome: number): Record<string, number>`
-- `fitToIncome(amounts: Record<string, number>, income: number): Record<string, number>`
-- `savingsPlanMonthly(target: number, by: string | null, startMonth: string): number | null`
-- `customSlug(name: string, taken: string[]): string`
-- `categoryHint(slug: string): string`
-- `categoryLabel(slug: string, housing: Housing, splitDining: boolean): string`
-- `blankAnswers(): SetupAnswers`
-- `buildSetup(answers: SetupAnswers, base?: Profile, options?: { today?: string }): { profile: Profile; categories: Category[]; extras: SetupExtras }`
-- `mergeAccounts(existing: Account[], incoming: Account[]): Account[]`
-- `mergeBalances(existing: BalancePoint[], incoming: BalancePoint[]): BalancePoint[]`
-- `mergeSavingsPlans(existing: MoneyBucket[], incoming: MoneyBucket[], activeMonth: string): MoneyBucket[]`
-- `applyCompleteSetup(state: LedgerSnapshot, profile: Profile, categories: Category[], extras?: SetupExtras): LedgerSnapshot`
-- `answersFromLedger(input: { profile: Profile; categories: Category[]; accounts: Account[]; balances: BalancePoint[]; moneyBuckets: MoneyBucket[] }): SetupAnswers`
-- `householdSentence(answers: SetupAnswers): string`
-- Store: `completeSetup(profile: Profile, categories: Category[], extras?: SetupExtras): void`
+- `sortCharge(input: { description: string; amount: number; merchantKey: string; date?: string }, ctx: SortContext): SortedCharge`
+- `importNewRows(args: { rows: ImportRow[]; sourceLabel: string; existing: Transaction[]; categories: Category[]; rules: MerchantRule[]; incomeStreams?: IncomeStream[]; accountId?: string | null; createId?: () => string }): { added: Transaction[]; skipped: number; transactions: Transaction[] }`
+- `pairAccountTransfers(rows: Transaction[], freshIds: Set<string>, categories: Category[]): Transaction[]`
+- `nextAccountId(name: string, usedIds: Iterable<string>): string`
+- `createAccount(accounts: Account[], input: { name: string; kind: AccountKind; institution?: string | null }, now?: string): Account | null`
+- `accountHasActivity(id: string, transactions: { accountId?: string | null }[], imports: { accountId?: string | null }[]): boolean`
+- `accountAcceptsFile(kind: AccountKind): boolean`
+- `enteredBalanceAmount(kind: AccountKind, amount: number): number`
+- `storedFileBalance(kind: AccountKind, fileAmount: number): number`
+- `creditFileSignLooksWrong(kind: AccountKind, fileAmount: number): boolean`
+- `upsertFileBalance(balances: BalancePoint[], point: { accountId: string; date: string; amount: number }): BalancePoint[]`
+- `endingBalanceFrom(rows: ParsePreviewRow[], columns: DetectedColumn[]): { amount: number; asOf: string } | null`
+- `merchantNormalized(description: string): string`
+- `matchKeyword(text: string): { slug: string; pattern: string; weak: boolean } | null`
+- `suggestCategory(description: string, amount: number, categories: Category[], rules: MerchantRule[], merchantKeyValue: string, history?: SortHistory[], incomeStreams?: IncomeStream[]): SuggestResult`
+- Store: `addAccount(input: { name: string; kind: AccountKind; institution?: string | null }): string`
+- Store: `updateAccount(id: string, patch: Partial<Pick<Account, "name" | "kind" | "institution">>): void`
+- Store: `removeAccount(id: string): boolean`
+- Store: `addBalance(accountId: string, amount: number, date?: string): void`
+- Store: `importPreview(preview: CsvPreview, flipSign: boolean, accountId?: string | null, balanceAmount?: number | null): ImportResult`
 
 ## Conflicts and later prompts
 
 Conflicts with the code:
 
-- "I have kids at home" is not a household value. It sets `dependents`. Household stays `single` unless the ledger was already partnered or married.
-- "Working" is stored as `early-career`. An existing `established` or `parent` stage is kept.
-- "I use public transit" is saved on the profile, but the category list already includes transport with or without a car. Gas is added only when they have a car.
-- "I'm saving up for something" adds the `purchase` goal (and keeps `save` if it was already there). That is what turns on the savings category.
-- Saying "I'm not sure yet" saves no income streams. The next hydrate still turns an empty list into a $0 Paycheck, because that is what `normalizeProfile` already does.
-- Removing an account or a savings plan on a later pass does not delete one already saved. `completeSetup` only merges by id, so a second run does not duplicate. Remove before the first finish does not save it.
-- Setup edits one savings plan. Any others already in the ledger are left alone.
-- A credit card balance is stored as a negative amount owed, so the total does not treat debt as cash.
-- The step number is not restored if they reload mid-setup. Saving a step would be a new profile field.
-- The style step says it can be changed in Account. That control is not on the Account screen yet. `setBudgetStyle` is already there. Account screens were left alone.
-- A signed-in person with an empty ledger still starts on step 1, not the welcome screen. That matches the old signed-in path.
-- `fund-wizard.tsx` was not reused. It says Fund, links a category, and saves immediately. Setup uses a small savings-plan section instead.
-- Presets still add "Transfers in" and "Other income" beside the sources they named.
+- Amazon, Walmart, Target, and Costco are weak, so they are no longer given a category on import. That includes the demo sample. They stay as a suggestion.
+- `importPreview` has an optional fourth argument, `balanceAmount`, so a corrected card balance is stored as typed and is not flipped again. Callers that leave it off still work.
+- “An expense keyword never claims a deposit” is still a refund in that expense category when the keyword is strong. A weak one stays a suggestion and does not set a category. The old refund test needs this.
+- A deposit within 5 percent of a paycheck, whose description also says payroll, is likely, not sure, even though the payroll word alone would be sure. A deposit whose words match an income hint is sure even when the amount is far off.
+- Older history rows that have no amount still count for either side, so the old “last category you set” test still passes.
+- A positive balance on a credit-card file is stored as a negative amount owed. The correction box shows only in that case. A file that is already negative is kept.
+- Remove is blocked by charges or by imports. The note always says “This one has imports.”
+- The fingerprint text is unchanged. A repeat is skipped for one account only when this import has an account. Rows that still have no account id block every account, the same as before.
+- The column map and the sign flip sit under “Something look wrong?” unless parsing reported a problem. The preview table stays visible. The bank-file help starts closed so the account question is first.
+- A reload used to invent a second account named after the file, such as “Bank CSV”, even when every row already belonged to the account you chose. It no longer does. An old ledger whose rows have no account still gains one account per bank name.
 
 Left for later prompts:
 
-- Import, per-account files, and auto-categorization (prompt 3). "Add my bank file now" only opens the existing import screen.
-- Month page and per-month amount changes (prompt 4). Setup writes the usual monthly amount only.
-- Home, navigation, Grow, and the Account control for the style (prompt 5).
-- Deleting an account or a savings plan from setup after it has been saved.
-- A wording sweep. Other screens still say Fund.
+- The month page and per-month amounts (prompt 4).
+- Home, navigation, Grow, and visual polish (prompt 5).
+- `categorize-coach`, the month board, and the year page were left as they are.
+- Month math, fund math, and the setup steps were not changed, except that import reads the income words, the categories, and the accounts.
+- Setup still does not delete an account or a savings plan after it has been saved.
