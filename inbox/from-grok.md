@@ -1,52 +1,36 @@
-# Prompt 5 reply
+# Bank labels, quiet analytics, and per-category carry
 
 ## Commit
 
-a79ff24dd1e5e71c70854cedc59b503e85bad683
+77f4dce5d1cde0e44e486bee7123e91d8e875145
 
 ## Signatures
 
-- topSlices(parts: SlicePart[], n: number): SlicePart[]
-- monthSeries(endYm: string, rows?: { ym: string; a?: number; b?: number }[]): MonthPoint[]
-- yearOverview(transactions: Transaction[], categories: Category[], year: string): YearOverview
-- spanOverview(transactions: Transaction[], categories: Category[], year: string, throughMonth: number): YearOverview
-- spendingSlices(transactions: Transaction[], categories: Category[], year: string): SpendingSlice[]
-- accountRows(accounts: Account[], balances: BalancePoint[], today: string): AccountRows
-- monthGlance(input: { style: BudgetStyle; ym: string; transactions: Transaction[]; categories: Category[]; budgets?: MonthBudget[]; carryStartMonth?: string | null; safeToSpend: number }): MonthGlance
-- needsALook(input: { transactions: Transaction[]; categories: Category[]; profile: Profile; ym: string; budgets?: MonthBudget[] }): NeedsALook
-- staleLabel(ageDays: number): string
-- ProgressRing({ pct: number; label: string; tone?: "primary" | "good" | "warn" | "danger" })
-- MiniBars({ months: MiniMonth[]; aLabel: string; bLabel: string; onSelect?: (index: number) => void })
-- StackedBar({ parts: StackPart[] })
-- Donut({ parts: SlicePart[]; centerLabel: string; onPick?: (part: SlicePart) => void })
-- CountUp({ value: number; format: (n: number) => string })
-- Delta({ amount: number; goodWhen: "up" | "down"; format: (n: number) => string })
-- ShowNumbers({ caption: string; columns: string[]; rows: string[][] })
-- EmptyArt({ kind: "home" | "budget" | "funds" | "grow" | "sorting" })
-- HomeSwitch()
-- HomeDashboard()
-- YourMoney({ accounts: Account[]; balances: BalancePoint[]; netWorth: NetWorthPoint[] })
-- PlaceMap()
-- GrowthArea({ principal: number; years: number; inflation: number; today: boolean; gainTax: number; lively: boolean })
-- RothBars({ roth: number; traditional: number; taxNow: string; taxLater: string })
-- PayoffRace({ snowMonths: number; avaMonths: number; snowInterest: number; avaInterest: number })
-- FillJar gained an optional celebrate flag. Existing pct, negative, and overflow are unchanged.
+- matchBankLabel(label: string, categories: Category[]): BankMatch | null
+- categoryCarries(category: Category, style: BudgetStyle): boolean
+- monthEndForecast(input: { transactions: Transaction[]; categories: Category[]; ym: string; today: string; budgets?: MonthBudget[] }): MonthEndForecast | null
+- priceIncrease(transactions: Transaction[]): PriceChange | null
+- stoppedBill(transactions: Transaction[], today: string): StoppedBill | null
+- oneOffCharge(transactions: Transaction[], ym: string): OneOffCharge | null
+- yearBoundary(transactions: Transaction[], categories: Category[], year: number): YearBoundary | null
+- quietMonth(transactions: Transaction[], categories: Category[]): QuietMonth | null
+- freshAccount(transactions: Transaction[], categories: Category[]): FreshAccount | null
+- fileInsights(transactions: Transaction[], categories: Category[], today?: string): FileInsights | null
 
 ## Conflicts and later prompts
 
-- yearCash lives in totals.ts, not year.ts. yearOverview calls that function and matches it. The Home headline uses spanOverview: January through the month you are on, compared with those same months last year. A full calendar year still matches yearCash when throughMonth is 12.
-- The Year page cannot open on one category from an address, so tapping a spending slice shows the amount on Home instead of jumping there.
-- Import does not read a chosen account from the address. Add a file opens Import, and the person picks the account. The wizard still remembers the last one.
-- Decision 23 said Home would not change yet. This prompt replaces that. Home is the dashboard. The month is /month, still under the Home tab. There is no sixth tab.
-- Meadow and Midnight were added. Harbor, Tide, Brass, and Dusk stay. Dusk is still a dark look, as this prompt asked for midnight in addition, not instead.
-- Put it to work and the monthly picture hide their inputs under Change the numbers. Loan, inflation, double, how long to reach a number, lump plus monthly, and save for a goal still show the older forms. Nerd tools stay hidden until asked for.
-- Prompts 3 and 4 were already on main (import-review, auto-sort, month page, sorting). Their math and the Month page internals were left alone, aside from the Home | Month switch at the top of the month.
+- bank-label corpus: 31/31 (100%). analytics corpus: 24/24 (100%).
+- Decision 1 and decision 33 said one leftover style for the whole ledger, and that categories are not mixed. The latest instruction is a per-category override. A missing flag still follows the ledger. Income still never carries. Decision 37 records that. The original decision sentences for this prompt were not in the message, so 37–39 are the rules that were actually built.
+- setKeepsLeftovers still turns a category into a fund and can clear its monthly amount. The Budget page switch does not call it. Switching carry only sets the flag, and the start month if the ledger did not have one yet.
+- A merchant rule or an earlier choice still beats the bank label. Vague labels (Other, Uncategorized, Miscellaneous) stay unsorted on purpose.
+- sortCharge now accepts optional bankCategory and memo. TransactionAuto.reason, Category.carry, and the category and memo column roles are optional, so older backups still load. An unknown auto source is kept as "none" instead of dropping the row.
+- yearCash still lives in totals.ts and was not changed.
+- Home shows up to five of the file insights, with the waiting list tucked under "Still waiting on more history." Stopped bills, price increases, and the December/January comparison are in the library and show up in that list when the file can support them. They do not each have their own screen.
+- The built-output preview still dies on a missing pglite data file that earlier preview logs already show. The dev app, the typecheck, and the build itself succeeded.
+- The app is still named Harbor. No logo change.
 
 ## Still not done or not working as well as it could
 
-- Grow is picture-first for where money can go, the lump-sum paths, the monthly line, Roth versus traditional, the IRA limit, the emergency cushion, and the two payoff orders. The rest of the calculators are still forms.
-- A slice on Home does not open that category on the Year page.
-- Add a file from an account row does not preselect that account.
-- Chart colors were chosen to stay readable on all six looks, but there was no automated contrast pass on every slice.
-- The sparkle when a goal is reached or a carry-over category finishes under its amount plays once and is easy to miss. Start-fresh rows do not sparkle.
-- Onboarding, import sorting, account editing, and the inside of the Month page are whatever the earlier prompts shipped. This pass did not reopen them.
+- A first-time walk imported the demo file into a new checking account: 50 of 53 charges sorted. A second file with Category and Memo columns, into a second account, sorted 4 of 5. Groceries, eating out, rent, and car insurance were checked with the bank's reason. The row labeled Other stayed in Needs a look. Carry on Groceries kept the $400 usual amount, the $90 this-month amount, and all 58 charges.
+- The three demo rows that stayed unsorted had no sure keyword and no bank category. That is the same "only when sure" rule as before.
+- Grow, the year spreadsheet, and the inside of a single charge were not reopened.
