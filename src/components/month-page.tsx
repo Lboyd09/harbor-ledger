@@ -8,6 +8,7 @@ import type { CategoryUndo } from "@/lib/budget/sorting";
 import { useBudgetStore } from "@/store/budget-store";
 import { CategorizeCoach } from "./categorize-coach";
 import { CategorySelect } from "./category-select";
+import { HomeSwitch } from "./home-switch";
 import { LedgerTabs } from "./ledger-tabs";
 import { MonthSwitcher } from "./month-switcher";
 import { EmptyMonth, MonthSheet, RowTools, Section, TxRow } from "./month-parts";
@@ -70,6 +71,7 @@ export function MonthPage({ titleAs = "h1" }: { titleAs?: "h1" | "h2" }) {
   if (!transactions.length) {
     return (
       <div className="mx-auto max-w-lg space-y-4">
+        <HomeSwitch />
         <h2 className="font-display text-2xl font-semibold">Start with one month</h2>
         <p className="text-sm text-muted">
           Import a bank file, then categorize each charge. That is the whole start. Tap a row later to split it or mark it paid back.
@@ -85,6 +87,7 @@ export function MonthPage({ titleAs = "h1" }: { titleAs?: "h1" | "h2" }) {
 
   return (
     <div className="space-y-6">
+      <HomeSwitch />
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <Title className="font-display text-2xl font-semibold md:text-3xl">{monthLabel(ym)}</Title>

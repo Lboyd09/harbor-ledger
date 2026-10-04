@@ -1,4 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { MonthBoard } from "@/components/month-board";
+import { HomeDashboard } from "@/components/home-dashboard";
 
-export const Route = createFileRoute("/")({ component: MonthBoard });
+export const Route = createFileRoute("/")({ component: HomeDashboard });

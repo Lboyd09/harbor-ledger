@@ -14,6 +14,13 @@
   --color-good: #1f4d38;
   --color-warn: #8a5a12;
   --color-chip: #efe8dc;
+  --color-slice-1: #1f4d38;
+  --color-slice-2: #8a5a12;
+  --color-slice-3: #0f6e6b;
+  --color-slice-4: #8b3224;
+  --color-slice-5: #3d5a80;
+  --color-slice-6: #6b4c7a;
+  --shadow-card: 0 1px 2px rgb(26 23 20 / 0.06), 0 10px 28px rgb(26 23 20 / 0.05);
   --radius-sm: 0.375rem;
   --radius-md: 0.75rem;
   --radius-lg: 1.25rem;
@@ -113,45 +120,107 @@ html[data-accent="tide"] {
   --color-bg: #e7f0ee;
   --color-surface: #f7fbfa;
   --color-fg: #10211e;
-  --color-muted: #4d655f;
-  --color-primary: #0f6e6b;
+  --color-muted: #3e5650;
+  --color-primary: #0c5c59;
   --color-primary-fg: #f4fbfa;
   --color-border: #c9ddd8;
   --color-line: #b7cfc9;
-  --color-danger: #9a3b32;
-  --color-good: #0f6e6b;
-  --color-warn: #8a5a12;
+  --color-danger: #8a332c;
+  --color-good: #0c5c59;
+  --color-warn: #7a4e10;
   --color-chip: #dceae6;
+  --color-slice-1: #0c5c59;
+  --color-slice-2: #7a4e10;
+  --color-slice-3: #1f4d38;
+  --color-slice-4: #8a332c;
+  --color-slice-5: #2c4a6e;
+  --color-slice-6: #5c3d6e;
 }
 
 html[data-accent="brass"] {
   --color-bg: #f6f1e4;
   --color-surface: #fffaf1;
   --color-fg: #241c12;
-  --color-muted: #6e5e48;
-  --color-primary: #8a5a12;
+  --color-muted: #5e4e3a;
+  --color-primary: #7a4e10;
   --color-primary-fg: #fff8ee;
   --color-border: #e4d3b5;
   --color-line: #d4c09a;
   --color-danger: #8b3224;
-  --color-good: #3f6b4a;
-  --color-warn: #8a5a12;
+  --color-good: #2f5a3c;
+  --color-warn: #7a4e10;
   --color-chip: #f0e4cc;
+  --color-slice-1: #7a4e10;
+  --color-slice-2: #2f5a3c;
+  --color-slice-3: #8b3224;
+  --color-slice-4: #3d5a80;
+  --color-slice-5: #6b4c7a;
+  --color-slice-6: #1f4d38;
 }
 
 html[data-accent="dusk"] {
   --color-bg: #16130f;
   --color-surface: #221e18;
   --color-fg: #f6f1e7;
-  --color-muted: #b7ab9c;
-  --color-primary: #e0b15a;
+  --color-muted: #d4c8ba;
+  --color-primary: #f0c36a;
   --color-primary-fg: #1a140c;
   --color-border: #3a332a;
   --color-line: #4a4034;
-  --color-danger: #e07a68;
-  --color-good: #8fbf9a;
-  --color-warn: #e0b15a;
+  --color-danger: #ffb4a8;
+  --color-good: #b7e0c0;
+  --color-warn: #f0c36a;
   --color-chip: #2c261f;
+  --shadow-card: 0 0 0 1px rgb(240 195 106 / 0.22);
+  --color-slice-1: #f0c36a;
+  --color-slice-2: #b7e0c0;
+  --color-slice-3: #ffb4a8;
+  --color-slice-4: #c9d7ff;
+  --color-slice-5: #e7c6f5;
+  --color-slice-6: #f6e7c1;
+}
+
+html[data-accent="meadow"] {
+  --color-bg: #f3f6ef;
+  --color-surface: #fffcf7;
+  --color-fg: #1a2416;
+  --color-muted: #3e4d38;
+  --color-primary: #1d6842;
+  --color-primary-fg: #f6fff8;
+  --color-border: #d5e0cc;
+  --color-line: #c3d1b8;
+  --color-danger: #8d2f28;
+  --color-good: #1d6842;
+  --color-warn: #8a4b16;
+  --color-chip: #e7f0e0;
+  --color-slice-1: #1d6842;
+  --color-slice-2: #e0a07a;
+  --color-slice-3: #8a4b16;
+  --color-slice-4: #8d2f28;
+  --color-slice-5: #3d5a40;
+  --color-slice-6: #6b4c3a;
+}
+
+html[data-accent="midnight"] {
+  --color-bg: #0c1422;
+  --color-surface: #152033;
+  --color-fg: #f2f6fc;
+  --color-muted: #d3deee;
+  --color-primary: #c5ddff;
+  --color-primary-fg: #0c1422;
+  --color-border: #2c3e5c;
+  --color-line: #3a5070;
+  --color-danger: #ffb4ab;
+  --color-good: #b6ebc8;
+  --color-warn: #ffd59a;
+  --color-chip: #1e2d46;
+  --shadow-card: 0 0 0 1px rgb(197 221 255 / 0.28);
+  --color-slice-1: #c5ddff;
+  --color-slice-2: #b6ebc8;
+  --color-slice-3: #ffd59a;
+  --color-slice-4: #ffb4ab;
+  --color-slice-5: #e4c6ff;
+  --color-slice-6: #f6e7c1;
 }
 
 html[data-motion="calm"] .rise,
@@ -160,7 +229,10 @@ html[data-motion="calm"] .feature-card,
 html[data-motion="calm"] .detail-in,
 html[data-motion="calm"] .sheet-rise tbody tr,
 html[data-motion="calm"] .chart-rise .recharts-bar-rectangle,
-html[data-motion="calm"] .chart-rise .recharts-line-curve {
+html[data-motion="calm"] .chart-rise .recharts-line-curve,
+html[data-motion="calm"] .route-fade,
+html[data-motion="calm"] .ring-draw,
+html[data-motion="calm"] .sparkle-once {
   animation: none;
   transition: none;
 }
@@ -255,6 +327,69 @@ html[data-motion="calm"] .chart-rise .recharts-line-curve {
 .look-dusk {
   background: #16130f;
   color: #f6f1e7;
+}
+.look-meadow {
+  background: #f3f6ef;
+  color: #1a2416;
+}
+.look-midnight {
+  background: #0c1422;
+  color: #f2f6fc;
+}
+
+.panel {
+  box-shadow: var(--shadow-card);
+}
+
+.route-fade {
+  animation: route-in 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes route-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.ring-draw {
+  animation: ring-in 800ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes ring-in {
+  from {
+    stroke-dashoffset: var(--ring-from);
+  }
+  to {
+    stroke-dashoffset: var(--ring-to);
+  }
+}
+
+.sparkle-once {
+  position: absolute;
+  top: -0.35rem;
+  right: -0.15rem;
+  color: var(--color-warn);
+  font-size: 0.8rem;
+  animation: sparkle-once 900ms ease-out 1 both;
+}
+
+@keyframes sparkle-once {
+  0% {
+    opacity: 0;
+    transform: translateY(4px) scale(0.6);
+  }
+  35% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-10px) scale(1);
+  }
 }
 
 .jar {

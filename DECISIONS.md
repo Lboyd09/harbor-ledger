@@ -4,6 +4,11 @@ Newest first. If this file conflicts with earlier chat, this file wins.
 
 ## 2026-10-03
 
+32. The look gets more visual and animated. Animation obeys the Motion setting and the device's reduced-motion setting.
+31. Grow is visual first: pictures that show where money can go and what it becomes, with the numbers underneath.
+30. Each budget category has a clear visual in the carry-over style.
+29. Home shows every account with the balance from its latest import (or the last balance typed in) and the total.
+28. Home is a dashboard with a whole-year overview. The month is a separate page.
 27. In the carry-over style the Month page shows what came in from last month, what this month adds, what was spent, and what is left, with a plain sentence about cutting back or extra money.
 26. Every category amount can be changed for one month. The usual amount stays visible and can be restored in one tap.
 25. On the Month page a category can be changed three ways: for this charge only, for every charge from that name in this month only, or as the default for every month.

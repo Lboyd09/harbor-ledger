@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { formatMoney } from "@/lib/budget/money";
 import { displayMerchant } from "@/lib/budget/merchant";
@@ -9,6 +10,7 @@ import { CategorySelect } from "./category-select";
 import { LedgerTabs } from "./ledger-tabs";
 import { Button } from "./ui/button";
 import { Input } from "./ui/field";
+import { EmptyArt } from "./visuals/empty-art";
 
 type Filter = "all" | "open" | "bills";
 
@@ -112,6 +114,15 @@ export function SortingView() {
         </p>
       </div>
       <LedgerTabs page="merchants" />
+      {!transactions.length ? (
+        <div className="rounded-lg border border-dashed border-line px-4 py-6 text-center">
+          <EmptyArt kind="sorting" />
+          <p className="text-sm">No names yet. A bank file is how they show up.</p>
+          <Link to="/import" className="mt-3 inline-flex">
+            <Button>Add your first bank file</Button>
+          </Link>
+        </div>
+      ) : null}
       {undo ? (
         <p className="flex flex-wrap items-center gap-3 rounded-md bg-chip px-4 py-3 text-sm" role="status">
           <span>{undo.sentence}</span>

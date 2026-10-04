@@ -6,7 +6,7 @@ export type CategoryKind = "income" | "expense";
 export type RecurringInterval = "weekly" | "biweekly" | "monthly" | "irregular";
 export type BudgetPeriod = "week" | "month";
 export type TxStatus = "posted" | "refund" | "transfer" | "reimbursement";
-export type HarborLook = "harbor" | "dusk" | "tide" | "brass";
+export type HarborLook = "harbor" | "dusk" | "tide" | "brass" | "meadow" | "midnight";
 export type HarborMotion = "calm" | "lively";
 /** How much of the ledger to show. Missing on older ledgers — treat as simple. */
 export type DetailMode = "simple" | "nerd";

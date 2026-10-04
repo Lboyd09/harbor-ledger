@@ -1,5 +1,15 @@
 /** A jar that fills from the bottom. Overflow sits above the rim. A negative balance leaves it empty with a red rim. */
-export function FillJar({ pct, negative = false, overflow = false }: { pct: number; negative?: boolean; overflow?: boolean }) {
+export function FillJar({
+  pct,
+  negative = false,
+  overflow = false,
+  celebrate = false,
+}: {
+  pct: number;
+  negative?: boolean;
+  overflow?: boolean;
+  celebrate?: boolean;
+}) {
   const p = negative ? 0 : Math.max(0, Math.min(100, pct));
   return (
     <div className="relative h-24 w-16 shrink-0" aria-hidden>
@@ -9,6 +19,7 @@ export function FillJar({ pct, negative = false, overflow = false }: { pct: numb
       >
         <div className="goal-fill absolute inset-x-0 bottom-0 bg-primary/75" style={{ height: `${p}%` }} />
         <div className="absolute inset-x-2 top-1 h-1.5 rounded-full border border-primary/40 bg-surface/80" />
+        {celebrate ? <span className="sparkle-once" aria-hidden>✦</span> : null}
       </div>
     </div>
   );

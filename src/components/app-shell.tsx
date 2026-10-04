@@ -58,14 +58,14 @@ export function AppShell() {
   const hydrateLocal = useBudgetStore((s) => s.hydrateLocal);
   const done = useBudgetStore((s) => s.profile.completedOnboarding);
   const path = useRouterState({ select: (s) => s.location.pathname });
-  const current =
-    path === "/" || path === "/categories" || path === "/import"
-      ? "Home"
-      : path === "/funds"
-        ? "Funds"
-        : path === "/year"
-          ? "Year"
-          : (NAV.find((n) => n.to === path)?.label ?? "Harbor");
+  const homeOn = path === "/" || path === "/month" || path === "/categories" || path === "/import";
+  const current = homeOn
+    ? "Home"
+    : path === "/funds"
+      ? "Funds"
+      : path === "/year"
+        ? "Year"
+        : (NAV.find((n) => n.to === path)?.label ?? "Harbor");
   const ledgerName = useBudgetStore((s) => s.profile.ledgerName);
   const accent = useBudgetStore((s) => s.profile.accent ?? "harbor");
   const motion = useBudgetStore((s) => s.profile.motion ?? "lively");
@@ -118,10 +118,7 @@ export function AppShell() {
         <nav className="flex flex-1 flex-col gap-1 px-3">
           {NAV.map((item) => {
             const Icon = item.icon;
-            const on =
-              item.to === "/"
-                ? path === "/" || path === "/categories" || path === "/import"
-                : path === item.to;
+            const on = item.to === "/" ? homeOn : path === item.to;
             return (
               <Link
                 key={item.to}
@@ -166,13 +163,15 @@ export function AppShell() {
             </Link>
           </div>
         ) : null}
-        <Outlet />
+        <div key={path} className="route-fade min-w-0">
+          <Outlet />
+        </div>
       </main>
 
       <nav className="safe-nav fixed inset-x-0 bottom-0 z-10 grid grid-cols-5 border-t border-border bg-surface md:hidden">
         {NAV.map((item) => {
           const Icon = item.icon;
-          const on = item.to === "/" ? path === "/" || path === "/categories" || path === "/import" : path === item.to;
+          const on = item.to === "/" ? homeOn : path === item.to;
           return (
             <Link
               key={item.to}

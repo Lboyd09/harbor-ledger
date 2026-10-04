@@ -1,5 +1,7 @@
+import { Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { latestBalance } from "@/lib/budget/accounts";
 import { bucketBalance } from "@/lib/budget/buckets";
 import { MARKET_RATES, SAVINGS_RATES, inflated, loanCompare, monthlyForGoal, monthlyPath, monthsToTarget, payoffPlan, projectBoth, projectLump, rothVsTraditional, yearsToDouble, yearsToFi } from "@/lib/budget/grow-math";
 import { monthReview } from "@/lib/budget/insights";
@@ -12,6 +14,9 @@ import { useBudgetStore } from "@/store/budget-store";
 import { useLivelyMotion } from "./use-lively-motion";
 import { SummaryCard } from "./summary-card";
 import { FillJar } from "./money-visual";
+import { GrowthArea, PayoffRace, PlaceMap, RothBars, YourMoney } from "./grow-pictures";
+import { EmptyArt } from "./visuals/empty-art";
+import { ProgressRing } from "./visuals/progress-ring";
 import { Button } from "./ui/button";
 import { Input } from "./ui/field";
 
@@ -38,12 +43,17 @@ export function GrowView() {
   const ym = useBudgetStore((s) => s.activeMonth);
   const debts = useBudgetStore((s) => s.debts) ?? [];
   const netWorth = useBudgetStore((s) => s.netWorth) ?? [];
+  const accounts = useBudgetStore((s) => s.accounts ?? []);
+  const balances = useBudgetStore((s) => s.balances ?? []);
   const ira = useBudgetStore((s) => s.ira) ?? DEFAULT_IRA;
   const patchIra = useBudgetStore((s) => s.patchIra);
   const addDebt = useBudgetStore((s) => s.addDebt);
   const removeDebt = useBudgetStore((s) => s.removeDebt);
   const addNetWorth = useBudgetStore((s) => s.addNetWorth);
   const removeNetWorth = useBudgetStore((s) => s.removeNetWorth);
+  const saved = accounts
+    .filter((account) => account.kind === "savings")
+    .reduce((sum, account) => sum + Math.max(0, latestBalance(account.id, balances)?.amount ?? 0), 0);
   const nerd = profile.detail === "nerd";
   const lively = useLivelyMotion();
   const year = ym.slice(0, 4);
@@ -111,6 +121,20 @@ export function GrowView() {
         </p>
       </div>
 
+      {!transactions.length && accounts.length === 0 ? (
+        <div className="rounded-lg border border-dashed border-line px-4 py-6 text-center">
+          <EmptyArt kind="grow" />
+          <p className="text-sm">Nothing of your own is here yet. Add a bank file, or type a number in the pictures below.</p>
+          <Link to="/import" className="mt-3 inline-flex">
+            <Button>Add your first bank file</Button>
+          </Link>
+        </div>
+      ) : (
+        <YourMoney accounts={accounts} balances={balances} netWorth={netWorth} />
+      )}
+
+      <PlaceMap />
+
       <div className="grid gap-3 sm:grid-cols-2">
         <SummaryCard
           label="Savings rate"
@@ -140,26 +164,24 @@ export function GrowView() {
       <div className="space-y-4">
         {(
           [
-            ["Everyday", [
-              ["emergency", "Emergency fund", "Months of spending, from this year."],
+            ["See it grow", [
+              ["work", "Put it to work", "One amount, left alone."],
+              ["monthly", "Add a bit every month", "What you add, with no starting pile."],
+              ["both", "A pile and a monthly add", "Both at once."],
+              ["roth", "Roth or traditional", "Two bars, after tax."],
               ["goal", "Save for a goal", "What to set aside each month."],
               ["free", "When work is optional", "The 4% rule and your savings rate."],
-            ]],
-            ["Debts", [
-              ["debt", "Pay off a debt", "Add the balance, the rate, and the minimum."],
-              ["loan", "A loan or mortgage", "The payment, and what extra saves."],
-            ]],
-            ["Investing", [
-              ["work", "Invest a lump sum", "One amount, left alone."],
-              ["monthly", "Save every month", "What you add, with no starting pile."],
-              ["both", "Lump sum and monthly", "A pile plus what you add."],
               ["reach", "How long to reach a number", "A pile, a monthly add, and a target."],
               ["double", "How long to double", "At this rate, when the money doubles."],
               ["inflation", "What money buys later", "The same dollars after inflation."],
-              ["roth", "Roth or traditional", "After tax, now versus retirement."],
             ]],
-            ["What you own", [
+            ["Protect yourself", [
+              ["emergency", "Emergency fund", "Months of spending, from this year."],
               ["worth", "Net worth", "Type what you own minus what you owe."],
+            ]],
+            ["Pay it down", [
+              ["debt", "Pay off a debt", "Smallest balance or highest interest."],
+              ["loan", "A loan or mortgage", "The payment, and what extra saves."],
             ]],
           ] as const
         ).map(([group, items]) => (
@@ -187,7 +209,7 @@ export function GrowView() {
         Today's dollars
       </label>
 
-      {calc === "emergency" ? <EmergencyFund book={book} /> : null}
+      {calc === "emergency" ? <EmergencyFund book={book} saved={saved} /> : null}
       {calc === "goal" ? <GoalTool /> : null}
       {calc === "debt" ? <DebtTool debts={debts} addDebt={addDebt} removeDebt={removeDebt} /> : null}
       {calc === "loan" ? <LoanTool /> : null}
@@ -208,19 +230,21 @@ export function GrowView() {
 
       {calc === "work" ? (
         <section className="space-y-3">
-          <p className="text-sm text-muted">
-            Prefilled from {surplus.name}. Edit it. Each option is a range, not one number.
-          </p>
-          <div className="grid gap-2 sm:grid-cols-2">
-            <label className="text-xs text-muted">
-              Amount
-              <Input className="mt-1" inputMode="decimal" value={principal} onChange={(e) => setPrincipal(e.target.value)} />
-            </label>
-            <label className="text-xs text-muted">
-              Years
-              <Input className="mt-1" inputMode="decimal" value={years} onChange={(e) => setYears(e.target.value)} />
-            </label>
-          </div>
+          <GrowthArea principal={principalN} years={yearCount} inflation={inflationRate} today={today} gainTax={taxNowN} lively={lively} />
+          <details>
+            <summary className="min-h-11 cursor-pointer text-sm font-medium">Change the numbers</summary>
+            <p className="mt-2 text-sm text-muted">Prefilled from {surplus.name}. Edit it. Each option is a range, not one number.</p>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+              <label className="text-xs text-muted">
+                Amount
+                <Input className="mt-1" inputMode="decimal" value={principal} onChange={(e) => setPrincipal(e.target.value)} />
+              </label>
+              <label className="text-xs text-muted">
+                Years
+                <Input className="mt-1" inputMode="decimal" value={years} onChange={(e) => setYears(e.target.value)} />
+              </label>
+            </div>
+          </details>
           <div className="grid gap-3">
             <BandLine label="Savings account" band={savings} />
             <BandLine label="Taxable investing" band={taxable} />
@@ -233,20 +257,26 @@ export function GrowView() {
 
       {calc === "monthly" ? (
         <section className="space-y-3">
-          <div className="grid gap-2 sm:grid-cols-3">
-            <label className="text-xs text-muted">
-              Each month
-              <Input className="mt-1" inputMode="decimal" value={monthly} onChange={(e) => setMonthly(e.target.value)} />
-            </label>
-            <label className="text-xs text-muted">
-              Years
-              <Input className="mt-1" inputMode="decimal" value={years} onChange={(e) => setYears(e.target.value)} />
-            </label>
-            <label className="text-xs text-muted">
-              Rate %
-              <Input className="mt-1" inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)} />
-            </label>
-          </div>
+          <p className="text-sm">
+            {formatMoney(path.at(-1)?.contributed ?? 0)} is money you put in. The rest of {formatMoney(path.at(-1)?.balance ?? 0)} is growth. An estimate, not financial advice.
+          </p>
+          <details>
+            <summary className="min-h-11 cursor-pointer text-sm font-medium">Change the numbers</summary>
+            <div className="mt-2 grid gap-2 sm:grid-cols-3">
+              <label className="text-xs text-muted">
+                Each month
+                <Input className="mt-1" inputMode="decimal" value={monthly} onChange={(e) => setMonthly(e.target.value)} />
+              </label>
+              <label className="text-xs text-muted">
+                Years
+                <Input className="mt-1" inputMode="decimal" value={years} onChange={(e) => setYears(e.target.value)} />
+              </label>
+              <label className="text-xs text-muted">
+                Rate %
+                <Input className="mt-1" inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)} />
+              </label>
+            </div>
+          </details>
           <SummaryCard
             label="Ending balance"
             value={formatMoney(path.at(-1)?.balance ?? 0)}
@@ -289,7 +319,7 @@ export function GrowView() {
           </div>
           {overLimit ? (
             <p className="rounded-md border border-warn/40 bg-chip px-3 py-2 text-sm">
-              That is over the {ira.year} limit of {formatMoney(limit)} in your IRA settings. Check the current IRS figures.
+              That is over the {ira.year} limit of {formatMoney(limit)} in your IRA settings. Check current rules.
             </p>
           ) : null}
           {room === "partial" ? (
@@ -298,6 +328,12 @@ export function GrowView() {
           {room === "none" ? (
             <p className="text-sm text-muted">Income is past the Roth phase-out in your settings. A direct Roth may not be allowed.</p>
           ) : null}
+          <RothBars roth={compare.roth} traditional={compare.traditional} taxNow={taxNow} taxLater={taxLater} />
+          <ProgressRing
+            pct={limit > 0 ? Math.min(100, (annualN / limit) * 100) : 0}
+            tone={overLimit ? "danger" : "primary"}
+            label={overLimit ? `Over the ${ira.year} limit of ${formatMoney(limit)}. Check current rules.` : `${formatMoney(annualN)} of the ${formatMoney(limit)} limit. Check current rules.`}
+          />
           <div className="grid gap-3 sm:grid-cols-2">
             <SummaryCard label="Roth, after tax" value={formatMoney(compare.roth)} sentence="You invest the after-tax slice. Growth is not taxed again in this estimate." />
             <SummaryCard label="Traditional, after tax" value={formatMoney(compare.traditional)} sentence="You invest the full pre-tax amount, then tax it at the retirement rate." />
@@ -574,21 +610,32 @@ function NerdGrow({
   );
 }
 
-function EmergencyFund({ book }: { book: { expenses: number; activeMonths: number } }) {
+function EmergencyFund({ book, saved }: { book: { expenses: number; activeMonths: number }; saved: number }) {
+  const [months, setMonths] = useState(3);
   const monthly = book.activeMonths > 0 ? book.expenses / book.activeMonths : 0;
+  const target = monthly * months;
+  const pct = target > 0 ? Math.min(100, (saved / target) * 100) : 0;
   return (
     <section className="space-y-3 rounded-lg border border-border bg-surface p-4">
       <h2 className="font-display text-xl font-semibold">How big should the cushion be?</h2>
-      <p className="text-sm text-muted">
+      <p className="text-sm">
         {monthly > 0
-          ? `Months with spending averaged ${formatMoney(monthly)}. Three months covers a surprise. Six months covers a longer gap.`
+          ? `${formatMoney(saved)} is in savings accounts. ${months} months of spending is ${formatMoney(target)}. An estimate, not financial advice.`
           : "Import a few months of spending. This uses that average. It is not a bank balance."}
       </p>
+      <ProgressRing pct={pct} tone={pct >= 100 ? "good" : "primary"} label={target > 0 ? `${Math.round(pct)}% of ${months} months` : "No spending average yet"} />
+      <div className="flex gap-2">
+        {[1, 3, 6].map((m) => (
+          <button key={m} type="button" className={`min-h-11 rounded-md px-3 text-sm ${months === m ? "bg-primary text-primary-fg" : "border border-border"}`} aria-pressed={months === m} onClick={() => setMonths(m)}>
+            {m} month{m === 1 ? "" : "s"}
+          </button>
+        ))}
+      </div>
       <div className="grid grid-cols-3 gap-3">
         {[1, 3, 6].map((m) => (
           <div key={m} className="text-center">
             <div className="flex justify-center">
-              <FillJar pct={(m / 6) * 100} />
+              <FillJar pct={(m / 6) * 100} celebrate={m === months && pct >= 100} />
             </div>
             <div className="mt-2 text-sm">{m} month{m === 1 ? "" : "s"}</div>
             <div className="font-display text-lg tabular">{formatMoney(monthly * m)}</div>
@@ -625,6 +672,7 @@ function DebtTool({
       </p>
       {debts.length ? (
         <>
+          <PayoffRace snowMonths={snow.months} avaMonths={ava.months} snowInterest={snow.interest} avaInterest={ava.interest} />
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="rounded-md border border-border p-3">
               <div className="text-sm font-medium">Smallest balance first</div>

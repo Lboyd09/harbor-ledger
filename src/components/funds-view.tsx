@@ -8,6 +8,10 @@ import type { MoneyBucket, Transaction } from "@/lib/budget/types";
 import { useBudgetStore } from "@/store/budget-store";
 import { FUND_LINK_KEY, FundWizard } from "./fund-wizard";
 import { FillJar } from "./money-visual";
+import { useLivelyMotion } from "./use-lively-motion";
+import { EmptyArt } from "./visuals/empty-art";
+import { MiniBars } from "./visuals/mini-bars";
+import { ProgressRing } from "./visuals/progress-ring";
 import { Button } from "./ui/button";
 import { Input, Select } from "./ui/field";
 
@@ -49,7 +53,8 @@ export function FundsView() {
       {funds.length ? (
         <p className="font-display text-xl">Across all funds: {formatMoney(total)}</p>
       ) : (
-        <section className="rounded-lg border border-dashed border-line px-4 py-6">
+        <section className="rounded-lg border border-dashed border-line px-4 py-6 text-center">
+          <EmptyArt kind="funds" />
           <p className="text-sm">A fund is money you set aside. What you do not spend stays in it.</p>
           <Button className="mt-3" onClick={() => { setLinked(null); setWizard(true); }}>
             Add a fund
@@ -93,6 +98,7 @@ function FundCard({ fund }: { fund: MoneyBucket }) {
   const [month, setMonth] = useState(ym);
   const [details, setDetails] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
+  const lively = useLivelyMotion();
   const balance = bucketBalance(fund, ym, transactions, categories, moves);
   const range = fundWindow(fund, ym, transactions, categories);
   const line = fullLineOf(fund);
@@ -100,7 +106,6 @@ function FundCard({ fund }: { fund: MoneyBucket }) {
   const negative = balance < -0.004;
   const overflow = balance > line + 0.004;
   const pace = goalPace(fund, balance, ym);
-  const maxBar = Math.max(1, ...range.months.flatMap((row) => [row.funded, row.spent]));
   const putIn = fundingForMonth(fund, month);
   const used = fund.categoryIds.reduce((sum, id) => sum + categorySpend(transactions, categories, id, month, month), 0);
   const endBalance = bucketBalance(fund, month, transactions, categories, moves);
@@ -116,7 +121,7 @@ function FundCard({ fund }: { fund: MoneyBucket }) {
   return (
     <li className="rounded-lg border border-border bg-surface p-4">
       <div className="flex items-start gap-3">
-        <FillJar pct={pct} negative={negative} overflow={overflow} />
+        <FillJar pct={pct} negative={negative} overflow={overflow} celebrate={lively && goalHit} />
         <div className="min-w-0 flex-1">
           <div className="text-sm text-muted">{fund.name}</div>
           <div className={`font-display text-3xl tabular ${negative ? "text-danger" : ""}`}>In this fund now: {formatMoney(balance)}</div>
@@ -128,18 +133,19 @@ function FundCard({ fund }: { fund: MoneyBucket }) {
       </div>
       {pace && fund.target ? (
         <div className="mt-3">
-          <div className="h-2 overflow-hidden rounded-full bg-chip">
-            <div className="h-full bg-primary" style={{ width: `${Math.max(0, Math.min(100, (balance / fund.target) * 100))}%` }} />
-          </div>
-          <p className="mt-1 text-sm text-muted">
-            {pace.left <= 0
-              ? "The goal is reached."
-              : pace.required != null && fund.by
-                ? `${formatMoney(pace.required)} a month gets you there by ${monthName(fund.by)} ${fund.by.slice(0, 4)}.`
-                : pace.projected
-                  ? `At the current amount, about ${monthName(pace.projected)} ${pace.projected.slice(0, 4)}.`
-                  : `${formatMoney(pace.left)} still to go.`}
-          </p>
+          <ProgressRing
+            pct={Math.max(0, Math.min(100, (balance / fund.target) * 100))}
+            tone={pace.left <= 0 ? "good" : "primary"}
+            label={
+              pace.left <= 0
+                ? "The goal is reached."
+                : pace.required != null && fund.by
+                  ? `${formatMoney(pace.required)} a month gets you there by ${monthName(fund.by)} ${fund.by.slice(0, 4)}.`
+                  : pace.projected
+                    ? `At the current amount, about ${monthName(pace.projected)} ${pace.projected.slice(0, 4)}.`
+                    : `${formatMoney(pace.left)} still to go.`
+            }
+          />
         </div>
       ) : null}
       {showNudge ? (
@@ -176,29 +182,17 @@ function FundCard({ fund }: { fund: MoneyBucket }) {
       {view === "year" ? (
         <div className="mt-3">
           {range.months.length ? (
-            <>
-              <div className="flex items-end gap-1 overflow-x-auto">
-                {range.months.map((row) => (
-                  <button
-                    key={row.ym}
-                    type="button"
-                    className="flex min-w-8 flex-1 flex-col items-center gap-1"
-                    aria-label={`${monthLabel(row.ym)}. ${formatMoney(row.funded)} put in. ${formatMoney(row.spent)} used.`}
-                    onClick={() => {
-                      setMonth(row.ym);
-                      setView("month");
-                    }}
-                  >
-                    <div className="flex h-16 w-full items-end gap-0.5">
-                      <div className="w-1/2 rounded-sm bg-primary/80" style={{ height: `${Math.max(row.funded > 0 ? 4 : 0, (row.funded / maxBar) * 100)}%` }} />
-                      <div className="w-1/2 rounded-sm bg-danger/70" style={{ height: `${Math.max(row.spent > 0 ? 4 : 0, (row.spent / maxBar) * 100)}%` }} />
-                    </div>
-                    <span className="text-[10px] text-muted">{monthShort(row.ym)}</span>
-                  </button>
-                ))}
-              </div>
-              <p className="mt-1 text-xs text-muted">The first bar is money put in. The second is money used. Tap a month.</p>
-            </>
+            <MiniBars
+              months={range.months.map((row) => ({ label: monthShort(row.ym), a: row.funded, b: row.spent }))}
+              aLabel="Put in"
+              bLabel="Used"
+              onSelect={(index) => {
+                const row = range.months[index];
+                if (!row) return;
+                setMonth(row.ym);
+                setView("month");
+              }}
+            />
           ) : (
             <p className="text-sm text-muted">This fund has not started yet.</p>
           )}

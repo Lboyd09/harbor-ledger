@@ -26,6 +26,8 @@ const LOOKS: { id: HarborLook; label: string; note: string }[] = [
   { id: "tide", label: "Tide", note: "Cool water" },
   { id: "brass", label: "Brass", note: "Lamp light" },
   { id: "dusk", label: "Dusk", note: "Night ledger" },
+  { id: "meadow", label: "Meadow", note: "Soft green" },
+  { id: "midnight", label: "Midnight", note: "Deep blue" },
 ];
 
 export function SettingsView() {
@@ -87,7 +89,7 @@ export function SettingsView() {
       <section id="look" className="space-y-3 rounded-lg border border-border bg-surface p-4">
         <h2 className="font-display text-xl font-semibold">Look</h2>
         <p className="text-sm text-muted">The numbers stay the same. This only changes the paper.</p>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {LOOKS.map((look) => {
             const on = (profile.accent ?? "harbor") === look.id;
             return (

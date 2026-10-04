@@ -5,29 +5,41 @@ import { formatMoney } from "@/lib/budget/money";
 import { newId } from "@/lib/budget/ids";
 import { orderedCategories, planAmount, hasMonthOverride } from "@/lib/budget/plans";
 import { envelopeRows, plannedTotals } from "@/lib/budget/totals";
+import { carryStatus, carryYear, categorySpent, nextMonthAllowance, surplusToPutToWork, type CarryContext } from "@/lib/budget/carry";
+import { shiftMonth } from "@/lib/budget/parse-date";
+import { monthSeries } from "@/lib/budget/visual-data";
+import type { Category, MonthBudget, Transaction } from "@/lib/budget/types";
 import { useBudgetStore } from "@/store/budget-store";
 import { queueFundWizard } from "./fund-wizard";
-import { SpendMeter } from "./money-visual";
+import { FillJar, SpendMeter } from "./money-visual";
 import { MonthSwitcher } from "./month-switcher";
+import { EmptyArt } from "./visuals/empty-art";
+import { MiniBars } from "./visuals/mini-bars";
+import { useLivelyMotion } from "./use-lively-motion";
 import { Button } from "./ui/button";
 import { Input } from "./ui/field";
 
 export function PlanView() {
+  const carry = useBudgetStore((s) => s.profile.budgetStyle) === "buckets";
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="font-display text-2xl font-semibold md:text-3xl">Budget</h1>
-          <p className="mt-2 max-w-xl text-sm text-muted">These amounts start over every month. A fund, on its own tab, keeps what you don’t spend.</p>
+          <p className="mt-2 max-w-xl text-sm text-muted">
+            {carry
+              ? "What’s left stays in the category. The jar is full at three times this month’s amount."
+              : "These amounts start over every month. A fund, on its own tab, keeps what you don’t spend."}
+          </p>
         </div>
         <MonthSwitcher compact />
       </div>
-      <BudgetList />
+      <BudgetList carry={carry} />
     </div>
   );
 }
 
-function BudgetList() {
+function BudgetList({ carry }: { carry: boolean }) {
   const categories = useBudgetStore((s) => s.categories);
   const ym = useBudgetStore((s) => s.activeMonth);
   const transactions = useBudgetStore((s) => s.transactions);
@@ -37,6 +49,8 @@ function BudgetList() {
   const setMonthPlan = useBudgetStore((s) => s.setMonthPlan);
   const monthBudgets = useBudgetStore((s) => s.monthBudgets) ?? [];
   const moneyBuckets = useBudgetStore((s) => s.moneyBuckets) ?? [];
+  const carryStart = useBudgetStore((s) => s.profile.carryStartMonth);
+  const lively = useLivelyMotion();
   const navigate = useNavigate();
   const [openId, setOpenId] = useState<string | null>(null);
   const linked = new Set(moneyBuckets.flatMap((b) => b.categoryIds));
@@ -75,8 +89,18 @@ function BudgetList() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="font-display text-lg font-semibold">Starts over every month</h2>
-        <p className="text-sm text-muted">The bar is what you spent against this month’s amount. Next month starts over. Tap a row to change it.</p>
+        <h2 className="font-display text-lg font-semibold">{carry ? "Keeps what’s left" : "Starts over every month"}</h2>
+        <p className="text-sm text-muted">
+          {carry
+            ? "The jar is what’s left. The words next to it say the same thing. Tap a card for the last 12 months."
+            : "The bar is what you spent against this month’s amount. Next month starts over. Tap a row to change it."}
+        </p>
+        {expenses.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-line px-4 py-6 text-center">
+            <EmptyArt kind="budget" />
+            <p className="text-sm">No spending categories yet. Add one below.</p>
+          </div>
+        ) : null}
         <ul className="space-y-3">
           {expenses.map((c) => {
             const row = rows.find((r) => r.category.id === c.id);
@@ -86,32 +110,72 @@ function BudgetList() {
             const child = Boolean(c.parentId);
             const open = openId === c.id;
             const left = monthAmount - spent;
+            const ctx: CarryContext = {
+              transactions,
+              categories,
+              budgets: monthBudgets,
+              carryStartMonth: carryStart || ym,
+            };
+            const history = carry
+              ? monthSeries(ym, carryYear(c, ym, ctx).map((row) => ({ ym: row.ym, a: row.planned, b: row.spent })))
+              : monthSeries(ym, spendHistory(c, ym, transactions, categories, monthBudgets));
+            const carryLeft = carry ? (carryYear(c, ym, ctx).at(-1)?.carryOut ?? 0) : left;
+            const status = carry ? carryStatus(c, ym, ctx) : null;
+            const allowance = carry ? nextMonthAllowance(c, ym, ctx) : null;
+            const full = monthAmount * 3;
+            const extra = carry ? surplusToPutToWork(c, ym, ctx) : 0;
             return (
               <li key={c.id} className={`rounded-lg border border-border bg-surface p-4 ${child ? "ml-4" : ""}`}>
                 <button type="button" className="w-full text-left" aria-expanded={open} onClick={() => setOpenId(open ? null : c.id)}>
                   <div className="font-medium">{c.name}</div>
-                  <div className="mt-3">
-                    <SpendMeter spent={spent} plan={monthAmount} />
-                  </div>
-                  <p className="mt-2 text-sm">
-                    {monthAmount > 0 ? (
-                      <span className={left < -0.004 ? "text-danger" : ""}>
-                        {left < -0.004 ? `${formatMoney(Math.abs(left))} over` : `${formatMoney(left)} left this month`}
-                      </span>
-                    ) : (
-                      <span className="text-muted">{formatMoney(spent)} spent. No monthly amount yet.</span>
-                    )}
-                  </p>
+                  {carry ? (
+                    <div className="mt-3 flex items-center gap-3">
+                      <FillJar
+                        pct={full > 0 ? (Math.max(0, carryLeft) / full) * 100 : 0}
+                        negative={carryLeft < -0.004}
+                        overflow={full > 0 ? carryLeft > full + 0.004 : carryLeft > 0.004}
+                        celebrate={lively && monthAmount > 0 && spent <= monthAmount + 0.004 && carryLeft >= -0.004}
+                      />
+                      <div>
+                        <p className={`font-display text-2xl tabular ${carryLeft < -0.004 ? "text-danger" : ""}`}>Left: {formatMoney(carryLeft, { signed: true })}</p>
+                        <p className="text-sm">{carrySentence(status, allowance)}</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="mt-3">
+                        <SpendMeter spent={spent} plan={monthAmount} />
+                      </div>
+                      <p className="mt-2 text-sm">
+                        {monthAmount > 0 ? (
+                          <span className={left < -0.004 ? "text-danger" : ""}>
+                            {left < -0.004 ? `${formatMoney(Math.abs(left))} over` : `${formatMoney(left)} left this month`}
+                          </span>
+                        ) : (
+                          <span className="text-muted">{formatMoney(spent)} spent. No monthly amount yet.</span>
+                        )}
+                      </p>
+                    </>
+                  )}
                 </button>
                 {open ? (
                   <div className="mt-3 space-y-3 border-t border-border pt-3">
+                    <MiniBars months={history} aLabel={carry ? "Put in" : "Amount"} bLabel="Spent" />
+                    {extra > 0 ? (
+                      <p className="text-sm">
+                        {formatMoney(extra)} extra.{" "}
+                        <a className="font-medium text-primary" href={`/grow?lump=${Math.round(extra)}`}>
+                          See what it could grow to
+                        </a>
+                      </p>
+                    ) : null}
                     <label className="block text-xs text-muted">
                       Name
                       <Input className="mt-1" aria-label={`Name for ${c.name}`} value={c.name} onChange={(e) => updateCategory(c.id, { name: e.target.value })} />
                     </label>
                     <div className="grid grid-cols-2 gap-2">
                       <label className="text-xs text-muted">
-                        Every month
+                        Usual amount
                         <Input
                           className="mt-1"
                           inputMode="decimal"
@@ -122,7 +186,7 @@ function BudgetList() {
                         />
                       </label>
                       <label className="text-xs text-muted">
-                        This month only
+                        Change
                         <Input
                           className="mt-1"
                           inputMode="decimal"
@@ -229,4 +293,35 @@ function BudgetList() {
       </section>
     </div>
   );
+}
+
+function carrySentence(
+  status: "over" | "extra" | "even" | null,
+  allowance: { amount: number; cutBack: boolean } | null,
+) {
+  if (!status || !allowance) return "";
+  if (status === "over" || allowance.cutBack) {
+    return `Over. Next month starts at ${formatMoney(allowance.amount)}. Cut back until this is caught up.`;
+  }
+  if (status === "extra") return `Extra left. Next month can spend ${formatMoney(allowance.amount)}.`;
+  return `Even. Next month starts at ${formatMoney(allowance.amount)}.`;
+}
+
+function spendHistory(
+  category: Category,
+  ym: string,
+  transactions: Transaction[],
+  categories: Category[],
+  budgets: MonthBudget[],
+) {
+  const rows: { ym: string; a: number; b: number }[] = [];
+  for (let i = 11; i >= 0; i--) {
+    const month = shiftMonth(ym, -i);
+    rows.push({
+      ym: month,
+      a: planAmount(category, month, budgets),
+      b: categorySpent(transactions, categories, category.id, month),
+    });
+  }
+  return rows;
 }
