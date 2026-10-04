@@ -1,83 +1,97 @@
-# Sorting, then Home, Budget, Month, and import
+# Age, retirement, and the last screens
 
 ## Commit
 
-934c5703dc657dda3643fb644b9f123afd443f35
+5b329d75a80f64efa15e5bfc51809596810679e5
 
 ## Signatures
 
-- merchantFamily(description: string): string
-- tokenOverlap(a: string, b: string): number
-- editDistance(a: string, b: string): number
-- applyConfirmAuto(transactions: Transaction[], ids: string[], profile: Profile): { transactions: Transaction[]; profile: Profile }
-- rememberBankLabel(profile: Profile, label: string | null | undefined, categoryId: string | null): Profile
-- guessAccountKind(rows: { description: string; amount: number | null }[], endingBalance: number | null): AccountGuess
-- inferIncomeStreams(transactions: { date: string; description: string; amount: number; status?: string; merchantKey?: string }[], categories: Category[], profile: Pick<Profile, "incomeStreams">): IncomeSuggestion[]
-- monthEndBalances(rows: ParsePreviewRow[]): BalancePoint[]
-- fileChecklist(input: { rows: ParsePreviewRow[]; categories: Category[]; profile: Pick<Profile, "incomeStreams">; endingBalance: { amount: number; asOf: string } | null }): ChecklistLine[]
-- applyAdoptedIncome(input: { profile: Profile; categories: Category[]; transactions: Transaction[]; suggestions: IncomeSuggestion[]; createCategoryId: () => string; createStreamId: () => string }): { profile: Profile; categories: Category[]; transactions: Transaction[] }
-- dataDepth(transactions: Transaction[]): DataDepth | null
-- typicalMonth(transactions: Transaction[], categories: Category[]): TypicalMonth | null
-- recurringBills(transactions: Transaction[], categories: Category[], today: string): RecurringBill[] | null
-- payCycle(transactions: Transaction[]): PayCycle | null
-- runway(accounts: Account[], balances: BalancePoint[], transactions: Transaction[], categories: Category[]): Runway | null
-- categoryTrends(transactions: Transaction[], categories: Category[], ym: string): CategoryTrend[] | null
-- unusualCharges(transactions: Transaction[], ym?: string): UnusualCharge[] | null
-- incomeStability(transactions: Transaction[], categories: Category[]): IncomeStability | null
-- savingsRateSeries(transactions: Transaction[], categories: Category[]): SavingsPoint[] | null
-- rankedInsights(transactions: Transaction[], categories: Category[], today: string, accounts?: Account[], balances?: BalancePoint[]): RankedInsight[]
-- waitingUnlocks(transactions: Transaction[], categories: Category[], today: string): { id: string; title: string; detail: string }[]
-- reviewQueue(transactions: Transaction[], categories: Category[], history?: Transaction[], rules?: MerchantRule[]): ReviewGroup[]
-- queueStats(queue: ReviewGroup[]): QueueStats
-- coverSentence(stats: QueueStats): string
-- forecastChip(projected: number, planned: number | null): ForecastChip | null
-- budgetLead(input: { plannedSpend: number; usualIncome: number; typicalSpend: number | null; typicalMonths: number }): BudgetLead
-- orderSpending<T extends SpendRank>(rows: T[]): T[]
-- splitFixedFlexible<T extends { id: string }>(rows: T[], fixedIds: string[], flexibleIds: string[]): { fixed: T[]; flexible: T[]; rest: T[] }
-- suggestAmounts(categories: Category[], transactions: Transaction[], ym: string): AmountSuggestion[]
-- comingUp(bills: RecurringBill[] | null, today: string, days?: number): ComingItem[] | null
-- carryConsequence(left: number, carries: boolean): string
-- paceSentence(forecast: MonthEndForecast | null): string
-- dueLabel(hints: string[], cadence: IncomeCadence, transactions: Transaction[], ym: string, received: number): string | null
-- monthStrip(input: { forecast: MonthEndForecast | null; incomeSoFar: number; incomeStill: number | null }): MonthStrip
-- confirmAuto(ids: string[]): CategoryUndo
-- adoptIncomeStreams(suggestions: IncomeSuggestion[]): void
+- figureById(id: string): ReferenceFigure | undefined
+- figuresNeedingCheck(): ReferenceFigure[]
+- figureLine(figure: ReferenceFigure): string
+- assumptionLines(ids: string[]): string[]
+- ageInYear(birthYear: number | null | undefined, year: number): number | null
+- birthYearFromAge(age: number, year: number): number | null
+- plannerFacts(input: { profile: Profile; accounts: Account[]; balances: BalancePoint[]; transactions: Transaction[]; categories: Category[]; year: number }): PlannerFacts
+- cleanRetirementInput(raw: RetirementInput): RetirementInput
+- nominalBalance(saved: number, monthly: number, annualRate: number, years: number): number
+- projectRetirement(raw: RetirementInput): RetirementResult
+- retirementWithExtra(raw: RetirementInput, extraPerMonth: number): RetirementResult
+- retirementWithYears(raw: RetirementInput, extraYears: number): RetirementResult
+- retirementSensitivity(raw: RetirementInput): SensitivityRow[]
+- retirementMonteCarlo(raw: RetirementInput, options?: { mean?: number; spread?: number; seed?: number; runs?: number; endAge?: number }): MonteCarloResult
+- defaultRetirementInput(): RetirementInput
+- yearRows(input: { principal: number; monthly: number; years: number; rate: number; inflation: number; today: boolean }): YearRow[]
+- sensitivityOf(project: (rate: number, monthly: number) => number, rate: number, monthly: number): SensitivityRow[]
+- amortizationSchedule(input: { balance: number; aprPercent: number; years: number; extra?: number }): AmortizationRow[]
+- debtTimeline(debts: DebtItem[], extra: number): { minimums: DebtMonth[]; withExtra: DebtMonth[] }
+- debtMatchesPayoff(debts: DebtItem[], extra: number): boolean
+- netWorthSeries(accounts: Account[], balances: BalancePoint[]): WorthPoint[]
+- fiNumbers(input: { yearlySpend: number; withdrawal: number; savingsRate: number; realReturn: number; yearsLeft: number | null }): { fi: number | null; years: number | null; coast: number | null }
 
-MonthEndForecast also gained low and high (the pace band).
+grow-math.ts and ira.ts results are unchanged. IRA_LIMITS still equal the 2026 DEFAULT_IRA amounts.
 
 ## Conflicts and later prompts
 
 - bank-label corpus: 48/48 (100%). merchant corpus: 180/180 (100%), sure-wrong 0%, likely-wrong 0%. analytics corpus: 24/24 (100%).
-- Person-to-person payments (Venmo, Zelle, Cash App) are checked before a strong keyword, not after cash as the written ladder lists them. The keyword list includes "VENMO FROM", "ZELLE FROM", and "CASH APP FROM" as income. If those ran first, a person-to-person payment would be marked sure. History still wins when it exists. Left this way on purpose.
-- setKeepsLeftovers still links a category to a fund and can clear the monthly amount. The Budget carry switch does not call it. It only sets the category flag, and the start month if the ledger did not have one.
+- Person-to-person payments (Venmo, Zelle, Cash App) are checked before a strong keyword, not after cash as the written ladder lists them. Left this way on purpose.
+- setKeepsLeftovers still links a category to a fund and can clear the monthly amount. The Budget carry switch does not call it.
 - yearCash still lives in totals.ts and was not copied anywhere else.
 - Confirming a Check remembers the bank label. Undo puts the charge back and does not forget that label. CategoryUndo has no profile field.
-- A strong keyword still beats a bank label. LANDLORD, GEICO, SHELL, and KROGER sort as keyword sure. The bank-label reason is used when the description is not already a keyword. The walk's Kroger rows said "The name looks like Groceries."
+- A strong keyword still beats a bank label. The bank-label reason is used when the description is not already a keyword.
 - Cash taken out goes to Other. The preset categories do not include one named Cash.
 - A repeating amount with no keyword family lands on Subscriptions, then Other, not a category named Bills.
-- reviewQueue still includes fair guesses, because the engine spec asked for that. Home "Needs you" and the one-name sort list only the charges that have no category. Fair guesses stay on Checked for you.
-- Simple Home still shows the year chart, the top insights, accounts, the donut, and funds. Decision 43 says simple is the answer, one picture, and one next action. The screen list for Home named those sections for everyone, and put "All the numbers" in advanced only. Advanced is the grouped panels. They are not on the simple Home.
-- The built preview was not walked again. An earlier preview died on a missing pglite data file. The dev app was walked, typecheck passed, lint had 0 errors, and the production build succeeded.
+- The built preview still dies on a missing pglite data file (`pglite.data`). The dev app was walked. Typecheck passed. Lint had 0 errors and 5 existing warnings. The production build succeeded.
+- Return ranges (savings 3 / 4.2 / 5 percent, market 4 / 7 / 10 percent) are marked needs checking. They are the existing Harbor planning range, not a published series. Values are imported from grow-math so they cannot drift.
+- 401(k) deferral 24500, catch-up 8000, and ages 60–63 catch-up 11250 are stored from IRS Notice 2025-67. No calculator reads them yet.
+- Employer match is a percent of what the person saves, not of pay. 50 means the employer adds half again. That is stated on the card.
+- Full Social Security age 67 is for a birth year of 1960 or later. Earlier birth years have a lower full age. The card says so.
+- The 4 percent withdrawal is Bengen, Journal of Financial Planning, October 1994. It is a historical rule, not a current IRS figure. The card says so.
+- Monte Carlo is one draw per year, not per month, so it will not match the monthly compounding path exactly. Same seed, same result.
+
+## Figures marked needs checking
+
+- Savings return, low / middle / high (0.03 / 0.042 / 0.05). Harbor planning range.
+- Market return, low / middle / high (0.04 / 0.07 / 0.10). Harbor planning range.
+
+Checked, and shown with date and source where a screen uses them: IRA limits and Roth phase-outs (IRS Notice 2025-67, as of 2026-01-01), 401(k) limits (same notice), Social Security ages 62 / 67 / 70 (SSA; 67 is birth year 1960 or later), inflation 2 percent (Federal Reserve longer-run goal, as of 2025-08-22), withdrawal 4 percent (Bengen, October 1994).
 
 ## Checklist
 
-- Stage 1 file inference (kind, pay patterns, month-end balances, adopt): done.
-- Stage 1 sorting ladder, provisional Check, confirmAuto, bankLabelMap: done, with the person-to-person order above.
-- About 300 merchant patterns: done (321 lines added to keywords.ts).
-- Analytics that stay quiet until the file can support them, plus ranked insights: done, in analytics-depth.ts, folded into fileInsights.
-- reviewQueue, biggest dollars first, up to three suggestions: done.
-- Tests for the engine, the corpus, and the screen helpers: done.
-- One sort screen for import, Home, and Month, with keys 1/2/3, S, Z, and Undo: done.
-- Import kind reason, checklist, pay-pattern Add, sorted count, Checked for you, See what was sorted: done.
-- Budget two sides, phone switch, summary, fixed and everyday groups, carry consequence, forecast chip: done. A nerd row shows typical and fixed or variable. It does not show a separate spread number. Partly done.
-- Month so far (days left, spent, expected, range, income still expected, projected left), delta versus usual, still coming, unusual-charge dismiss: done.
-- Home headline, Needs you, year in and out, top insights, coming up, accounts and cushion, donut, funds, advanced All the numbers: done.
-- Onboarding, calculators, Funds, Account, carry math, splits, payback, refunds, auth, themes: left alone.
-- Old ledgers without the new fields still load: done (existing backup test, optional fields).
-- Walk at 375 and on desktop, simple and advanced: done. No sideways scroll. A new checking account, a file with Category, Memo, and Balance, the kind sentence, the checklist, $1,840 every month from Acme Payroll, 11 of 13 sorted, option 2, Undo, Checked for you reasons on Target and Amazon, the budget sentence, the carry switch, and the Home headline.
+- Reference file with value, date, source, and status: done.
+- IRA figures moved unchanged: done.
+- 401(k), Social Security ages, inflation, return ranges, 4 percent withdrawal: done. Return ranges need checking.
+- Retirement inputs prefilled and tagged: done.
+- Three paths, income supported, percent covered, gap, extra per month, extra years: done. Both close paths reach the target in tests.
+- Balance-by-age chart, ring, one sentence, year table under Show as numbers: done.
+- Advanced sensitivity and seeded Monte Carlo to age 95: done.
+- Tests for zero savings, already past retire age, huge gap, negative inputs, seed, and gap closing: done.
+- grow-tables year rows, sensitivity, amortization, debt timeline, net worth, FI: done. grow-math and ira results not changed.
+- Every calculator prefilled, tagged, with a picture and a sentence: done. Advanced adds six metrics, a table, assumptions, and sensitivity where a rate or a monthly amount moves.
+- When work is optional uses real spending, FI number, years, and coast: done.
+- Emergency fund uses a typical month and steady bills: done.
+- Net worth from account balances, with a one-snapshot note: done.
+- Debt payoff date, interest, and timeline against minimums: done.
+- Loan amortization and extra-payment savings: done. Balance comes from a credit account when one exists. A typed debt stays on the debt calculator so it is not counted twice.
+- Roth uses age for the catch-up and warns on the income band: done.
+- Grow order Plan ahead, See it grow, Protect yourself, Pay it down: done.
+- Age on setup step 1, optional, Skip, summary with Change, stored as birthYear: done.
+- Account Your numbers, with defaults and reset: done. Old ledgers without the fields still load.
+- Simple Home is the headline, Needs you when it applies, the year chart, and one next action. The rest is under More: done.
+- Under three months, the plan-percent line stays hidden. The cushion sentence needs three months, otherwise it says waiting on more history: done.
+- Sorting card for names that still have no category, and a Check tag on fair guesses: done. The card stays hidden when every charge already has a category.
+- Funds sentence and Grow link: done.
+- Visible wording: no bucket, envelope, rollover, allocate, reconcile, or Nerd. The stored value stays nerd. Simple and Advanced are the labels: done.
 
-## Still not done or not working as well as it could
+## Objections
 
-- When the plan is the setup floors and the file is only a few small months, the cover line says the plan is a very large percent of a typical month. That number is the plan divided by the file. It is not a mistake, and it is awkward.
-- A cushion reading can look huge when typical spending in the file is small and the balance is not. It says what it is based on.
-- The next prompt is still calculators with retirement and age, onboarding (adds age), Sorting, Funds, Account, and the wording sweep.
+- A match typed as 50 is half of saving, not half of pay. Someone who means a salary match will overstate the employer add. The sentence on the card is the guard.
+- The thousand tries use one return per year. They answer "does it last," not "what is the monthly balance."
+- Four percent is a 1994 study. Treating it as checked does not make it a current safe rate.
+- Age 67 is not everyone's full Social Security age. The screen says that, and it does not look up the person's birth year against the SSA table.
+
+## Proposals
+
+- A 401(k) picture that uses the deferral and catch-up figures already stored.
+- If there is a typed debt and no credit account, offer that balance and rate on the loan screen instead of a blank balance.
+- A Social Security guess from claiming age, using 62, 67, and 70, instead of a blank monthly field.
