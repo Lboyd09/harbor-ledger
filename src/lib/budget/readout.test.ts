@@ -71,6 +71,38 @@ test("spending categories reset or roll over, and a fund is not required", () =>
   assert.equal(carry.find((row) => row.id === "food")?.primary, "$60.00 left");
 });
 
+test("one category can carry while the rest start fresh, and nothing is deleted", () => {
+  const budgets = [{ categoryId: "food", ym: "2026-03", amount: 80 }];
+  const transactions = [tx({ id: "g", date: "2026-03-04", amount: -40, categoryId: "food" })];
+  const mixed = categories.map((category) => (category.id === "food" ? { ...category, carry: true as const } : category));
+  const beforePlan = mixed[1].plannedMonthly;
+  const rows = spendingRows({
+    transactions,
+    categories: mixed,
+    ym: "2026-03",
+    budgets,
+    style: "monthly",
+    carryStartMonth: "2026-03",
+  });
+  const food = rows.find((row) => row.id === "food");
+  const housing = rows.find((row) => row.id === "rent");
+  assert.equal(food?.primary, "$40.00 left");
+  assert.doesNotMatch(food?.detail ?? "", /starts over/);
+  assert.match(housing?.detail ?? "", /starts over/);
+  assert.equal(mixed[1].plannedMonthly, beforePlan);
+  assert.equal(budgets[0].amount, 80);
+  assert.equal(transactions.length, 1);
+  const forcedFresh = spendingRows({
+    transactions,
+    categories: categories.map((category) => (category.id === "food" ? { ...category, carry: false } : category)),
+    ym: "2026-03",
+    budgets,
+    style: "buckets",
+    carryStartMonth: "2026-03",
+  });
+  assert.match(forcedFresh.find((row) => row.id === "food")?.detail ?? "", /starts over/);
+});
+
 test("a file yields a typical month, the biggest category, and a repeat", () => {
   const transactions = [
     tx({ id: "p1", date: "2026-01-02", amount: 2000, categoryId: "pay", merchantKey: "ACME PAYROLL", description: "ACME PAYROLL" }),

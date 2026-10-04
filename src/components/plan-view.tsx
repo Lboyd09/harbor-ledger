@@ -7,6 +7,7 @@ import { newId } from "@/lib/budget/ids";
 import { orderedCategories, planAmount, hasMonthOverride } from "@/lib/budget/plans";
 import { incomeRows, spendingRows, type SideRow } from "@/lib/budget/readout";
 import { categorySpent } from "@/lib/budget/carry";
+import { categoryCarries } from "@/lib/budget/style";
 import { shiftMonth } from "@/lib/budget/parse-date";
 import { monthSeries } from "@/lib/budget/visual-data";
 import type { BudgetStyle, Category, MonthBudget, Transaction } from "@/lib/budget/types";
@@ -51,7 +52,9 @@ export function PlanView() {
           <span className="mt-1 block text-muted">Leftover spending stays in that category.</span>
         </button>
       </div>
-      <p className="text-sm text-muted">Income is not part of this choice. Pay changes, so it is compared with what usually comes in.</p>
+      <p className="text-sm text-muted">
+        Income is not part of this choice. Pay changes, so it is compared with what usually comes in. One category can do the other. Open it and switch. Nothing already saved is deleted.
+      </p>
       <BudgetSides style={style} />
     </div>
   );
@@ -68,6 +71,7 @@ function BudgetSides({ style }: { style: BudgetStyle }) {
   const monthBudgets = useBudgetStore((s) => s.monthBudgets) ?? [];
   const moneyBuckets = useBudgetStore((s) => s.moneyBuckets) ?? [];
   const carryStart = useBudgetStore((s) => s.profile.carryStartMonth);
+  const patchProfile = useBudgetStore((s) => s.patchProfile);
   const [openId, setOpenId] = useState<string | null>(null);
   const income = incomeRows({ transactions, categories, ym, budgets: monthBudgets });
   const spending = spendingRows({
@@ -178,6 +182,41 @@ function BudgetSides({ style }: { style: BudgetStyle }) {
                         />
                       </label>
                     </div>
+                    <div className="grid grid-cols-2 gap-2" role="group" aria-label={`Carry over for ${category.name}`}>
+                      <button
+                        type="button"
+                        aria-pressed={category.carry === false}
+                        className={`min-h-11 rounded-md border px-3 py-2 text-left text-sm ${category.carry === false ? "border-primary bg-chip" : "border-border"}`}
+                        onClick={() => updateCategory(category.id, { carry: false })}
+                      >
+                        This one starts fresh
+                      </button>
+                      <button
+                        type="button"
+                        aria-pressed={category.carry === true}
+                        className={`min-h-11 rounded-md border px-3 py-2 text-left text-sm ${category.carry === true ? "border-primary bg-chip" : "border-border"}`}
+                        onClick={() => {
+                          updateCategory(category.id, { carry: true });
+                          if (!carryStart) patchProfile({ carryStartMonth: ym });
+                        }}
+                      >
+                        This one carries over
+                      </button>
+                    </div>
+                    {category.carry == null ? (
+                      <p className="text-xs text-muted">
+                        This one follows the choice at the top
+                        {categoryCarries(category, style) ? " and keeps what is left" : " and starts over"}. Switching it keeps the amount and the charges.
+                      </p>
+                    ) : (
+                      <button
+                        type="button"
+                        className="min-h-11 text-left text-sm text-muted underline-offset-2 hover:underline"
+                        onClick={() => updateCategory(category.id, { carry: null })}
+                      >
+                        Use the budget’s choice instead. The amount and the charges stay.
+                      </button>
+                    )}
                     <details>
                       <summary className="cursor-pointer text-sm text-muted">More</summary>
                       <div className="mt-2 flex flex-wrap gap-2">

@@ -1,5 +1,5 @@
 import { currentMonthKey } from "./parse-date.ts";
-import type { BudgetStyle, LedgerSnapshot, Profile } from "./types.ts";
+import type { BudgetStyle, Category, LedgerSnapshot, Profile } from "./types.ts";
 
 function monthOrNull(value: string | null | undefined): string | null {
   return value && /^\d{4}-\d{2}$/.test(value) ? value : null;
@@ -32,4 +32,12 @@ export function applyBudgetStyle(
   options?: { carryStartMonth?: string; today?: string },
 ): LedgerSnapshot {
   return setBudgetStyleState(snapshot, style, options);
+}
+
+/** Income never carries. A missing flag follows the ledger. true and false are this category only. */
+export function categoryCarries(category: Category, style: BudgetStyle): boolean {
+  if (category.kind !== "expense") return false;
+  if (category.carry === true) return true;
+  if (category.carry === false) return false;
+  return style === "buckets";
 }

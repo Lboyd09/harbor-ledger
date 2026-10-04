@@ -18,6 +18,8 @@ import { Field, Input, Select } from "./ui/field";
 const ROLES: { value: ColumnRole; label: string }[] = [
   { value: "date", label: "Date" },
   { value: "description", label: "Description" },
+  { value: "memo", label: "Memo" },
+  { value: "category", label: "Category" },
   { value: "amount", label: "Amount" },
   { value: "debit", label: "Money out" },
   { value: "credit", label: "Money in" },
@@ -310,6 +312,9 @@ export function ImportWizard() {
                 <tr className="border-b border-border text-muted">
                   <th className="py-2 pr-3 font-medium">Date</th>
                   <th className="py-2 pr-3 font-medium">Description</th>
+                  {preview.rows.some((row) => row.bankCategory) ? (
+                    <th className="py-2 pr-3 font-medium">Category</th>
+                  ) : null}
                   <th className="py-2 text-right font-medium">Amount</th>
                 </tr>
               </thead>
@@ -320,6 +325,9 @@ export function ImportWizard() {
                     <tr key={i} className="border-b border-border/70">
                       <td className="py-2 pr-3 tabular">{row.date ?? "—"}</td>
                       <td className="max-w-xs truncate py-2 pr-3">{row.description || "—"}</td>
+                      {preview.rows.some((item) => item.bankCategory) ? (
+                        <td className="max-w-xs truncate py-2 pr-3 text-muted">{row.bankCategory || "—"}</td>
+                      ) : null}
                       <td className="py-2 text-right tabular">{amt == null ? "—" : formatMoney(amt, { signed: true })}</td>
                     </tr>
                   );

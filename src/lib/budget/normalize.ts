@@ -153,11 +153,17 @@ function normalizeAuto(raw: unknown): Transaction["auto"] {
   const confidence =
     raw.confidence === "sure" || raw.confidence === "likely" || raw.confidence === "unsure" ? raw.confidence : null;
   if (!confidence) return undefined;
-  const sources: AutoSource[] = ["rule", "history", "income", "keyword", "repeat", "transfer", "none"];
+  const sources: AutoSource[] = ["rule", "history", "income", "keyword", "repeat", "transfer", "bank", "none"];
   const source = sources.includes(raw.source as AutoSource) ? (raw.source as AutoSource) : "none";
   const suggested =
     typeof raw.suggestedCategoryId === "string" && raw.suggestedCategoryId ? raw.suggestedCategoryId : null;
-  return { source, confidence, suggestedCategoryId: suggested };
+  const reason = asString(raw.reason).trim();
+  return {
+    source,
+    confidence,
+    suggestedCategoryId: suggested,
+    ...(reason ? { reason: reason.slice(0, 240) } : {}),
+  };
 }
 
 function normalizeSplits(raw: unknown): Transaction["splits"] {
@@ -184,6 +190,7 @@ export function normalizeSnapshot(raw: unknown): LedgerSnapshot | null {
     kind: c.kind === "income" ? "income" : "expense",
     plannedMonthly: Math.max(0, asNumber(c.plannedMonthly, 0)),
     parentId: typeof c.parentId === "string" && c.parentId ? c.parentId : null,
+    ...(c.carry === true ? { carry: true } : c.carry === false ? { carry: false } : {}),
   }));
   const transactions = transactionsRaw
     .map((t, i) => normalizeTransaction(t, i))

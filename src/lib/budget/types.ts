@@ -65,6 +65,12 @@ export type Category = {
   plannedMonthly: number;
   /** When set, this category is a split of that parent. */
   parentId?: string | null;
+  /**
+   * Carry override for this spending category only.
+   * true carries leftovers, false starts fresh, missing follows the ledger style.
+   * Income never carries, even if this is set. Missing on older ledgers.
+   */
+  carry?: boolean | null;
 };
 
 /** A budget that applies to one month only. The usual plan stays on the category. */
@@ -105,13 +111,15 @@ export type TxSplit = {
 
 export type AutoConfidence = "sure" | "likely" | "unsure";
 
-export type AutoSource = "rule" | "history" | "income" | "keyword" | "repeat" | "transfer" | "none";
+export type AutoSource = "rule" | "history" | "income" | "keyword" | "repeat" | "transfer" | "bank" | "none";
 
 /** Why an imported charge was sorted, and how sure that was. */
 export type TransactionAuto = {
   source: AutoSource;
   confidence: AutoConfidence;
   suggestedCategoryId: string | null;
+  /** Plain sentence, when the bank or a rule named the reason. Missing on older rows. */
+  reason?: string | null;
 };
 
 /** Money set aside for a specific purchase, separate from the monthly envelopes. */
@@ -258,6 +266,8 @@ export type RecurringGroup = {
 export type ColumnRole =
   | "date"
   | "description"
+  | "memo"
+  | "category"
   | "amount"
   | "debit"
   | "credit"
@@ -276,6 +286,10 @@ export type ParsePreviewRow = {
   description: string;
   amount: number | null;
   raw: string[];
+  /** Bank's own category label, when the file had one. */
+  bankCategory?: string | null;
+  /** Extra words. Not a replacement for the description. */
+  memo?: string | null;
 };
 
 export type CsvPreview = {

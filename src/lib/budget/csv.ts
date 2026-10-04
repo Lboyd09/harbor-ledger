@@ -19,7 +19,6 @@ const DESC_HEADERS = [
   "description",
   "desc",
   "payee",
-  "memo",
   "name",
   "merchant",
   "merchant name",
@@ -56,7 +55,6 @@ const IGNORE_EXACT = new Set([
   "check",
   "reference",
   "currency",
-  "category",
   "id",
   "account",
   "account id",
@@ -80,14 +78,25 @@ function isBalanceHeader(n: string): boolean {
   return n === "balance" || n === "running bal" || n === "running balance" || n.includes("balance");
 }
 
+function isCategoryHeader(n: string): boolean {
+  if (n === "category" || n === "categories" || n === "bank category" || n === "spending category") return true;
+  if (n === "transaction category" || n === "expense category") return true;
+  return n.endsWith(" category") && !n.endsWith(" id");
+}
+
+function isMemoHeader(n: string): boolean {
+  return n === "memo" || n === "memos" || n === "note" || n === "notes" || n.endsWith(" memo");
+}
+
 function roleForHeader(h: string): ColumnRole {
   const n = normHeader(h);
   if (!n) return "ignore";
   if (isBalanceHeader(n)) return "balance";
+  if (isCategoryHeader(n)) return "category";
+  if (isMemoHeader(n)) return "memo";
   if (IGNORE_EXACT.has(n) || n.includes("check or") || n.endsWith(" id")) {
     return "ignore";
   }
-  if (n === "category" || n.includes("category")) return "ignore";
   if (DIRECTION_HEADERS.some((x) => n === x)) return "direction";
   if (DATE_HEADERS.some((x) => n === x) || (n.includes("date") && !n.includes("update") && !n.includes("birth"))) {
     return "date";
@@ -97,7 +106,7 @@ function roleForHeader(h: string): ColumnRole {
     return "credit";
   }
   if (AMOUNT_HEADERS.some((x) => n === x || n.endsWith(" amount") || n === "amount")) return "amount";
-  if (DESC_HEADERS.some((x) => n === x || n.includes("description") || n.includes("payee") || n.includes("memo") || n.includes("merchant"))) {
+  if (DESC_HEADERS.some((x) => n === x || n.includes("description") || n.includes("payee") || n.includes("merchant"))) {
     return "description";
   }
   if (n === "name") return "description";
@@ -213,6 +222,15 @@ function looksLikeHeaderRow(cells: string[]): boolean {
   if (headerScore(cells) >= 4) return true;
   const dateHits = cells.filter((c) => parseDateToken(c)).length;
   return dateHits === 0 && headerScore(cells) >= 2;
+}
+
+function settleColumns(columns: DetectedColumn[]): DetectedColumn[] {
+  const next = columns.map((col) => ({ ...col }));
+  if (!next.some((col) => col.role === "description")) {
+    const memo = next.find((col) => col.role === "memo");
+    if (memo) memo.role = "description";
+  }
+  return dedupeRoles(next);
 }
 
 function dedupeRoles(columns: DetectedColumn[]): DetectedColumn[] {
@@ -381,12 +399,20 @@ function buildRows(records: string[][], columns: DetectedColumn[]): ParsePreview
   return records.map((raw) => {
     const dateRaw = firstCell(raw, columns, "date", (v) => Boolean(parseDateToken(v)));
     const description = firstCell(raw, columns, "description", (v) => v.length > 0);
+    const bankCategory = firstCell(raw, columns, "category", (v) => v.length > 0);
+    const memo = columns
+      .filter((col) => col.role === "memo")
+      .map((col) => (raw[col.index] ?? "").trim())
+      .filter(Boolean)
+      .join(" · ");
     const { amount } = amountFromRecord(raw, columns);
     return {
       date: dateRaw ? parseDateToken(dateRaw) : null,
       description,
       amount,
       raw,
+      bankCategory: bankCategory || null,
+      memo: memo || null,
     };
   });
 }
@@ -469,7 +495,7 @@ export function parseCsvText(text: string, fileName: string): CsvPreview {
   if (!firstIsData && headerIndex >= 0 && bestScore >= 2 && looksLikeHeaderRow(table[headerIndex])) {
     headers = table[headerIndex].map((h, i) => h.trim() || `Column ${i + 1}`);
     records = table.slice(headerIndex + 1);
-    columns = dedupeRoles(
+    columns = settleColumns(
       headers.map((header, index) => ({
         index,
         header,

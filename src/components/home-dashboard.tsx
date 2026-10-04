@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { CreditCard, Landmark, LineChart, PiggyBank, Wallet } from "lucide-react";
 import { useMemo, useState } from "react";
 import { accountAcceptsFile, accountKindLabel } from "@/lib/budget/accounts";
+import { fileInsights } from "@/lib/budget/analytics";
 import { bucketBalance, safeToSpend } from "@/lib/budget/buckets";
 import { accountRows, monthGlance, needsALook, spanOverview, spendingSlices, staleLabel } from "@/lib/budget/dashboard";
 import { downloadText } from "@/lib/budget/download";
@@ -95,6 +96,7 @@ export function HomeDashboard() {
     safeToSpend: safe.amount,
   });
   const look = needsALook({ transactions, categories, profile, ym, budgets: monthBudgets });
+  const insights = useMemo(() => fileInsights(transactions, categories), [transactions, categories]);
   const priorHas = prior.moneyIn !== 0 || prior.moneyOut !== 0;
   const ratePct = Math.round(now.savingsRate * 100);
 
@@ -125,6 +127,31 @@ export function HomeDashboard() {
       </div>
 
       <ReadoutCard transactions={transactions} categories={categories} />
+
+      {insights && insights.items.length ? (
+        <section className="rounded-lg border border-border bg-surface p-4">
+          <h2 className="font-display text-xl font-semibold">What the charges already say</h2>
+          <ul className="mt-3 space-y-2">
+            {insights.items.slice(0, 5).map((item) => (
+              <li key={item.id} className="text-sm">
+                <span className="font-medium">{item.title}.</span> <span className="text-muted">{item.detail}</span>
+              </li>
+            ))}
+          </ul>
+          {insights.waiting.length ? (
+            <details className="mt-3">
+              <summary className="cursor-pointer text-sm text-muted">Still waiting on more history ({insights.waiting.length})</summary>
+              <ul className="mt-2 space-y-1">
+                {insights.waiting.map((item) => (
+                  <li key={item.id} className="text-sm text-muted">
+                    {item.title}. {item.detail}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          ) : null}
+        </section>
+      ) : null}
 
       <section className="rise panel rounded-lg border border-border bg-surface p-4">
         <h1 className="font-display text-2xl font-semibold md:text-3xl">So far in {year}</h1>

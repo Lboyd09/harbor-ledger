@@ -1,3 +1,4 @@
+import { matchBankLabel } from "./bank-label.ts";
 import { matchKeyword, SLUG_FALLBACKS } from "./keywords.ts";
 import { fingerprint } from "./fingerprint.ts";
 import { merchantKey, merchantNormalized } from "./merchant.ts";
@@ -83,6 +84,8 @@ function decide(
   key: string,
   date: string | undefined,
   ctx: SortContext,
+  bankCategory?: string | null,
+  memo?: string | null,
 ): TransactionAuto & { refund?: boolean } {
   const categories = ctx.categories;
   const history = ctx.history ?? [];
@@ -119,20 +122,42 @@ function decide(
     };
   }
 
+  const label = (bankCategory ?? "").trim();
+  if (label) {
+    const hit = matchBankLabel(label, categories);
+    const cat = hit ? categories.find((item) => item.id === hit.categoryId) : undefined;
+    const signOk =
+      !!cat &&
+      (amount < 0
+        ? cat.kind === "expense" || cat.slug === "transfers-out"
+        : cat.kind === "income" || cat.slug === "transfers-out");
+    if (hit && cat && signOk) {
+      return {
+        source: "bank",
+        confidence: "sure",
+        suggestedCategoryId: cat.id,
+        reason: hit.reason,
+        refund: amount > 0 && cat.kind === "expense",
+      };
+    }
+  }
+
+  const text = [description, memo].filter((part) => part && part.trim()).join(" ");
+
   if (amount > 0) {
     let best: { id: string; len: number } | null = null;
     for (const stream of ctx.incomeStreams ?? []) {
       const id = stream.categoryId;
       if (!id || !categories.some((c) => c.id === id)) continue;
       for (const hint of stream.matchHints ?? []) {
-        if (!hintHit(description, hint)) continue;
+        if (!hintHit(text, hint)) continue;
         const len = merchantNormalized(hint).length;
         if (!best || len > best.len) best = { id, len };
       }
     }
     if (best) return { source: "income", confidence: "sure", suggestedCategoryId: best.id };
 
-    if (isPayroll(description)) {
+    if (isPayroll(text)) {
       let closest: { id: string; gap: number } | null = null;
       for (const stream of ctx.incomeStreams ?? []) {
         if (!nearAmount(amount, stream.amount)) continue;
@@ -148,7 +173,7 @@ function decide(
     }
   }
 
-  const hit = matchKeyword(description);
+  const hit = matchKeyword(text);
   if (hit) {
     const cat = resolveSlug(hit.slug, categories);
     if (!cat) {
@@ -182,16 +207,31 @@ function decide(
 }
 
 export function sortCharge(
-  input: { description: string; amount: number; merchantKey: string; date?: string },
+  input: {
+    description: string;
+    amount: number;
+    merchantKey: string;
+    date?: string;
+    bankCategory?: string | null;
+    memo?: string | null;
+  },
   ctx: SortContext,
 ): SortedCharge {
-  const decision = decide(input.description, input.amount, input.merchantKey, input.date, ctx);
+  const decision = decide(
+    input.description,
+    input.amount,
+    input.merchantKey,
+    input.date,
+    ctx,
+    input.bankCategory,
+    input.memo,
+  );
   const categoryId = decision.confidence === "sure" ? decision.suggestedCategoryId : null;
   let status: TxStatus = "posted";
   if (categoryId) {
     const cat = ctx.categories.find((c) => c.id === categoryId);
     if (cat?.slug === "transfers-out") status = "transfer";
-    else if (decision.refund && decision.source === "keyword") status = "refund";
+    else if (decision.refund && (decision.source === "keyword" || decision.source === "bank")) status = "refund";
   }
   return {
     categoryId,
@@ -200,6 +240,7 @@ export function sortCharge(
       source: decision.source,
       confidence: decision.confidence,
       suggestedCategoryId: decision.suggestedCategoryId,
+      ...(decision.reason ? { reason: decision.reason } : {}),
     },
   };
 }
@@ -255,7 +296,13 @@ export function pairAccountTransfers(rows: Transaction[], freshIds: Set<string>,
   return rows.map((row) => next.get(row.id) ?? row);
 }
 
-export type ImportRow = { date: string | null; description: string; amount: number | null };
+export type ImportRow = {
+  date: string | null;
+  description: string;
+  amount: number | null;
+  bankCategory?: string | null;
+  memo?: string | null;
+};
 
 function blocks(
   existing: Pick<Transaction, "fingerprint" | "accountId">,
@@ -303,7 +350,14 @@ export function importNewRows(args: {
       status: t.status,
     }));
     const sorted = sortCharge(
-      { description: row.description, amount: row.amount, merchantKey: key, date: row.date },
+      {
+        description: row.description,
+        amount: row.amount,
+        merchantKey: key,
+        date: row.date,
+        bankCategory: row.bankCategory,
+        memo: row.memo,
+      },
       {
         categories: args.categories,
         rules: args.rules,
@@ -311,6 +365,7 @@ export function importNewRows(args: {
         incomeStreams: args.incomeStreams,
       },
     );
+    const memo = (row.memo ?? "").trim();
     const tx: Transaction = {
       id: createId(),
       date: row.date,
@@ -321,7 +376,7 @@ export function importNewRows(args: {
       fingerprint: fp,
       categoryId: sorted.categoryId,
       userSet: false,
-      notes: "",
+      notes: memo && memo !== row.description.trim() ? memo : "",
       excluded: false,
       status: sorted.status,
       auto: sorted.auto,

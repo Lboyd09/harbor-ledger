@@ -66,8 +66,10 @@ export function ImportReview({ addedIds, skipped }: { addedIds: string[]; skippe
   }
 
   const sortedRows = rows.filter(isSorted);
+  const checked = sortedRows.filter((row) => row.auto?.source === "bank");
+  const otherSorted = sortedRows.filter((row) => row.auto?.source !== "bank");
   const groups = new Map<string, Transaction[]>();
-  for (const row of sortedRows) {
+  for (const row of otherSorted) {
     const name = groupName(row, categories);
     const list = groups.get(name) ?? [];
     list.push(row);
@@ -76,6 +78,13 @@ export function ImportReview({ addedIds, skipped }: { addedIds: string[]; skippe
   const grouped = [...groups.entries()].sort(
     (a, b) => Math.abs(b[1].reduce((sum, t) => sum + t.amount, 0)) - Math.abs(a[1].reduce((sum, t) => sum + t.amount, 0)),
   );
+  const checkedGroups = new Map<string, Transaction[]>();
+  for (const row of checked) {
+    const name = groupName(row, categories);
+    const list = checkedGroups.get(name) ?? [];
+    list.push(row);
+    checkedGroups.set(name, list);
+  }
 
   const currentId = queue[cursor];
   const current = currentId ? transactions.find((t) => t.id === currentId) : undefined;
@@ -100,13 +109,49 @@ export function ImportReview({ addedIds, skipped }: { addedIds: string[]; skippe
         </h2>
         <p className="mt-1 text-sm text-muted">
           {queue.length
-            ? "The ones we were sure about are grouped below. The rest take one tap."
+            ? "The ones the bank already labeled are checked, with the reason. The rest we were sure about are grouped below."
             : "Nothing needs a look. Everything in this file was sorted."}
           {skipped
             ? ` Skipped ${skipped} that ${skipped === 1 ? "was" : "were"} already in this account.`
             : ""}
         </p>
       </div>
+
+      {checked.length ? (
+        <section className="space-y-2">
+          <h3 className="font-display text-lg font-semibold">Checked for you</h3>
+          <p className="text-sm text-muted">The bank already had a category. The reason is on each charge.</p>
+          {[...checkedGroups.entries()].map(([name, list]) => (
+            <details key={name} open className="rounded-lg border border-border bg-surface">
+              <summary className="cursor-pointer px-3 py-3 text-sm">
+                <span className="font-medium">{name}</span>
+                <span className="text-muted">
+                  {" "}
+                  · {list.length} · {formatMoney(roundMoney(list.reduce((sum, t) => sum + t.amount, 0)), { signed: true })}
+                </span>
+              </summary>
+              <ul className="divide-y divide-border border-t border-border">
+                {list.map((t) => (
+                  <li key={t.id} className="flex flex-wrap items-center gap-2 px-3 py-2 text-sm">
+                    <span className="min-w-0 flex-1">
+                      <span className="font-medium">{displayMerchant(t.description)}</span>
+                      <span className="text-muted"> · {prettyDate(t.date)}</span>
+                      <span className="mt-0.5 block text-muted">{t.auto?.reason || "The bank already labeled this."}</span>
+                    </span>
+                    <span className="tabular">{formatMoney(t.amount, { signed: true })}</span>
+                    <CategorySelect
+                      categories={categories}
+                      value={t.categoryId}
+                      className="max-w-xs"
+                      onChange={(id) => setTransactionCategory(t.id, id, false)}
+                    />
+                  </li>
+                ))}
+              </ul>
+            </details>
+          ))}
+        </section>
+      ) : null}
 
       {grouped.length ? (
         <section className="space-y-2">

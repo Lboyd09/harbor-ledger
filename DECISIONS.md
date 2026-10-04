@@ -4,6 +4,9 @@ Newest first. If this file conflicts with earlier chat, this file wins.
 
 ## 2026-10-04
 
+39. A reading stays quiet until the charges can support it. A month-end forecast uses the date you pass in, not the clock. One month can already say what went out, the largest charge, the busiest day, and the biggest category, and it lists what is still waiting on more history.
+38. A bank file's Category column is a label, not something to ignore. When it matches a category, that charge is checked and sorted, and the reason is shown. Memo is extra words for sorting and for the note. It does not replace the description. Vague labels such as Other stay unsorted.
+37. A spending category can carry over or start fresh on its own. If that choice is missing, it follows the ledger. Income never carries. Switching a category does not delete its usual amount, a one-month amount, or its charges. The ledger still has one default. This narrows decision 1 and decision 33 only for that override.
 36. The app leads with what the charges already show: a typical month, the biggest category, what repeats, and what has no category. The person should not have to type that.
 35. Budget is two sides on one screen: money in, and money out. Spending categories such as rent, groceries, insurance, and eating out are the budget.
 34. Income is compared with what usually comes in. It does not carry a balance, because pay changes from month to month.

@@ -6,6 +6,7 @@ import { groupMonth } from "./month-view.ts";
 import { monthLabel, shiftMonth } from "./parse-date.ts";
 import { orderedCategories, planAmount } from "./plans.ts";
 import { findRecurringAll } from "./recurring.ts";
+import { categoryCarries } from "./style.ts";
 import { monthCash, monthsInData } from "./totals.ts";
 import type { BudgetStyle, Category, MonthBudget, RecurringInterval, Transaction } from "./types.ts";
 
@@ -124,7 +125,7 @@ export function spendingRows(input: {
     carryStartMonth: input.carryStartMonth || input.ym,
   };
   return orderedCategories(input.categories, "expense").map((category) => {
-    if (input.style === "buckets") {
+    if (categoryCarries(category, input.style)) {
       const carried = carryMonth(category, input.ym, ctx);
       const left = carried?.carryOut ?? 0;
       const spent = carried?.spent ?? categorySpent(input.transactions, input.categories, category.id, input.ym);

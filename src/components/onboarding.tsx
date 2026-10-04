@@ -621,7 +621,7 @@ function StyleStep({
           <p className="sr-only">The level left in the jar stays there for the next month.</p>
         </button>
       </div>
-      <p className="text-sm text-muted">Not sure? Either can be changed any time in Account.</p>
+      <p className="text-sm text-muted">Not sure? Either can be changed any time in Account. One category can do the other later, and that does not delete anything.</p>
     </div>
   );
 }

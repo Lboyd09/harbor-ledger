@@ -384,7 +384,7 @@ function LeftoverStyle() {
         </button>
       </div>
       <p className="text-sm text-muted">
-        This is only for spending categories, such as rent, groceries, and eating out. Income is compared with what usually comes in and is not carried over. A fund is extra savings, not this choice. Switching never deletes anything.
+        This is only for spending categories, such as rent, groceries, and eating out. Income is compared with what usually comes in and is not carried over. A fund is extra savings, not this choice. One category can do the opposite on the Budget page. Switching never deletes the amount, a one-month amount, or a charge.
       </p>
       {style === "buckets" && profile.carryStartMonth ? (
         <p className="text-sm">This started in {monthLabel(profile.carryStartMonth)}.</p>
