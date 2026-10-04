@@ -94,6 +94,8 @@ export type Transaction = {
   accountId?: string | null;
   /** How this row was sorted on import. Cleared when the person picks a category. Missing on older rows. */
   auto?: TransactionAuto | null;
+  /** Set by hand for one charge or one month. A later default change leaves these alone. Missing on older rows. */
+  pinned?: "charge" | "month" | null;
 };
 
 export type TxSplit = {

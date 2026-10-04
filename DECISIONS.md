@@ -4,6 +4,11 @@ Newest first. If this file conflicts with earlier chat, this file wins.
 
 ## 2026-10-03
 
+27. In the carry-over style the Month page shows what came in from last month, what this month adds, what was spent, and what is left, with a plain sentence about cutting back or extra money.
+26. Every category amount can be changed for one month. The usual amount stays visible and can be restored in one tap.
+25. On the Month page a category can be changed three ways: for this charge only, for every charge from that name in this month only, or as the default for every month.
+24. Each name (merchant) has one default category for money in and one for money out. The Sorting page is where defaults are changed. Changing a default changes every charge from that name, except charges the person set by hand for one charge or for one month.
+23. The Month page is its own page. Home becomes a year dashboard later, so nothing about Home changes now.
 22. The Account screen lists the accounts and lets the person change the budget style later, as setup promises.
 21. After an import, the person sees what was sorted and then reviews the unsure charges one at a time, on the import screen itself.
 20. Import sorts a charge on its own only when it is sure. Deposits are matched to the expected income entered in setup. Everything else is left for the person with a suggested category ready to accept.

@@ -2,8 +2,8 @@ import { Link } from "@tanstack/react-router";
 import { cn } from "@/lib/cn";
 
 const TABS = [
-  { to: "/", label: "This month", id: "month" },
-  { to: "/categories", label: "Merchants", id: "merchants" },
+  { to: "/month", label: "This month", id: "month" },
+  { to: "/categories", label: "Sorting", id: "merchants" },
   { to: "/import", label: "Import a file", id: "import" },
 ] as const;
 

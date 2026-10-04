@@ -144,6 +144,7 @@ export function normalizeTransaction(raw: unknown, index = 0): Transaction | nul
     splits: normalizeSplits(raw.splits),
     accountId: typeof raw.accountId === "string" && raw.accountId ? raw.accountId : null,
     ...(auto ? { auto } : {}),
+    ...(raw.pinned === "charge" || raw.pinned === "month" ? { pinned: raw.pinned } : {}),
   };
 }
 

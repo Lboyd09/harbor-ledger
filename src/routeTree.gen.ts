@@ -18,6 +18,7 @@ import { Route as FundsRouteImport } from './routes/funds'
 import { Route as GrowRouteImport } from './routes/grow'
 import { Route as ImportRouteImport } from './routes/import'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as MonthRouteImport } from './routes/month'
 import { Route as PayeesRouteImport } from './routes/payees'
 import { Route as PlanRouteImport } from './routes/plan'
 import { Route as RecurringRouteImport } from './routes/recurring'
@@ -71,6 +72,11 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MonthRoute = MonthRouteImport.update({
+  id: '/month',
+  path: '/month',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PayeesRoute = PayeesRouteImport.update({
   id: '/payees',
   path: '/payees',
@@ -117,6 +123,7 @@ export interface FileRoutesByFullPath {
   '/grow': typeof GrowRoute
   '/import': typeof ImportRoute
   '/login': typeof LoginRoute
+  '/month': typeof MonthRoute
   '/payees': typeof PayeesRoute
   '/plan': typeof PlanRoute
   '/recurring': typeof RecurringRoute
@@ -135,6 +142,7 @@ export interface FileRoutesByTo {
   '/grow': typeof GrowRoute
   '/import': typeof ImportRoute
   '/login': typeof LoginRoute
+  '/month': typeof MonthRoute
   '/payees': typeof PayeesRoute
   '/plan': typeof PlanRoute
   '/recurring': typeof RecurringRoute
@@ -154,6 +162,7 @@ export interface FileRoutesById {
   '/grow': typeof GrowRoute
   '/import': typeof ImportRoute
   '/login': typeof LoginRoute
+  '/month': typeof MonthRoute
   '/payees': typeof PayeesRoute
   '/plan': typeof PlanRoute
   '/recurring': typeof RecurringRoute
@@ -174,6 +183,7 @@ export interface FileRouteTypes {
     | '/grow'
     | '/import'
     | '/login'
+    | '/month'
     | '/payees'
     | '/plan'
     | '/recurring'
@@ -192,6 +202,7 @@ export interface FileRouteTypes {
     | '/grow'
     | '/import'
     | '/login'
+    | '/month'
     | '/payees'
     | '/plan'
     | '/recurring'
@@ -210,6 +221,7 @@ export interface FileRouteTypes {
     | '/grow'
     | '/import'
     | '/login'
+    | '/month'
     | '/payees'
     | '/plan'
     | '/recurring'
@@ -229,6 +241,7 @@ export interface RootRouteChildren {
   GrowRoute: typeof GrowRoute
   ImportRoute: typeof ImportRoute
   LoginRoute: typeof LoginRoute
+  MonthRoute: typeof MonthRoute
   PayeesRoute: typeof PayeesRoute
   PlanRoute: typeof PlanRoute
   RecurringRoute: typeof RecurringRoute
@@ -303,6 +316,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/month': {
+      id: '/month'
+      path: '/month'
+      fullPath: '/month'
+      preLoaderRoute: typeof MonthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/payees': {
       id: '/payees'
       path: '/payees'
@@ -365,6 +385,7 @@ const rootRouteChildren: RootRouteChildren = {
   GrowRoute: GrowRoute,
   ImportRoute: ImportRoute,
   LoginRoute: LoginRoute,
+  MonthRoute: MonthRoute,
   PayeesRoute: PayeesRoute,
   PlanRoute: PlanRoute,
   RecurringRoute: RecurringRoute,

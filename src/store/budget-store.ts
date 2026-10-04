@@ -3,6 +3,15 @@ import { persist } from "zustand/middleware";
 import { linkCategoryState, migrateGoals, withMonthlyChange, withPaused } from "@/lib/budget/buckets";
 import { parseBackup } from "@/lib/budget/backup";
 import { replaceMerchantRule } from "@/lib/budget/categorize";
+import {
+  applyChange,
+  captureRow,
+  resetToDefault,
+  restoreChanges,
+  sideOf,
+  type CategoryUndo,
+  type ChangeScope,
+} from "@/lib/budget/sorting";
 import { parseCsvText, applyAmountFlip } from "@/lib/budget/csv";
 import { importNewRows } from "@/lib/budget/auto-sort";
 import { newId } from "@/lib/budget/ids";
@@ -81,6 +90,15 @@ type State = LedgerSnapshot & {
   setMonthPlan: (categoryId: string, ym: string, amount: number | null) => void;
   setTransactionCategory: (id: string, categoryId: string | null, applyToMerchant: boolean) => void;
   setMerchantCategory: (merchantKey: string, categoryId: string | null, side?: "in" | "out") => void;
+  setCategoryScoped: (id: string, categoryId: string | null, scope: ChangeScope) => CategoryUndo | null;
+  setMerchantDefault: (
+    merchantKey: string,
+    side: "in" | "out",
+    categoryId: string | null,
+    options?: { includePinned?: boolean },
+  ) => CategoryUndo;
+  resetChargeToDefault: (id: string) => CategoryUndo | null;
+  restoreCategories: (undo: CategoryUndo) => void;
   applyRecommendedPlans: (year: string) => number;
   patchTransaction: (id: string, patch: Partial<Pick<Transaction, "excluded" | "status" | "notes">>) => void;
   setSplits: (id: string, splits: TxSplit[] | null) => void;
@@ -465,8 +483,7 @@ export const useBudgetStore = create<State>()(
         const tx = get().transactions.find((t) => t.id === id);
         if (!tx) return;
         if (applyToMerchant) {
-          const side = tx.amount < 0 || tx.status === "refund" ? "out" : "in";
-          get().setMerchantCategory(tx.merchantKey, categoryId, side);
+          get().setMerchantCategory(tx.merchantKey, categoryId, sideOf(tx));
           return;
         }
         set({
@@ -488,6 +505,54 @@ export const useBudgetStore = create<State>()(
           transactions: get().transactions.map((t) =>
             match(t) ? { ...t, categoryId, userSet: true, splits: null, auto: null } : t,
           ),
+        });
+        schedulePersist();
+      },
+      setCategoryScoped: (id, categoryId, scope) => {
+        const tx = get().transactions.find((t) => t.id === id);
+        if (!tx) return null;
+        const applied = applyChange({
+          transactions: get().transactions,
+          merchantRules: get().merchantRules,
+          merchantKey: tx.merchantKey,
+          side: sideOf(tx),
+          ym: tx.date.slice(0, 7),
+          categoryId,
+          scope,
+          id,
+        });
+        set({ transactions: applied.transactions, merchantRules: applied.merchantRules });
+        schedulePersist();
+        return { rows: applied.before, rules: applied.rulesBefore };
+      },
+      setMerchantDefault: (merchantKey, side, categoryId, options) => {
+        const applied = applyChange({
+          transactions: get().transactions,
+          merchantRules: get().merchantRules,
+          merchantKey,
+          side,
+          categoryId,
+          scope: "default",
+          includePinned: options?.includePinned,
+        });
+        set({ transactions: applied.transactions, merchantRules: applied.merchantRules });
+        schedulePersist();
+        return { rows: applied.before, rules: applied.rulesBefore };
+      },
+      resetChargeToDefault: (id) => {
+        const tx = get().transactions.find((t) => t.id === id);
+        if (!tx) return null;
+        const undo: CategoryUndo = { rows: [captureRow(tx)], rules: null };
+        set({
+          transactions: get().transactions.map((t) => (t.id === id ? resetToDefault(t, get().merchantRules) : t)),
+        });
+        schedulePersist();
+        return undo;
+      },
+      restoreCategories: (undo) => {
+        set({
+          transactions: restoreChanges(get().transactions, undo.rows),
+          ...(undo.rules ? { merchantRules: undo.rules } : {}),
         });
         schedulePersist();
       },
