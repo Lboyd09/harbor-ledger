@@ -171,7 +171,7 @@ export function habitInsights(
     out.push({
       id: "dining",
       title: "Eating out",
-      body: `Dining is ${pct}% of spending this ${period}${dining.plan > 0 && dining.actual > dining.plan ? `, ${formatMoney(dining.actual - dining.plan)} over the envelope` : ""}.`,
+      body: `Dining is ${pct}% of spending this ${period}${dining.plan > 0 && dining.actual > dining.plan ? `, ${formatMoney(dining.actual - dining.plan)} over the category` : ""}.`,
       tone: dining.plan > 0 && dining.actual > dining.plan ? "warn" : "neutral",
     });
   }
@@ -214,7 +214,7 @@ export function habitInsights(
   if (over.length) {
     out.push({
       id: "over",
-      title: over.length === 1 ? "One envelope is over" : `${over.length} envelopes are over`,
+      title: over.length === 1 ? "One category is over" : `${over.length} categories are over`,
       body: over
         .slice(0, 3)
         .map((s) => `${s.name} ${formatMoney(s.actual - s.plan)} over`)
@@ -236,7 +236,7 @@ export function habitInsights(
     out.push({
       id: "refunds",
       title: "Refunds in this period",
-      body: `${now.refunds} ${now.refunds === 1 ? "row is" : "rows are"} marked as a refund or reimbursement and reduce the matching expense bucket.`,
+      body: `${now.refunds} ${now.refunds === 1 ? "row is" : "rows are"} marked as a refund or reimbursement and reduce the matching expense category.`,
       tone: "good",
     });
   }
@@ -254,7 +254,7 @@ export function habitInsights(
       body:
         leftoverPlan > 0
           ? `${formatMoney(leftoverPlan)} of planned income has no job yet. Give it a category on Plan.`
-          : `Planned expenses exceed planned income by ${formatMoney(-leftoverPlan)}. Cut an envelope or raise expected income.`,
+          : `Planned expenses exceed planned income by ${formatMoney(-leftoverPlan)}. Cut a category or raise expected income.`,
       tone: leftoverPlan > 0 ? "neutral" : "warn",
     });
   }

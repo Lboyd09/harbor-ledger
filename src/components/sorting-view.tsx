@@ -3,11 +3,13 @@ import { useMemo, useState } from "react";
 import { formatMoney } from "@/lib/budget/money";
 import { displayMerchant } from "@/lib/budget/merchant";
 import { currentMonthKey, monthShort, shiftMonth } from "@/lib/budget/parse-date";
+import { reviewQueue } from "@/lib/budget/review-queue";
 import { previewChange, ruleFor, sideOf, type CategoryUndo, type Side } from "@/lib/budget/sorting";
 import type { Transaction } from "@/lib/budget/types";
 import { useBudgetStore } from "@/store/budget-store";
 import { CategorySelect } from "./category-select";
 import { LedgerTabs } from "./ledger-tabs";
+import { SortQueue } from "./sort-queue";
 import { Button } from "./ui/button";
 import { Input } from "./ui/field";
 import { EmptyArt } from "./visuals/empty-art";
@@ -23,6 +25,7 @@ type SortRow = {
   open: number;
   likelyBill: boolean;
   defaultId: string | null;
+  check: boolean;
 };
 
 function windowStart() {
@@ -43,10 +46,12 @@ function buildRows(transactions: Transaction[], side: Side, rules: { merchantKey
       open: 0,
       likelyBill: false,
       defaultId: ruleFor(rules, t.merchantKey, side)?.categoryId ?? null,
+      check: false,
       last: "",
     };
     cur.count += 1;
     if (t.date >= start) cur.total12 += Math.abs(t.amount);
+    if (t.auto?.provisional) cur.check = true;
     if (t.date >= cur.last) {
       cur.last = t.date;
       cur.sample = t.description;
@@ -72,6 +77,14 @@ export function SortingView() {
   const [pending, setPending] = useState<{ key: string; side: Side; categoryId: string | null } | null>(null);
   const [hands, setHands] = useState<string | null>(null);
   const [undo, setUndo] = useState<{ sentence: string; undo: CategoryUndo } | null>(null);
+  const [queueOpen, setQueueOpen] = useState(false);
+  const openNames = useMemo(
+    () =>
+      reviewQueue(transactions, categories).filter((group) =>
+        group.ids.some((id) => transactions.some((row) => row.id === id && !row.categoryId)),
+      ).length,
+    [transactions, categories],
+  );
 
   const income = useMemo(() => buildRows(transactions, "in", rules), [transactions, rules]);
   const expenses = useMemo(() => buildRows(transactions, "out", rules), [transactions, rules]);
@@ -114,6 +127,13 @@ export function SortingView() {
         </p>
       </div>
       <LedgerTabs page="merchants" />
+      {openNames > 0 ? (
+        <button type="button" className="w-full rounded-lg border border-primary/40 bg-surface p-4 text-left" onClick={() => setQueueOpen(true)}>
+          <div className="font-display text-xl font-semibold">{openNames} {openNames === 1 ? "name" : "names"} still to sort</div>
+          <p className="mt-1 text-sm text-muted">Opens the same sort screen used everywhere else.</p>
+        </button>
+      ) : null}
+      {queueOpen ? <SortQueue onDone={() => setQueueOpen(false)} /> : null}
       {!transactions.length ? (
         <div className="rounded-lg border border-dashed border-line px-4 py-6 text-center">
           <EmptyArt kind="sorting" />
@@ -205,7 +225,10 @@ function SortList({
             <li key={`${side}-${row.merchantKey}`} className="grid gap-2 p-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <div className="font-medium">{name}</div>
+                  <div className="font-medium">
+                    {name}
+                    {row.check ? <span className="ml-2 rounded bg-chip px-1.5 py-0.5 text-xs font-medium">Check</span> : null}
+                  </div>
                   <p className="mt-1 text-sm text-muted">
                     {row.count} charge{row.count === 1 ? "" : "s"} · {formatMoney(row.total12)} in the last 12 months
                     {row.likelyBill ? " · Likely bill" : ""}

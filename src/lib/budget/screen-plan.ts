@@ -28,7 +28,7 @@ export function budgetLead(input: { plannedSpend: number; usualIncome: number; t
     ? `Planned spending is ${formatMoney(input.plannedSpend)}. Income is not entered yet.`
     : `Planned ${formatMoney(input.plannedSpend)} of about ${formatMoney(input.usualIncome)} usual income.`;
   const cover =
-    input.typicalSpend != null && input.typicalSpend > 0 && input.typicalMonths >= 2
+    input.typicalSpend != null && input.typicalSpend > 0 && input.typicalMonths >= 3
       ? (() => {
           const pct = Math.round((input.plannedSpend / input.typicalSpend) * 100);
           if (pct > 400) {

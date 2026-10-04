@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "@tanstack/react-router";
 import { bucketBalance, categorySpend, DEFAULT_FUND_VIEW, fundWindow, fullLineOf, fundingForMonth, goalPace, monthName } from "@/lib/budget/buckets";
 import { displayMerchant } from "@/lib/budget/merchant";
 import { formatMoney } from "@/lib/budget/money";
@@ -49,8 +50,11 @@ export function FundsView() {
       <div>
         <h1 className="font-display text-2xl font-semibold md:text-3xl">Funds</h1>
         <p className="mt-2 max-w-xl text-sm text-muted">
-          Your budget is the categories on Budget, such as rent, groceries, and eating out. A fund is only extra money set aside for one purchase. It is not the budget, and it is not income.
+          A fund is extra savings for one purchase. It is not the budget.
         </p>
+        <Link to="/grow" className="mt-2 inline-flex text-sm font-medium text-primary">
+          Money that could go to work is on Grow
+        </Link>
       </div>
       {funds.length ? (
         <p className="font-display text-xl">Across all funds: {formatMoney(total)}</p>

@@ -4,6 +4,10 @@ Newest first. If this file conflicts with earlier chat, this file wins.
 
 ## 2026-10-04
 
+48. Simple Home is the answer, one picture, and one next action. The rest sits under "More" or in Advanced.
+47. A retirement calculator exists: where you stand, what you want, the gap, and what closes it.
+46. Every calculator starts from the person's real numbers, says what each came from, and shows its assumptions, which are editable.
+45. Setup asks age. Retirement and IRA calculators use it. It can be changed in Account.
 44. Every number says what it is based on. A reading that the data cannot support shows what more history would unlock.
 43. Simple mode shows the answer, one picture, and one next action. Advanced mode shows every metric the data supports, grouped, each explained in plain words and with how it was worked out.
 42. Budget, Month, and Home lead with what matters: what is over or at risk, what is coming, what the file already shows. Money in is on one side and money out is on the other.

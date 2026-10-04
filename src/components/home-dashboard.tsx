@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { CreditCard, Landmark, LineChart, PiggyBank, Wallet } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { accountAcceptsFile, accountKindLabel } from "@/lib/budget/accounts";
 import { fileInsights, monthEndForecast } from "@/lib/budget/analytics";
 import {
@@ -158,13 +158,11 @@ export function HomeDashboard() {
         <p className="mt-2 text-sm text-muted">
           {forecast ? (typical?.sentence ?? "Based on this month so far.") : "Add another month before a month-end guess."}
         </p>
-        <div className="mt-3">
-          {queue.length ? (
-            <Button onClick={() => setCoach(true)}>Sort {stats.groups} names</Button>
-          ) : (
+        {queue.length ? null : (
+          <div className="mt-3">
             <Link to="/month"><Button variant="outline">Open this month</Button></Link>
-          )}
-        </div>
+          </div>
+        )}
       </section>
 
       {queue.length ? (
@@ -177,6 +175,17 @@ export function HomeDashboard() {
 
       {coach ? <CategorizeCoach onClose={() => setCoach(false)} /> : null}
 
+      {!nerd ? (
+        <section className="rounded-lg border border-border bg-surface p-4">
+          <h2 className="font-display text-xl font-semibold">Money in and money out</h2>
+          <p className="mt-1 text-sm text-muted">Each month of {year}. A quiet month is a short pair of bars.</p>
+          <div className="mt-3">
+            <MiniBars months={bars} aLabel="Money in" bLabel="Money out" />
+          </div>
+        </section>
+      ) : null}
+
+      <Fold simple={!nerd}>
       <section className="rise panel rounded-lg border border-border bg-surface p-4">
         <h1 className="font-display text-2xl font-semibold md:text-3xl">So far in {year}</h1>
         <p className="mt-1 text-sm text-muted">January through {monthName(through)}. The year page has the full spreadsheet.</p>
@@ -195,6 +204,7 @@ export function HomeDashboard() {
         </div>
       </section>
 
+      {nerd ? (
       <section className="rise panel rounded-lg border border-border bg-surface p-4" style={{ animationDelay: "40ms" }}>
         <h2 className="font-display text-xl font-semibold">Money in and money out</h2>
         <p className="mt-1 text-sm text-muted">Each month of {year}. A quiet month is a short pair of bars.</p>
@@ -202,6 +212,7 @@ export function HomeDashboard() {
           <MiniBars months={bars} aLabel="Money in" bLabel="Money out" />
         </div>
       </section>
+      ) : null}
 
       {insights && insights.items.length ? (
         <section className="rounded-lg border border-border bg-surface p-4">
@@ -255,7 +266,11 @@ export function HomeDashboard() {
 
       <section className="rise panel rounded-lg border border-border bg-surface p-4" style={{ animationDelay: "80ms" }}>
         <h2 className="font-display text-xl font-semibold">Your accounts</h2>
-        {cushion ? <p className="mt-1 text-sm">{cushion.sentence} Based on checking and savings balances over a typical month of spending.</p> : null}
+        {(dataDepth(transactions)?.months ?? 0) >= 3 && cushion ? (
+          <p className="mt-1 text-sm">{cushion.sentence} Based on checking and savings balances over a typical month of spending.</p>
+        ) : (
+          <p className="mt-1 text-sm">Waiting on more history.</p>
+        )}
         {accountsView.rows.length === 0 ? (
           <div className="mt-3">
             <p className="text-sm">No accounts yet. Add one, then its balance can show here.</p>
@@ -411,7 +426,18 @@ export function HomeDashboard() {
           </button>
         </div>
       </section>
+      </Fold>
     </div>
+  );
+}
+
+function Fold({ simple, children }: { simple: boolean; children: ReactNode }) {
+  if (!simple) return <>{children}</>;
+  return (
+    <details className="rounded-lg border border-border bg-surface">
+      <summary className="min-h-11 cursor-pointer px-4 py-3 font-medium">More</summary>
+      <div className="space-y-6 px-4 pb-4">{children}</div>
+    </details>
   );
 }
 

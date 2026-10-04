@@ -1,17 +1,19 @@
+import { IRA_LIMITS } from "./reference.ts";
 import type { IraRules } from "./types.ts";
 
 /**
  * 2026 figures from IRS Notice 2025-67, published November 2025.
  * The person can edit every number. The projection functions only read this object.
+ * The amounts live in reference.ts so every screen cites the same source.
  */
 export const DEFAULT_IRA: IraRules = {
-  year: 2026,
-  under50: 7500,
-  catchUp: 1100,
-  rothSingleStart: 153000,
-  rothSingleEnd: 168000,
-  rothJointStart: 242000,
-  rothJointEnd: 252000,
+  year: IRA_LIMITS.year,
+  under50: IRA_LIMITS.under50,
+  catchUp: IRA_LIMITS.catchUp,
+  rothSingleStart: IRA_LIMITS.rothSingleStart,
+  rothSingleEnd: IRA_LIMITS.rothSingleEnd,
+  rothJointStart: IRA_LIMITS.rothJointStart,
+  rothJointEnd: IRA_LIMITS.rothJointEnd,
   note: "Check the current IRS figures before you rely on these. Harbor does not update them for you.",
 };
 

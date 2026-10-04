@@ -92,6 +92,7 @@ export function Onboarding({ onExit }: { onExit?: () => void }) {
         accounts: state.accounts ?? [],
         balances: state.balances ?? [],
         moneyBuckets: state.moneyBuckets ?? [],
+        year: Number(todayStamp().slice(0, 4)),
       });
     }
     return blankAnswers();
@@ -441,6 +442,21 @@ function AboutStep({ answers, onChange }: { answers: SetupAnswers; onChange: (pa
           </Field>
         ) : null}
       </fieldset>
+      <Field label="How old are you?">
+        <Input
+          inputMode="numeric"
+          placeholder="Optional"
+          aria-label="How old are you?"
+          value={answers.age == null ? "" : String(answers.age)}
+          onChange={(event) => {
+            const raw = event.target.value.trim();
+            onChange({ age: raw === "" ? null : Math.max(0, Math.round(Number(raw) || 0)) });
+          }}
+        />
+        <button type="button" className="mt-2 min-h-11 text-sm font-medium text-primary" onClick={() => onChange({ age: null })}>
+          Skip
+        </button>
+      </Field>
     </div>
   );
 }
@@ -602,7 +618,7 @@ function StyleStep({
           <div className="flex items-start justify-between gap-3">
             <div>
               <div className="text-base font-medium">{TERMS.monthlyReset}</div>
-              <p className="mt-1 text-sm text-muted">Each spending category, like rent or groceries, starts over. Income is compared with what usually comes in. It does not roll over.</p>
+              <p className="mt-1 text-sm text-muted">Each spending category, like rent or groceries, starts over. Income is compared with what usually comes in. It is not carried over.</p>
             </div>
             <Jar mode="refill" lively={lively} />
           </div>
@@ -952,6 +968,7 @@ function SummaryStep({
     <div className="mt-6 space-y-3">
       <SummaryBlock title="About you" onChange={() => onChange(0)}>
         <p className="text-sm">{householdSentence(answers)}</p>
+        <p className="text-sm">{answers.age == null ? "Age skipped." : `${answers.age} years old.`}</p>
       </SummaryBlock>
       <SummaryBlock title="Money coming in" onChange={() => onChange(2)}>
         <p className="text-sm">{answers.incomeUnknown || income <= 0 ? "No income yet." : `About ${formatMoney(income)} a month.`}</p>

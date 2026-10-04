@@ -349,7 +349,11 @@ export const useBudgetStore = create<State>()(
         schedulePersist();
       },
       patchProfile: (patch) => {
-        set({ profile: { ...get().profile, ...patch, completedOnboarding: get().profile.completedOnboarding } });
+        const profile = { ...get().profile, ...patch, completedOnboarding: get().profile.completedOnboarding };
+        for (const key of Object.keys(patch) as (keyof typeof profile)[]) {
+          if (patch[key] === undefined) delete profile[key];
+        }
+        set({ profile });
         schedulePersist();
       },
       setBudgetStyle: (style, options) => {

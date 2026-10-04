@@ -3,6 +3,7 @@ import { expectedMonthlyOf } from "./income.ts";
 import { newId } from "./ids.ts";
 import { roundMoney, roundPlan } from "./money.ts";
 import { currentMonthKey } from "./parse-date.ts";
+import { ageInYear, birthYearFromAge } from "./planner.ts";
 import { buildPresetCategories, DEFAULT_PROFILE, defaultBuckets, SPEND_BUCKETS } from "./presets.ts";
 import { withBudgetStyle } from "./style.ts";
 import type {
@@ -79,6 +80,8 @@ export type SetupAnswers = {
   amountsTouched: boolean;
   accounts: SetupAccountDraft[];
   savings: SetupSavingsDraft | null;
+  /** Optional. Skip stores null. A number becomes profile.birthYear. */
+  age: number | null;
 };
 
 /** Profile fields collected in steps 1 to 4. Housing amount is not stored on the profile. */
@@ -154,6 +157,7 @@ export function blankAnswers(): SetupAnswers {
     amountsTouched: false,
     accounts: [],
     savings: null,
+    age: null,
   };
 }
 
@@ -424,6 +428,13 @@ export function buildSetup(
     detailChosen: true,
     monthlyIncome: fields.monthlyIncome,
   };
+  const todayYear = Number((options?.today ?? "").slice(0, 4));
+  if (answers.age != null && Number.isFinite(todayYear)) {
+    const born = birthYearFromAge(answers.age, todayYear);
+    if (born != null) draft.birthYear = born;
+  } else if (answers.age == null) {
+    delete draft.birthYear;
+  }
 
   let categories = buildPresetCategories(draft);
   if (answers.incomeUnknown) {
@@ -627,6 +638,8 @@ export function answersFromLedger(input: {
   accounts: Account[];
   balances: BalancePoint[];
   moneyBuckets: MoneyBucket[];
+  /** Calendar year used to turn a stored birth year back into an age. */
+  year?: number;
 }): SetupAnswers {
   const profile = input.profile;
   const householdChoice: HouseholdChoice =
@@ -695,6 +708,7 @@ export function answersFromLedger(input: {
     savings: plan
       ? { id: plan.id, name: plan.name, target: plan.target && plan.target > 0 ? plan.target : 0, by: plan.by }
       : null,
+    age: input.year != null ? ageInYear(profile.birthYear, input.year) : null,
   };
 }
 

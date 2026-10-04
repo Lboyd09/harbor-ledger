@@ -76,6 +76,34 @@ function asBool(v: unknown, fallback = false): boolean {
   return typeof v === "boolean" ? v : fallback;
 }
 
+function optionalPlanner(p: Record<string, unknown>): Partial<Profile> {
+  const out: Partial<Profile> = {};
+  if (typeof p.birthYear === "number" && Number.isFinite(p.birthYear)) {
+    const year = Math.round(p.birthYear);
+    if (year >= 1900 && year <= 2100) out.birthYear = year;
+  }
+  if (typeof p.retireAge === "number" && Number.isFinite(p.retireAge)) {
+    const age = Math.round(p.retireAge);
+    if (age >= 0 && age <= 120) out.retireAge = age;
+  }
+  if (typeof p.plannerInflation === "number" && Number.isFinite(p.plannerInflation) && p.plannerInflation >= -0.2 && p.plannerInflation <= 0.2) {
+    out.plannerInflation = p.plannerInflation;
+  }
+  if (typeof p.withdrawalRate === "number" && Number.isFinite(p.withdrawalRate) && p.withdrawalRate >= 0 && p.withdrawalRate <= 0.2) {
+    out.withdrawalRate = p.withdrawalRate;
+  }
+  if (isRecord(p.returnBand)) {
+    const band = p.returnBand;
+    const conservative = band.conservative;
+    const expected = band.expected;
+    const optimistic = band.optimistic;
+    if ([conservative, expected, optimistic].every((n) => typeof n === "number" && Number.isFinite(n) && n >= -0.5 && n <= 0.5)) {
+      out.returnBand = { conservative: conservative as number, expected: expected as number, optimistic: optimistic as number };
+    }
+  }
+  return out;
+}
+
 export function normalizeProfile(raw: unknown): Profile {
   const p = isRecord(raw) ? raw : {};
   const streamsRaw = Array.isArray(p.incomeStreams) ? p.incomeStreams : [];
@@ -120,6 +148,7 @@ export function normalizeProfile(raw: unknown): Profile {
     budgetStyle: p.budgetStyle === "buckets" ? "buckets" : ("monthly" as BudgetStyle),
     carryStartMonth: /^\d{4}-\d{2}$/.test(asString(p.carryStartMonth)) ? asString(p.carryStartMonth) : null,
     bankLabelMap: normalizeBankMap(p.bankLabelMap),
+    ...optionalPlanner(p),
   };
 }
 

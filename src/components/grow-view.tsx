@@ -1,12 +1,14 @@
 import { Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { latestBalance } from "@/lib/budget/accounts";
 import { bucketBalance } from "@/lib/budget/buckets";
 import { MARKET_RATES, SAVINGS_RATES, inflated, loanCompare, monthlyForGoal, monthlyPath, monthsToTarget, payoffPlan, projectBoth, projectLump, rothVsTraditional, yearsToDouble, yearsToFi } from "@/lib/budget/grow-math";
+import { amortizationSchedule, debtTimeline, fiNumbers, netWorthSeries, sensitivityOf, yearRows } from "@/lib/budget/grow-tables";
 import { monthReview } from "@/lib/budget/insights";
 import { DEFAULT_IRA, iraLimit, rothRoom } from "@/lib/budget/ira";
 import { formatMoney } from "@/lib/budget/money";
+import { assumptionLines } from "@/lib/budget/reference";
 import { plannedTotals } from "@/lib/budget/totals";
 import { buildYearWorkbook } from "@/lib/budget/year";
 import { cn } from "@/lib/cn";
@@ -17,6 +19,9 @@ import { FillJar } from "./money-visual";
 import { GrowthArea, PayoffRace, PlaceMap, RothBars, YourMoney } from "./grow-pictures";
 import { EmptyArt } from "./visuals/empty-art";
 import { ProgressRing } from "./visuals/progress-ring";
+import { RetirementCard } from "./retirement-card";
+import { AdvancedDepth } from "./calc-depth";
+import { usePlannerFacts } from "./use-planner-facts";
 import { Button } from "./ui/button";
 import { Input } from "./ui/field";
 
@@ -55,6 +60,7 @@ export function GrowView() {
     .filter((account) => account.kind === "savings")
     .reduce((sum, account) => sum + Math.max(0, latestBalance(account.id, balances)?.amount ?? 0), 0);
   const nerd = profile.detail === "nerd";
+  const facts = usePlannerFacts();
   const lively = useLivelyMotion();
   const year = ym.slice(0, 4);
   const book = useMemo(() => buildYearWorkbook(transactions, categories, year), [transactions, categories, year]);
@@ -64,7 +70,7 @@ export function GrowView() {
     return balance > best.balance ? { name: b.name, balance } : best;
   }, { name: "Leftover", balance: Math.max(0, book.net) });
 
-  const [calc, setCalc] = useState<"work" | "monthly" | "roth" | "debt" | "worth" | "emergency" | "free" | "goal" | "both" | "loan" | "inflation" | "double" | "reach">("emergency");
+  const [calc, setCalc] = useState<"work" | "monthly" | "roth" | "debt" | "worth" | "emergency" | "free" | "goal" | "both" | "loan" | "inflation" | "double" | "reach" | "retire">("retire");
   const [principal, setPrincipal] = useState(String(Math.max(0, Math.round(surplus.balance))));
   useEffect(() => {
     const n = Number(new URLSearchParams(window.location.search).get("lump"));
@@ -80,11 +86,24 @@ export function GrowView() {
   const [taxLater, setTaxLater] = useState("12");
   const [annual, setAnnual] = useState(String(ira?.under50 ?? 7500));
   const [today, setToday] = useState(false);
-  const [inflation, setInflation] = useState("2.5");
+  const [inflation, setInflation] = useState("2");
   const [age50, setAge50] = useState(false);
   const [joint, setJoint] = useState(false);
   const [magi, setMagi] = useState(String(Math.round((profile.monthlyIncome || 0) * 12)));
   const [showAdv, setShowAdv] = useState(false);
+  const filled = useRef(false);
+  useEffect(() => {
+    if (filled.current) return;
+    if (facts.monthlySaving.value == null && facts.age.value == null && facts.inflation.value == null) return;
+    filled.current = true;
+    if (facts.monthlySaving.value != null) setMonthly(String(Math.round(facts.monthlySaving.value)));
+    setRate(String(Math.round((facts.returns.expected || 0.07) * 1000) / 10));
+    if (facts.age.value != null) setAge50(facts.age.value >= 50);
+    if (facts.inflation.value != null) setInflation(String(Math.round(facts.inflation.value * 1000) / 10));
+    if (facts.saved.value != null) {
+      setPrincipal((current) => (Number(current) > 0 ? current : String(Math.round(facts.saved.value ?? 0))));
+    }
+  }, [facts]);
 
   const inflationRate = Math.max(0, (Number(inflation) || 0) / 100);
   const yearCount = Math.max(0, Number(years) || 0);
@@ -164,13 +183,16 @@ export function GrowView() {
       <div className="space-y-4">
         {(
           [
+            ["Plan ahead", [
+              ["retire", "Retirement", "Where you stand, the gap, and what closes it."],
+              ["free", "When work is optional", "Your spending, your savings rate, and the 4% rule."],
+              ["goal", "Save for a goal", "What to set aside each month."],
+            ]],
             ["See it grow", [
               ["work", "Put it to work", "One amount, left alone."],
               ["monthly", "Add a bit every month", "What you add, with no starting pile."],
               ["both", "A pile and a monthly add", "Both at once."],
               ["roth", "Roth or traditional", "Two bars, after tax."],
-              ["goal", "Save for a goal", "What to set aside each month."],
-              ["free", "When work is optional", "The 4% rule and your savings rate."],
               ["reach", "How long to reach a number", "A pile, a monthly add, and a target."],
               ["double", "How long to double", "At this rate, when the money doubles."],
               ["inflation", "What money buys later", "The same dollars after inflation."],
@@ -209,31 +231,22 @@ export function GrowView() {
         Today's dollars
       </label>
 
-      {calc === "emergency" ? <EmergencyFund book={book} saved={saved} /> : null}
+      {calc === "retire" ? <RetirementCard /> : null}
+      {calc === "emergency" ? <EmergencyFund book={book} saved={facts.cashSavings.value ?? saved} /> : null}
       {calc === "goal" ? <GoalTool /> : null}
       {calc === "debt" ? <DebtTool debts={debts} addDebt={addDebt} removeDebt={removeDebt} /> : null}
       {calc === "loan" ? <LoanTool /> : null}
       {calc === "worth" ? (
         <WorthTool netWorth={netWorth} addNetWorth={addNetWorth} removeNetWorth={removeNetWorth} lively={lively} />
       ) : null}
-      {calc === "free" ? (
-        <SummaryCard
-          label="Work optional in"
-          value={yearsToFi(Math.max(0, book.savingsRate)) == null ? "—" : `${yearsToFi(Math.max(0, book.savingsRate))} years`}
-          sentence={
-            book.activeMonths
-              ? `The 4% rule wants about ${formatMoney((book.expenses / book.activeMonths) * 12 / 0.04)}, 25 times a year of spending. This uses your ${Math.round(book.savingsRate * 100)}% savings rate and a 5% return after inflation.`
-              : "Import spending for a few months before this is useful."
-          }
-        />
-      ) : null}
+      {calc === "free" ? <WorkOptional book={book} /> : null}
 
       {calc === "work" ? (
         <section className="space-y-3">
           <GrowthArea principal={principalN} years={yearCount} inflation={inflationRate} today={today} gainTax={taxNowN} lively={lively} />
           <details>
             <summary className="min-h-11 cursor-pointer text-sm font-medium">Change the numbers</summary>
-            <p className="mt-2 text-sm text-muted">Prefilled from {surplus.name}. Edit it. Each option is a range, not one number.</p>
+            <p className="mt-2 text-sm text-muted">Prefilled from {surplus.name}. Edit it. Each option is a range, not one number. From your accounts when a fund has a balance, otherwise from this year's leftover.</p>
             <div className="mt-2 grid gap-2 sm:grid-cols-2">
               <label className="text-xs text-muted">
                 Amount
@@ -251,7 +264,22 @@ export function GrowView() {
             <BandLine label="Roth IRA" band={roth} />
             <BandLine label="Traditional IRA" band={traditional} />
           </div>
-          <p className="text-xs text-muted">{DISCLAIMER}</p>
+          <p className="text-xs text-muted">{DISCLAIMER} {facts.returns.note}</p>
+          <AdvancedDepth
+            show={nerd}
+            metrics={[
+              { label: "Savings, likely", value: formatMoney(savings.expected) },
+              { label: "Taxable, likely", value: formatMoney(taxable.expected) },
+              { label: "Roth, likely", value: formatMoney(roth.expected) },
+              { label: "Traditional, likely", value: formatMoney(traditional.expected) },
+              { label: "Starting amount", value: formatMoney(principalN) },
+              { label: "Years", value: String(yearCount) },
+            ]}
+            columns={["Year", "Put in", "Balance"]}
+            rows={yearRows({ principal: principalN, monthly: 0, years: yearCount, rate: market, inflation: inflationRate, today }).map((row) => [String(row.year), formatMoney(row.contributed), formatMoney(row.balance)])}
+            assumptions={assumptionLines(["savings-expected", "market-expected", "inflation"])}
+            sensitivity={sensitivityOf((next) => yearRows({ principal: principalN, monthly: 0, years: yearCount, rate: next, inflation: inflationRate, today }).at(-1)?.balance ?? 0, market, 0).map((row) => ({ label: row.label, value: formatMoney(row.value) }))}
+          />
         </section>
       ) : null}
 
@@ -266,6 +294,7 @@ export function GrowView() {
               <label className="text-xs text-muted">
                 Each month
                 <Input className="mt-1" inputMode="decimal" value={monthly} onChange={(e) => setMonthly(e.target.value)} />
+                <span className="mt-1 block">{facts.monthlySaving.source}. {facts.monthlySaving.note}</span>
               </label>
               <label className="text-xs text-muted">
                 Years
@@ -295,11 +324,45 @@ export function GrowView() {
               </ResponsiveContainer>
             </div>
           </SummaryCard>
-          <p className="text-xs text-muted">{DISCLAIMER}</p>
+          <p className="text-xs text-muted">{DISCLAIMER} {facts.returns.note}</p>
+          <AdvancedDepth
+            show={nerd}
+            metrics={[
+              { label: "Ending balance", value: formatMoney(path.at(-1)?.balance ?? 0) },
+              { label: "Put in", value: formatMoney(path.at(-1)?.contributed ?? 0) },
+              { label: "Growth", value: formatMoney((path.at(-1)?.balance ?? 0) - (path.at(-1)?.contributed ?? 0)) },
+              { label: "Each month", value: formatMoney(Number(monthly) || 0) },
+              { label: "Years", value: String(yearCount) },
+              { label: "Rate", value: `${rate}%` },
+            ]}
+            columns={["Year", "Put in", "Balance"]}
+            rows={path.map((row) => [String(row.year), formatMoney(row.contributed), formatMoney(row.balance)])}
+            assumptions={[facts.monthlySaving.note, ...assumptionLines(["market-expected", "inflation"])]}
+            sensitivity={sensitivityOf((next, add) => monthlyPath({ monthly: add, years: yearCount, rate: next, inflation: inflationRate, today }).at(-1)?.balance ?? 0, market, Number(monthly) || 0).map((row) => ({ label: row.label, value: formatMoney(row.value) }))}
+          />
         </section>
       ) : null}
 
-      {calc === "both" ? <BothTool principal={principal} setPrincipal={setPrincipal} years={years} setYears={setYears} monthly={monthly} setMonthly={setMonthly} rate={rate} setRate={setRate} today={today} inflationRate={inflationRate} lively={lively} /> : null}
+      {calc === "both" ? (
+        <>
+          <BothTool principal={principal} setPrincipal={setPrincipal} years={years} setYears={setYears} monthly={monthly} setMonthly={setMonthly} rate={rate} setRate={setRate} today={today} inflationRate={inflationRate} lively={lively} />
+          <AdvancedDepth
+            show={nerd}
+            metrics={[
+              { label: "Ending balance", value: formatMoney(projectBoth({ principal: principalN, monthly: Number(monthly) || 0, years: yearCount, rate: market, inflation: inflationRate, today }).at(-1)?.balance ?? 0) },
+              { label: "Starting amount", value: formatMoney(principalN) },
+              { label: "Each month", value: formatMoney(Number(monthly) || 0) },
+              { label: "Years", value: String(yearCount) },
+              { label: "Rate", value: `${rate}%` },
+              { label: "Inflation", value: `${inflation}%` },
+            ]}
+            columns={["Year", "Put in", "Growth", "Balance"]}
+            rows={yearRows({ principal: principalN, monthly: Number(monthly) || 0, years: yearCount, rate: market, inflation: inflationRate, today }).map((row) => [String(row.year), formatMoney(row.contributed), formatMoney(row.growth), formatMoney(row.balance)])}
+            assumptions={[facts.saved.note, facts.monthlySaving.note, ...assumptionLines(["market-expected", "inflation"])]}
+            sensitivity={sensitivityOf((next, add) => yearRows({ principal: principalN, monthly: add, years: yearCount, rate: next, inflation: inflationRate, today }).at(-1)?.balance ?? 0, market, Number(monthly) || 0).map((row) => ({ label: row.label, value: formatMoney(row.value) }))}
+          />
+        </>
+      ) : null}
 
       {calc === "inflation" ? <InflationTool /> : null}
       {calc === "double" ? <DoubleTool /> : null}
@@ -338,7 +401,28 @@ export function GrowView() {
             <SummaryCard label="Roth, after tax" value={formatMoney(compare.roth)} sentence="You invest the after-tax slice. Growth is not taxed again in this estimate." />
             <SummaryCard label="Traditional, after tax" value={formatMoney(compare.traditional)} sentence="You invest the full pre-tax amount, then tax it at the retirement rate." />
           </div>
+          <p className="text-xs text-muted">
+            {facts.age.value == null ? "Age is not entered, so the catch-up limit stays off until you check it." : `Age ${facts.age.value} is typed. ${facts.age.value >= 50 ? "The catch-up limit is included." : "Under 50, so no catch-up."}`} {assumptionLines(["ira-under-50", "ira-catch-up", "roth-single-start"])[0]}
+          </p>
           <p className="text-xs text-muted">{DISCLAIMER}</p>
+          <AdvancedDepth
+            show={nerd}
+            metrics={[
+              { label: "Roth after tax", value: formatMoney(compare.roth) },
+              { label: "Traditional after tax", value: formatMoney(compare.traditional) },
+              { label: "Roth put in", value: formatMoney(compare.rothContributed) },
+              { label: "Traditional put in", value: formatMoney(compare.traditionalContributed) },
+              { label: "Limit", value: formatMoney(limit) },
+              { label: "Room", value: room },
+            ]}
+            columns={["Year", "Roth contributed", "Traditional contributed"]}
+            rows={Array.from({ length: Math.min(Math.max(1, Math.round(yearCount)), 30) }, (_, index) => {
+              const year = index + 1;
+              return [String(year), formatMoney(compare.rothContributed / Math.max(1, yearCount) * year), formatMoney(compare.traditionalContributed / Math.max(1, yearCount) * year)];
+            })}
+            assumptions={assumptionLines(["ira-under-50", "ira-catch-up", "roth-single-start", "roth-single-end", "roth-joint-start", "roth-joint-end", "market-expected", "inflation"])}
+            sensitivity={sensitivityOf((next) => rothVsTraditional({ annual: annualN, years: yearCount, rate: next, taxNow: taxNowN, taxLater: taxLaterN, inflation: inflationRate, today }).roth, market, 0).map((row) => ({ label: row.label, value: formatMoney(row.value) }))}
+          />
         </section>
       ) : null}
 
@@ -488,7 +572,7 @@ function NerdGrow({
 
   return (
     <div className="space-y-4">
-      <h2 className="font-display text-xl font-semibold">Nerd tools</h2>
+      <h2 className="font-display text-xl font-semibold">Advanced tools</h2>
       <p className="text-sm text-muted">These stay off in Simple. None of them rewrite the plan except the debt and net-worth lists, which you edit on purpose.</p>
       <SummaryCard
         label="Financial independence"
@@ -610,17 +694,74 @@ function NerdGrow({
   );
 }
 
+function WorkOptional({ book }: { book: { expenses: number; activeMonths: number; savingsRate: number } }) {
+  const nerd = useBudgetStore((s) => s.profile.detail === "nerd");
+  const facts = usePlannerFacts();
+  const yearly = facts.typicalSpendMonthly.value != null ? facts.typicalSpendMonthly.value * 12 : book.activeMonths > 0 ? (book.expenses / book.activeMonths) * 12 : 0;
+  const rate = facts.savingsRate != null ? Math.max(0, facts.savingsRate) : Math.max(0, book.savingsRate);
+  const withdrawal = facts.withdrawal.value ?? 0.04;
+  const real = Math.max(0, (facts.returns.expected || 0.05) - (facts.inflation.value ?? 0.02));
+  const yearsLeft = facts.age.value != null && facts.retireAge.value != null ? Math.max(0, facts.retireAge.value - facts.age.value) : null;
+  const fi = fiNumbers({ yearlySpend: yearly, withdrawal, savingsRate: rate, realReturn: real || 0.05, yearsLeft });
+  const source = facts.typicalSpendMonthly.value != null ? "From your spending." : "From this year's charges.";
+  return (
+    <section className="space-y-3">
+      <SummaryCard
+        label="Work optional in"
+        value={fi.years == null ? "—" : `${fi.years} years`}
+        sentence={
+          yearly > 0
+            ? `Work is optional around ${formatMoney(fi.fi ?? 0)}. That is a year of spending divided by the withdrawal rate. Savings rate ${Math.round(rate * 100)}%. ${source}`
+            : "Import spending for a few months before this is useful."
+        }
+      >
+        <ProgressRing
+          pct={fi.fi ? Math.min(100, ((facts.saved.value ?? 0) / fi.fi) * 100) : 0}
+          tone="primary"
+          label={fi.fi ? `${Math.round(Math.min(100, ((facts.saved.value ?? 0) / fi.fi) * 100))} percent of the number` : "Need spending first"}
+        />
+      </SummaryCard>
+      <AdvancedDepth
+        show={nerd}
+        metrics={[
+          { label: "FI number", value: fi.fi == null ? "—" : formatMoney(fi.fi) },
+          { label: "Years", value: fi.years == null ? "—" : String(fi.years) },
+          { label: "Coast number", value: fi.coast == null ? "—" : formatMoney(fi.coast) },
+          { label: "Yearly spending", value: formatMoney(yearly) },
+          { label: "Savings rate", value: `${Math.round(rate * 100)}%` },
+          { label: "Withdrawal", value: `${Math.round(withdrawal * 1000) / 10}%` },
+        ]}
+        columns={["Piece", "Amount"]}
+        rows={[
+          ["Yearly spending", formatMoney(yearly)],
+          ["FI number", fi.fi == null ? "—" : formatMoney(fi.fi)],
+          ["Coast", fi.coast == null ? "—" : formatMoney(fi.coast)],
+          ["Years to the retire age", yearsLeft == null ? "Age not entered" : String(yearsLeft)],
+        ]}
+        assumptions={[facts.typicalSpendMonthly.note, facts.withdrawal.note, facts.returns.note, ...assumptionLines(["withdrawal", "market-expected", "inflation"])]}
+        sensitivity={sensitivityOf((next) => fiNumbers({ yearlySpend: yearly, withdrawal, savingsRate: rate, realReturn: Math.max(0, next), yearsLeft }).years ?? 0, real || 0.05, 0).map((row) => ({
+          label: row.label,
+          value: row.label.startsWith("Monthly") ? "Uses your savings rate, not a deposit" : `${row.value} years`,
+        }))}
+      />
+    </section>
+  );
+}
+
 function EmergencyFund({ book, saved }: { book: { expenses: number; activeMonths: number }; saved: number }) {
+  const facts = usePlannerFacts();
+  const nerd = useBudgetStore((s) => s.profile.detail === "nerd");
   const [months, setMonths] = useState(3);
-  const monthly = book.activeMonths > 0 ? book.expenses / book.activeMonths : 0;
+  const monthly = facts.typicalSpendMonthly.value ?? (book.activeMonths > 0 ? book.expenses / book.activeMonths : 0);
   const target = monthly * months;
   const pct = target > 0 ? Math.min(100, (saved / target) * 100) : 0;
+  const covered = monthly > 0 ? saved / monthly : 0;
   return (
     <section className="space-y-3 rounded-lg border border-border bg-surface p-4">
       <h2 className="font-display text-xl font-semibold">How big should the cushion be?</h2>
       <p className="text-sm">
         {monthly > 0
-          ? `${formatMoney(saved)} is in savings accounts. ${months} months of spending is ${formatMoney(target)}. An estimate, not financial advice.`
+          ? `${formatMoney(saved)} is in savings. ${months} months of spending is ${formatMoney(target)}, about ${covered.toFixed(1)} months covered. ${facts.typicalSpendMonthly.value != null ? "From your spending." : "From this year's charges."}`
           : "Import a few months of spending. This uses that average. It is not a bank balance."}
       </p>
       <ProgressRing pct={pct} tone={pct >= 100 ? "good" : "primary"} label={target > 0 ? `${Math.round(pct)}% of ${months} months` : "No spending average yet"} />
@@ -642,7 +783,26 @@ function EmergencyFund({ book, saved }: { book: { expenses: number; activeMonths
           </div>
         ))}
       </div>
-      <p className="text-xs text-muted">{DISCLAIMER} Set this aside as a fund.</p>
+      <p className="text-xs text-muted">{DISCLAIMER} Set this aside as a fund. {facts.typicalFixed.value ? `Steady bills are about ${formatMoney(facts.typicalFixed.value)} a month.` : facts.typicalFixed.note}</p>
+      <AdvancedDepth
+        show={nerd}
+        metrics={[
+          { label: "Saved", value: formatMoney(saved) },
+          { label: "Typical month", value: formatMoney(monthly) },
+          { label: "Months covered", value: monthly > 0 ? covered.toFixed(1) : "—" },
+          { label: "Target", value: formatMoney(target) },
+          { label: "Still to save", value: formatMoney(Math.max(0, target - saved)) },
+          { label: "Steady bills", value: formatMoney(facts.typicalFixed.value ?? 0) },
+        ]}
+        columns={["Months", "Target", "Gap"]}
+        rows={[1, 3, 6].map((count) => [String(count), formatMoney(monthly * count), formatMoney(Math.max(0, monthly * count - saved))])}
+        assumptions={[facts.cashSavings.note, facts.typicalSpendMonthly.note, facts.typicalFixed.note]}
+        sensitivity={[
+          { label: "Spending $100 less", value: monthly > 100 ? `${(saved / (monthly - 100)).toFixed(1)} months` : "—" },
+          { label: "Spending as entered", value: monthly > 0 ? `${covered.toFixed(1)} months` : "—" },
+          { label: "Spending $100 more", value: monthly > 0 ? `${(saved / (monthly + 100)).toFixed(1)} months` : "—" },
+        ]}
+      />
     </section>
   );
 }
@@ -661,14 +821,26 @@ function DebtTool({
   const [apr, setApr] = useState("");
   const [minimum, setMinimum] = useState("");
   const [extra, setExtra] = useState("50");
+  const facts = usePlannerFacts();
+  const started = useRef(false);
+  useEffect(() => {
+    if (started.current || debts.length) return;
+    if (facts.creditOwed.value == null) return;
+    started.current = true;
+    setBalance(String(Math.round(facts.creditOwed.value)));
+  }, [debts.length, facts]);
   const extraN = Math.max(0, Number(extra) || 0);
   const snow = payoffPlan(debts, extraN, "snowball");
   const ava = payoffPlan(debts, extraN, "avalanche");
   return (
     <section className="space-y-3 rounded-lg border border-border bg-surface p-4">
       <h2 className="font-display text-xl font-semibold">Pay off a debt</h2>
-      <p className="text-sm text-muted">
-        Type each card or loan. Harbor compares two orders: smallest balance first (snowball) and highest interest first (avalanche). Extra money is on top of the minimums.
+      <p className="text-sm">
+        {debts.length
+          ? `Highest interest first finishes in ${ava.unfinished ? "more than 50 years" : `${ava.months} months`} and costs ${formatMoney(ava.interest)} in interest.`
+          : facts.creditOwed.value != null
+            ? `Cards total ${formatMoney(facts.creditOwed.value)}. From your accounts. Type the rate and the minimum, then add the debt.`
+            : "Type each card or loan. The payoff date and interest show once a debt is added."}
       </p>
       {debts.length ? (
         <>
@@ -730,6 +902,7 @@ function DebtTool({
       >
         Add this debt
       </Button>
+      <DebtWorkings debts={debts} extra={extraN} />
       <p className="text-xs text-muted">{DISCLAIMER}</p>
     </section>
   );
@@ -754,10 +927,11 @@ function WorthTool({
     <section className="space-y-3 rounded-lg border border-border bg-surface p-4">
       <h2 className="font-display text-xl font-semibold">Net worth</h2>
       <p className="text-sm text-muted">
-        Add what you own minus what you owe, as one number, whenever you feel like it. Cash, savings, and investments, minus debts. Harbor cannot see your bank.
+        Add what you own minus what you owe. When accounts have balances, those are the starting point. A single date is one snapshot, not a trend. Harbor cannot see your bank.
       </p>
       <div className="font-display text-3xl tabular">{latest ? formatMoney(latest.amount) : "—"}</div>
       <p className="text-xs text-muted">{latest ? `Last entered ${latest.date}.` : "Nothing entered yet."}</p>
+      <WorthFromAccounts />
       {netWorth.length > 1 ? (
         <div className="chart-rise h-40 w-full">
           <ResponsiveContainer width="100%" height="100%">
@@ -805,15 +979,33 @@ function WorthTool({
 }
 
 function GoalTool() {
-  const [target, setTarget] = useState("6000");
-  const [have, setHave] = useState("0");
+  const facts = usePlannerFacts();
+  const nerd = useBudgetStore((s) => s.profile.detail === "nerd");
+  const started = useRef(false);
+  const [target, setTarget] = useState("");
+  const [have, setHave] = useState("");
   const [months, setMonths] = useState("12");
-  const need = monthlyForGoal(Number(target) || 0, Number(have) || 0, Math.max(0, Number(months) || 0));
-  const pct = Number(target) > 0 ? ((Number(have) || 0) / Number(target)) * 100 : 0;
+  useEffect(() => {
+    if (started.current) return;
+    if (facts.cashSavings.value == null && facts.typicalSpendMonthly.value == null) return;
+    started.current = true;
+    if (facts.cashSavings.value != null) setHave(String(Math.round(facts.cashSavings.value)));
+    if (facts.typicalSpendMonthly.value != null) setTarget(String(Math.round(facts.typicalSpendMonthly.value * 3)));
+  }, [facts]);
+  const goal = Number(target) || 0;
+  const saved = Number(have) || 0;
+  const monthCount = Math.max(0, Number(months) || 0);
+  const need = monthlyForGoal(goal, saved, monthCount);
+  const pct = goal > 0 ? Math.min(100, (saved / goal) * 100) : 0;
+  const steps = Math.min(Math.max(0, Math.round(monthCount)), 36);
   return (
     <section className="space-y-3 rounded-lg border border-border bg-surface p-4">
       <h2 className="font-display text-xl font-semibold">Save for a goal</h2>
-      <p className="text-sm text-muted">Type the price, what you already have, and how many months you want to take. This does not change your plan.</p>
+      <p className="text-sm">
+        {goal > 0
+          ? `Set aside ${formatMoney(need)} each month for ${monthCount || 0} months. Already saved starts from a savings account when one exists.`
+          : "Type the price. Already saved starts from a savings account when one exists."}
+      </p>
       <div className="flex items-center gap-3">
         <FillJar pct={pct} />
         <div>
@@ -824,17 +1016,39 @@ function GoalTool() {
       <div className="grid gap-2 sm:grid-cols-3">
         <label className="text-xs text-muted">
           Goal
-          <Input className="mt-1" inputMode="decimal" value={target} onChange={(e) => setTarget(e.target.value)} />
+          <Input className="mt-1" inputMode="decimal" aria-label="Goal" value={target} onChange={(e) => setTarget(e.target.value)} />
+          <span className="mt-1 block">{facts.typicalSpendMonthly.value != null ? "From your spending, about three typical months. Edit it." : "Typed."}</span>
         </label>
         <label className="text-xs text-muted">
           Already saved
-          <Input className="mt-1" inputMode="decimal" value={have} onChange={(e) => setHave(e.target.value)} />
+          <Input className="mt-1" inputMode="decimal" aria-label="Already saved" value={have} onChange={(e) => setHave(e.target.value)} />
+          <span className="mt-1 block">{facts.cashSavings.source}. {facts.cashSavings.note}</span>
         </label>
         <label className="text-xs text-muted">
           Months
-          <Input className="mt-1" inputMode="decimal" value={months} onChange={(e) => setMonths(e.target.value)} />
+          <Input className="mt-1" inputMode="decimal" aria-label="Goal months" value={months} onChange={(e) => setMonths(e.target.value)} />
+          <span className="mt-1 block">Typed. This does not change the budget.</span>
         </label>
       </div>
+      <AdvancedDepth
+        show={nerd}
+        metrics={[
+          { label: "Each month", value: formatMoney(need) },
+          { label: "Goal", value: formatMoney(goal) },
+          { label: "Already saved", value: formatMoney(saved) },
+          { label: "Still to save", value: formatMoney(Math.max(0, goal - saved)) },
+          { label: "Months", value: String(monthCount) },
+          { label: "Percent saved", value: `${Math.round(pct)}%` },
+        ]}
+        columns={["Month", "Saved"]}
+        rows={Array.from({ length: steps }, (_, index) => [String(index + 1), formatMoney(Math.min(goal, saved + need * (index + 1)))])}
+        assumptions={[facts.cashSavings.note, facts.typicalSpendMonthly.note, "A goal is extra savings. It is not a budget category."]}
+        sensitivity={[
+          { label: "Already saved $100 less", value: formatMoney(monthlyForGoal(goal, Math.max(0, saved - 100), monthCount)) },
+          { label: "Already saved as entered", value: formatMoney(need) },
+          { label: "Already saved $100 more", value: formatMoney(monthlyForGoal(goal, saved + 100, monthCount)) },
+        ]}
+      />
       <p className="text-xs text-muted">{DISCLAIMER} Put this amount in a fund if you want Harbor to keep it.</p>
     </section>
   );
@@ -881,10 +1095,12 @@ function BothTool({
         <label className="text-xs text-muted">
           Starting amount
           <Input className="mt-1" inputMode="decimal" value={principal} onChange={(e) => setPrincipal(e.target.value)} />
+          <span className="mt-1 block">From a fund balance when one is left over, otherwise retirement and investment accounts.</span>
         </label>
         <label className="text-xs text-muted">
           Each month
           <Input className="mt-1" inputMode="decimal" value={monthly} onChange={(e) => setMonthly(e.target.value)} />
+          <span className="mt-1 block">From your income when a savings rate exists. Otherwise typed.</span>
         </label>
         <label className="text-xs text-muted">
           Years
@@ -919,10 +1135,19 @@ function BothTool({
 }
 
 function LoanTool() {
-  const [balance, setBalance] = useState("20000");
-  const [apr, setApr] = useState("6.5");
+  const facts = usePlannerFacts();
+  const nerd = useBudgetStore((s) => s.profile.detail === "nerd");
+  const started = useRef(false);
+  const [balance, setBalance] = useState("");
+  const [apr, setApr] = useState("");
   const [years, setYears] = useState("5");
-  const [extra, setExtra] = useState("50");
+  const [extra, setExtra] = useState("0");
+  useEffect(() => {
+    if (started.current) return;
+    if (facts.creditOwed.value == null) return;
+    started.current = true;
+    setBalance(String(Math.round(facts.creditOwed.value)));
+  }, [facts]);
   const result = loanCompare({
     balance: Number(balance) || 0,
     apr: Number(apr) || 0,
@@ -932,7 +1157,11 @@ function LoanTool() {
   return (
     <section className="space-y-3 rounded-lg border border-border bg-surface p-4">
       <h2 className="font-display text-xl font-semibold">A loan or mortgage</h2>
-      <p className="text-sm text-muted">Type what you owe, the interest rate, and how many years the loan is. Extra is on top of the regular payment.</p>
+      <p className="text-sm">
+        {result.unfinished
+          ? "This payment does not finish the loan in 50 years."
+          : `The regular payment is ${formatMoney(result.payment)}. Extra saves ${formatMoney(Math.max(0, result.interest - result.extraInterest))} and ${Math.max(0, result.months - result.extraMonths)} months.`}
+      </p>
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="rounded-md border border-border p-3">
           <div className="text-sm font-medium">Regular payment</div>
@@ -953,52 +1182,94 @@ function LoanTool() {
         <label className="text-xs text-muted">
           Balance
           <Input className="mt-1" aria-label="Loan balance" inputMode="decimal" value={balance} onChange={(e) => setBalance(e.target.value)} />
+          <span className="mt-1 block">{facts.creditOwed.source}. {facts.creditOwed.note}</span>
         </label>
         <label className="text-xs text-muted">
           Interest %
           <Input className="mt-1" aria-label="Loan interest" inputMode="decimal" value={apr} onChange={(e) => setApr(e.target.value)} />
+          <span className="mt-1 block">Typed. Not taken from a published rate.</span>
         </label>
         <label className="text-xs text-muted">
           Years
           <Input className="mt-1" aria-label="Loan years" inputMode="decimal" value={years} onChange={(e) => setYears(e.target.value)} />
+          <span className="mt-1 block">Typed.</span>
         </label>
         <label className="text-xs text-muted">
           Extra each month
           <Input className="mt-1" aria-label="Extra payment" inputMode="decimal" value={extra} onChange={(e) => setExtra(e.target.value)} />
+          <span className="mt-1 block">Typed. On top of the regular payment.</span>
         </label>
       </div>
-      <p className="text-xs text-muted">Balance, interest %, years, extra each month. {DISCLAIMER}</p>
+      <p className="text-xs text-muted">{DISCLAIMER}</p>
+      <LoanTable balance={Number(balance) || 0} apr={Number(apr) || 0} years={Number(years) || 1} extra={Number(extra) || 0} nerd={nerd} />
     </section>
   );
 }
 
 function InflationTool() {
-  const [amount, setAmount] = useState("10000");
+  const facts = usePlannerFacts();
+  const nerd = useBudgetStore((s) => s.profile.detail === "nerd");
+  const started = useRef(false);
+  const [amount, setAmount] = useState("");
   const [years, setYears] = useState("10");
-  const [rate, setRate] = useState("2.5");
+  const [rate, setRate] = useState("");
+  useEffect(() => {
+    if (started.current) return;
+    started.current = true;
+    if (facts.typicalSpendMonthly.value != null) setAmount(String(Math.round(facts.typicalSpendMonthly.value * 12)));
+    else if (facts.cashSavings.value != null) setAmount(String(Math.round(facts.cashSavings.value)));
+    setRate(String(Math.round((facts.inflation.value ?? 0.02) * 1000) / 10));
+  }, [facts]);
   const result = inflated(Number(amount) || 0, Number(years) || 0, Number(rate) || 0);
+  const yearCount = Math.max(0, Math.round(Number(years) || 0));
+  const pile = Number(amount) || 0;
+  const inflation = Number(rate) || 0;
   return (
     <section className="space-y-3 rounded-lg border border-border bg-surface p-4">
       <h2 className="font-display text-xl font-semibold">What money buys later</h2>
-      <p className="text-sm text-muted">Prices rise. The same pile of cash buys less. This is not a guess about the stock market.</p>
+      <p className="text-sm">
+        {formatMoney(pile)} of today’s spending buys about {formatMoney(result.buyingPower)} in {yearCount} years if prices rise {inflation} percent. {assumptionLines(["inflation"])[0]}
+      </p>
       <div className="grid gap-3 sm:grid-cols-2">
-        <SummaryCard label="Prices if they rise" value={formatMoney(result.later)} sentence={`What ${formatMoney(Number(amount) || 0)} of today’s goods might cost in ${years || 0} years.`} />
+        <SummaryCard label="Prices if they rise" value={formatMoney(result.later)} sentence={`What ${formatMoney(pile)} of today’s goods might cost in ${yearCount} years.`} />
         <SummaryCard label="Buying power" value={formatMoney(result.buyingPower)} sentence="What today’s pile would be worth in today’s prices, if it just sat there." />
       </div>
       <div className="grid gap-2 sm:grid-cols-3">
         <label className="text-xs text-muted">
           Amount today
-          <Input className="mt-1" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
+          <Input className="mt-1" aria-label="Amount today" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
+          <span className="mt-1 block">{facts.typicalSpendMonthly.value != null ? "From your spending, a typical year." : facts.cashSavings.source}</span>
         </label>
         <label className="text-xs text-muted">
           Years
-          <Input className="mt-1" inputMode="decimal" value={years} onChange={(e) => setYears(e.target.value)} />
+          <Input className="mt-1" aria-label="Inflation years" inputMode="decimal" value={years} onChange={(e) => setYears(e.target.value)} />
+          <span className="mt-1 block">Typed.</span>
         </label>
         <label className="text-xs text-muted">
           Inflation %
-          <Input className="mt-1" inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)} />
+          <Input className="mt-1" aria-label="Inflation percent" inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)} />
+          <span className="mt-1 block">{facts.inflation.note}</span>
         </label>
       </div>
+      <AdvancedDepth
+        show={nerd}
+        metrics={[
+          { label: "Amount today", value: formatMoney(pile) },
+          { label: "Years", value: String(yearCount) },
+          { label: "Inflation", value: `${inflation}%` },
+          { label: "Later price", value: formatMoney(result.later) },
+          { label: "Buying power", value: formatMoney(result.buyingPower) },
+          { label: "Lost to prices", value: formatMoney(Math.max(0, pile - result.buyingPower)) },
+        ]}
+        columns={["Year", "Buying power"]}
+        rows={Array.from({ length: Math.min(yearCount, 30) }, (_, index) => [String(index + 1), formatMoney(inflated(pile, index + 1, inflation).buyingPower)])}
+        assumptions={assumptionLines(["inflation"])}
+        sensitivity={[
+          { label: "Inflation 2 points lower", value: formatMoney(inflated(pile, yearCount, Math.max(0, inflation - 2)).buyingPower) },
+          { label: "Inflation as entered", value: formatMoney(result.buyingPower) },
+          { label: "Inflation 2 points higher", value: formatMoney(inflated(pile, yearCount, inflation + 2).buyingPower) },
+        ]}
+      />
       <p className="text-xs text-muted">{DISCLAIMER}</p>
     </section>
   );
@@ -1013,67 +1284,249 @@ function spanLabel(months: number) {
 }
 
 function DoubleTool() {
-  const [rate, setRate] = useState("7");
-  const [amount, setAmount] = useState("10000");
+  const facts = usePlannerFacts();
+  const nerd = useBudgetStore((s) => s.profile.detail === "nerd");
+  const started = useRef(false);
+  const [rate, setRate] = useState("");
+  const [amount, setAmount] = useState("");
+  useEffect(() => {
+    if (started.current) return;
+    started.current = true;
+    const pile = facts.saved.value ?? facts.cashSavings.value;
+    if (pile != null) setAmount(String(Math.round(pile)));
+    setRate(String(Math.round(facts.returns.expected * 1000) / 10));
+  }, [facts]);
   const years = yearsToDouble(Number(rate) || 0);
-  const doubled = years == null ? 0 : (Number(amount) || 0) * 2;
+  const pile = Number(amount) || 0;
+  const doubled = years == null ? 0 : pile * 2;
+  const lower = yearsToDouble((Number(rate) || 0) - 2);
+  const higher = yearsToDouble((Number(rate) || 0) + 2);
   return (
     <section className="space-y-3 rounded-lg border border-border bg-surface p-4">
       <h2 className="font-display text-xl font-semibold">How long to double</h2>
-      <p className="text-sm text-muted">Type a yearly rate. This is compound growth, not a promise. A savings account and the stock market are not the same rate.</p>
-      <div className="font-display text-3xl tabular">{years == null ? "—" : `About ${years} years`}</div>
-      <p className="text-sm text-muted">{years == null ? "The rate has to be above zero." : `${formatMoney(Number(amount) || 0)} becomes about ${formatMoney(doubled)}.`}</p>
+      <p className="text-sm">
+        {years == null ? "The rate has to be above zero." : `${formatMoney(pile)} becomes about ${formatMoney(doubled)} in about ${years} years. An estimate, not a promise.`}
+      </p>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <SummaryCard label="Now" value={formatMoney(pile)} sentence={facts.saved.value != null ? "From your accounts." : facts.cashSavings.source} />
+        <SummaryCard label="Doubled" value={formatMoney(doubled)} sentence={years == null ? "Need a rate above zero." : `About ${years} years.`} />
+      </div>
       <div className="grid gap-2 sm:grid-cols-2">
         <label className="text-xs text-muted">
           Amount
-          <Input className="mt-1" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
+          <Input className="mt-1" aria-label="Amount to double" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
+          <span className="mt-1 block">{facts.saved.value != null ? `${facts.saved.source}. ${facts.saved.note}` : `${facts.cashSavings.source}. ${facts.cashSavings.note}`}</span>
         </label>
         <label className="text-xs text-muted">
           Yearly rate %
-          <Input className="mt-1" inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)} />
+          <Input className="mt-1" aria-label="Double rate" inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)} />
+          <span className="mt-1 block">{facts.returns.note}</span>
         </label>
       </div>
+      <AdvancedDepth
+        show={nerd}
+        metrics={[
+          { label: "Years", value: years == null ? "—" : String(years) },
+          { label: "Amount", value: formatMoney(pile) },
+          { label: "Doubled", value: formatMoney(doubled) },
+          { label: "Rate", value: `${rate || 0}%` },
+          { label: "Rule of 72", value: Number(rate) > 0 ? `${Math.round(72 / Number(rate))} years` : "—" },
+          { label: "Source", value: facts.saved.value != null ? "Accounts" : "Typed or savings" },
+        ]}
+        columns={["Rate", "Years"]}
+        rows={[
+          ["2 points lower", lower == null ? "—" : String(lower)],
+          ["As entered", years == null ? "—" : String(years)],
+          ["2 points higher", higher == null ? "—" : String(higher)],
+        ]}
+        assumptions={[facts.returns.note, ...assumptionLines(["market-expected"])]}
+        sensitivity={[
+          { label: "Return 2 points lower", value: lower == null ? "—" : `${lower} years` },
+          { label: "Return as entered", value: years == null ? "—" : `${years} years` },
+          { label: "Return 2 points higher", value: higher == null ? "—" : `${higher} years` },
+        ]}
+      />
       <p className="text-xs text-muted">{DISCLAIMER}</p>
     </section>
   );
 }
 
 function ReachTool({ principal, setPrincipal }: { principal: string; setPrincipal: (v: string) => void }) {
-  const [monthly, setMonthly] = useState("200");
-  const [rate, setRate] = useState("7");
-  const [target, setTarget] = useState("100000");
+  const facts = usePlannerFacts();
+  const nerd = useBudgetStore((s) => s.profile.detail === "nerd");
+  const started = useRef(false);
+  const [monthly, setMonthly] = useState("");
+  const [rate, setRate] = useState("");
+  const [target, setTarget] = useState("");
+  useEffect(() => {
+    if (started.current) return;
+    started.current = true;
+    if (facts.monthlySaving.value != null) setMonthly(String(Math.round(facts.monthlySaving.value)));
+    setRate(String(Math.round(facts.returns.expected * 1000) / 10));
+    if (facts.incomeWantedYearly.value != null) setTarget(String(Math.round(facts.incomeWantedYearly.value)));
+    else if (facts.typicalSpendMonthly.value != null) setTarget(String(Math.round(facts.typicalSpendMonthly.value * 12)));
+  }, [facts]);
   const months = monthsToTarget({
     principal: Number(principal) || 0,
     monthly: Number(monthly) || 0,
     apr: Number(rate) || 0,
     target: Number(target) || 0,
   });
+  const rateN = (Number(rate) || 0) / 100;
+  const add = Number(monthly) || 0;
+  const goal = Number(target) || 0;
+  const start = Number(principal) || 0;
   return (
     <section className="space-y-3 rounded-lg border border-border bg-surface p-4">
       <h2 className="font-display text-xl font-semibold">How long to reach a number</h2>
-      <p className="text-sm text-muted">Start with what you have, add something each month, and type the number you want. This does not change your plan.</p>
+      <p className="text-sm">
+        {months == null ? "Not within 50 years at these numbers." : months === 0 ? "You are already there." : `${spanLabel(months)} to reach ${formatMoney(goal)}.`}
+      </p>
       <div className="font-display text-3xl tabular">{months == null ? "Not within 50 years" : months === 0 ? "You are already there" : spanLabel(months)}</div>
       <div className="grid gap-2 sm:grid-cols-2">
         <label className="text-xs text-muted">
           Already saved
-          <Input className="mt-1" inputMode="decimal" value={principal} onChange={(e) => setPrincipal(e.target.value)} />
+          <Input className="mt-1" aria-label="Already saved for the target" inputMode="decimal" value={principal} onChange={(e) => setPrincipal(e.target.value)} />
+          <span className="mt-1 block">From a fund left over, or retirement and investment accounts.</span>
         </label>
         <label className="text-xs text-muted">
           Add each month
-          <Input className="mt-1" inputMode="decimal" value={monthly} onChange={(e) => setMonthly(e.target.value)} />
+          <Input className="mt-1" aria-label="Monthly add toward the target" inputMode="decimal" value={monthly} onChange={(e) => setMonthly(e.target.value)} />
+          <span className="mt-1 block">{facts.monthlySaving.source}. {facts.monthlySaving.note}</span>
         </label>
         <label className="text-xs text-muted">
           Yearly rate %
-          <Input className="mt-1" inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)} />
+          <Input className="mt-1" aria-label="Reach rate" inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)} />
+          <span className="mt-1 block">{facts.returns.note}</span>
         </label>
         <label className="text-xs text-muted">
           Target
-          <Input className="mt-1" inputMode="decimal" value={target} onChange={(e) => setTarget(e.target.value)} />
+          <Input className="mt-1" aria-label="Target amount" inputMode="decimal" value={target} onChange={(e) => setTarget(e.target.value)} />
+          <span className="mt-1 block">{facts.incomeWantedYearly.value != null ? `${facts.incomeWantedYearly.source}. A year of the income you want.` : "Typed."}</span>
         </label>
       </div>
+      <AdvancedDepth
+        show={nerd}
+        metrics={[
+          { label: "Months", value: months == null ? "—" : String(months) },
+          { label: "Already saved", value: formatMoney(start) },
+          { label: "Each month", value: formatMoney(add) },
+          { label: "Rate", value: `${rate || 0}%` },
+          { label: "Target", value: formatMoney(goal) },
+          { label: "Still to go", value: formatMoney(Math.max(0, goal - start)) },
+        ]}
+        columns={["Change", "Months"]}
+        rows={sensitivityOf(
+          (next, monthlyAdd) => monthsToTarget({ principal: start, monthly: monthlyAdd, apr: next * 100, target: goal }) ?? 0,
+          rateN,
+          add,
+        ).map((row) => [row.label, String(row.value)])}
+        assumptions={[facts.monthlySaving.note, facts.returns.note, ...assumptionLines(["market-expected"])]}
+        sensitivity={sensitivityOf(
+          (next, monthlyAdd) => monthsToTarget({ principal: start, monthly: monthlyAdd, apr: next * 100, target: goal }) ?? 0,
+          rateN,
+          add,
+        ).map((row) => ({ label: row.label, value: `${row.value} months` }))}
+      />
       <p className="text-xs text-muted">{DISCLAIMER}</p>
     </section>
   );
 }
+
+function WorthFromAccounts() {
+  const accounts = useBudgetStore((s) => s.accounts ?? []);
+  const balances = useBudgetStore((s) => s.balances ?? []);
+  const nerd = useBudgetStore((s) => s.profile.detail === "nerd");
+  const series = netWorthSeries(accounts, balances);
+  const latest = series.at(-1);
+  if (!latest) return <p className="text-sm text-muted">No account balances yet. A typed snapshot is the only number until you add one.</p>;
+  const kinds = Object.entries(latest.byKind);
+  return (
+    <div className="space-y-2">
+      <p className="text-sm">Accounts total {formatMoney(latest.total)} as of {latest.date}. From your accounts. {series.length === 1 ? "One snapshot, so this is not a trend." : `${series.length} dates.`}</p>
+      <ul className="text-sm">
+        {kinds.map(([kind, amount]) => (
+          <li key={kind}>{kind}: {formatMoney(amount ?? 0)}</li>
+        ))}
+      </ul>
+      <AdvancedDepth
+        show={nerd}
+        metrics={[
+          { label: "Total", value: formatMoney(latest.total) },
+          { label: "Dates", value: String(series.length) },
+          { label: "Accounts", value: String(accounts.length) },
+          { label: "Checking", value: formatMoney(latest.byKind.checking ?? 0) },
+          { label: "Savings", value: formatMoney(latest.byKind.savings ?? 0) },
+          { label: "Retirement", value: formatMoney((latest.byKind.retirement ?? 0) + (latest.byKind.investment ?? 0)) },
+        ]}
+        columns={["Date", "Total"]}
+        rows={series.map((point) => [point.date, formatMoney(point.total)])}
+        assumptions={["Each account keeps its latest balance on or before that date. A card you owe lowers the total."]}
+      />
+    </div>
+  );
+}
+
+function DebtWorkings({ debts, extra }: { debts: { id: string; balance: number; apr: number; minimum: number; name: string }[]; extra: number }) {
+  const nerd = useBudgetStore((s) => s.profile.detail === "nerd");
+  if (!debts.length) return null;
+  const line = debtTimeline(debts, extra);
+  const plan = payoffPlan(debts, extra, "avalanche");
+  const minimums = payoffPlan(debts, 0, "avalanche");
+  return (
+    <AdvancedDepth
+      show={nerd}
+      metrics={[
+        { label: "Payoff", value: plan.unfinished ? "50+ years" : `${plan.months} months` },
+        { label: "Interest", value: formatMoney(plan.interest) },
+        { label: "Minimums only", value: minimums.unfinished ? "50+ years" : `${minimums.months} months` },
+        { label: "Interest on minimums", value: formatMoney(minimums.interest) },
+        { label: "Extra", value: formatMoney(extra) },
+        { label: "Debts", value: String(debts.length) },
+      ]}
+      columns={["Month", "Minimums left", "With extra"]}
+      rows={line.withExtra.filter((row, index) => index % 6 === 0 || index === line.withExtra.length - 1).map((row) => {
+        const min = line.minimums.find((item) => item.month === row.month);
+        return [String(row.month), formatMoney(min?.remaining ?? 0), formatMoney(row.remaining)];
+      })}
+      assumptions={["Highest interest is paid first. The month count is from now, not a date from the bank."]}
+      sensitivity={[
+        { label: "Extra $100 less", value: `${payoffPlan(debts, Math.max(0, extra - 100), "avalanche").months} months` },
+        { label: "Extra as entered", value: `${plan.months} months` },
+        { label: "Extra $100 more", value: `${payoffPlan(debts, extra + 100, "avalanche").months} months` },
+      ]}
+    />
+  );
+}
+
+function LoanTable({ balance, apr, years, extra, nerd }: { balance: number; apr: number; years: number; extra: number; nerd: boolean }) {
+  const rows = amortizationSchedule({ balance, aprPercent: apr, years, extra });
+  const interest = rows.reduce((sum, row) => sum + row.interest, 0);
+  const principalPaid = rows.reduce((sum, row) => sum + row.principal, 0);
+  return (
+    <AdvancedDepth
+      show={nerd}
+      metrics={[
+        { label: "Months in the table", value: String(rows.length) },
+        { label: "Interest", value: formatMoney(interest) },
+        { label: "Principal", value: formatMoney(principalPaid) },
+        { label: "Balance", value: formatMoney(balance) },
+        { label: "Rate", value: `${apr}%` },
+        { label: "Extra", value: formatMoney(extra) },
+      ]}
+      columns={["Month", "Interest", "Principal", "Left"]}
+      rows={rows.filter((row) => row.month % 6 === 0 || row.month === rows.length).slice(0, 40).map((row) => [String(row.month), formatMoney(row.interest), formatMoney(row.principal), formatMoney(row.balance)])}
+      assumptions={["The regular payment matches the loan calculator. Extra is added on top. Interest versus principal is the split of each payment."]}
+      sensitivity={[
+        { label: "Rate 2 points lower", value: formatMoney(loanCompare({ balance, apr: apr - 2, years, extra }).interest) },
+        { label: "Rate as entered", value: formatMoney(loanCompare({ balance, apr, years, extra: 0 }).interest) },
+        { label: "Rate 2 points higher", value: formatMoney(loanCompare({ balance, apr: apr + 2, years, extra }).interest) },
+        { label: "Extra $100 less", value: `${loanCompare({ balance, apr, years, extra: Math.max(0, extra - 100) }).extraMonths} months` },
+        { label: "Extra $100 more", value: `${loanCompare({ balance, apr, years, extra: extra + 100 }).extraMonths} months` },
+      ]}
+    />
+  );
+}
+
 
 

@@ -13,6 +13,7 @@ import { emailStatus, sendConfirmationEmail, sendOwnResetLink } from "@/lib/budg
 import { deleteAccount, issueRecoveryCode } from "@/lib/budget/persist";
 import { HOUSEHOLD_LABELS, HOUSING_LABELS, STAGE_LABELS } from "@/lib/budget/presets";
 import { formatMoney } from "@/lib/budget/money";
+import { DEFAULT_INFLATION, DEFAULT_RETIRE_AGE, DEFAULT_WITHDRAWAL, PLANNING_MARKET } from "@/lib/budget/reference";
 import { monthLabel } from "@/lib/budget/parse-date";
 import { TERMS } from "@/lib/copy/terms";
 import type { AccountKind, DetailMode, HarborLook, HarborMotion } from "@/lib/budget/types";
@@ -45,6 +46,7 @@ export function SettingsView() {
           Import, categories, how much detail to show, and the file for Excel or Google Sheets.
         </p>
         <YourAccounts />
+        <YourNumbers />
         <LeftoverStyle />
         <section className="mt-4 space-y-2 rounded-lg border border-border bg-surface p-4">
           <h2 className="font-display text-lg font-semibold">Do this next</h2>
@@ -119,15 +121,15 @@ export function SettingsView() {
       <section id="mode" className="space-y-3 rounded-lg border border-border bg-surface p-4">
         <h2 className="font-display text-xl font-semibold">Show advanced tools</h2>
         <p className="text-sm text-muted">
-          Off keeps the short notes. On adds extra charts. Payback, splits, merchants, and the year page stay available either way.
+          Simple keeps the short notes. Advanced adds the workings. Payback, splits, merchants, and the year page stay available either way.
         </p>
         <Field label="Advanced tools">
           <Select
             value={profile.detail === "nerd" ? "nerd" : "simple"}
             onChange={(e) => patchProfile({ detail: e.target.value as DetailMode, detailChosen: true })}
           >
-            <option value="simple">Off</option>
-            <option value="nerd">On</option>
+            <option value="simple">Simple</option>
+            <option value="nerd">Advanced</option>
           </Select>
         </Field>
         <div className="flex flex-wrap gap-3 text-sm">
@@ -172,6 +174,92 @@ export function SettingsView() {
           Edit the monthly budget
         </Link>
       </section>
+    </div>
+  );
+}
+
+function YourNumbers() {
+  const profile = useBudgetStore((s) => s.profile);
+  const patchProfile = useBudgetStore((s) => s.patchProfile);
+  const year = new Date().getFullYear();
+  const age = profile.birthYear != null ? year - profile.birthYear : null;
+  const [ageText, setAgeText] = useState(age == null ? "" : String(age));
+  useEffect(() => {
+    setAgeText(age == null ? "" : String(age));
+  }, [age]);
+  const retire = profile.retireAge ?? DEFAULT_RETIRE_AGE;
+  const inflation = Math.round((profile.plannerInflation ?? DEFAULT_INFLATION) * 1000) / 10;
+  const withdrawal = Math.round((profile.withdrawalRate ?? DEFAULT_WITHDRAWAL) * 1000) / 10;
+  const band = profile.returnBand ?? PLANNING_MARKET;
+  return (
+    <section className="mt-4 space-y-3 rounded-lg border border-border bg-surface p-4">
+      <h2 className="font-display text-xl font-semibold">Your numbers</h2>
+      <p className="text-sm text-muted">Retirement starts from these. Reset puts a number back to its default. A blank age is left unset.</p>
+      <Field label={`Age (default: not set). Birth year ${profile.birthYear ?? "not saved"}.`}>
+        <Input
+          inputMode="numeric"
+          aria-label="Age"
+          value={ageText}
+          onChange={(e) => {
+            setAgeText(e.target.value);
+            const raw = e.target.value.trim();
+            if (raw === "") {
+              patchProfile({ birthYear: undefined });
+              return;
+            }
+            const nextAge = Math.round(Number(raw));
+            if (Number.isFinite(nextAge) && nextAge >= 0 && nextAge <= 120) patchProfile({ birthYear: year - nextAge });
+          }}
+        />
+      </Field>
+      <NumberRow
+        label="Retire-at age"
+        fallback={DEFAULT_RETIRE_AGE}
+        value={retire}
+        onChange={(value) => patchProfile({ retireAge: value })}
+        onReset={() => patchProfile({ retireAge: DEFAULT_RETIRE_AGE })}
+      />
+      <NumberRow
+        label="Inflation %"
+        fallback={DEFAULT_INFLATION * 100}
+        value={inflation}
+        onChange={(value) => patchProfile({ plannerInflation: value / 100 })}
+        onReset={() => patchProfile({ plannerInflation: DEFAULT_INFLATION })}
+      />
+      <NumberRow
+        label="Withdrawal %"
+        fallback={DEFAULT_WITHDRAWAL * 100}
+        value={withdrawal}
+        onChange={(value) => patchProfile({ withdrawalRate: value / 100 })}
+        onReset={() => patchProfile({ withdrawalRate: DEFAULT_WITHDRAWAL })}
+      />
+      <p className="text-sm">Return range {Math.round(band.conservative * 1000) / 10}% to {Math.round(band.optimistic * 1000) / 10}%, middle {Math.round(band.expected * 1000) / 10}%. The planning range needs checking.</p>
+      <Button variant="outline" onClick={() => patchProfile({ returnBand: { ...PLANNING_MARKET } })}>
+        Reset return range
+      </Button>
+    </section>
+  );
+}
+
+function NumberRow({
+  label,
+  value,
+  fallback,
+  onChange,
+  onReset,
+}: {
+  label: string;
+  value: number;
+  fallback: number;
+  onChange: (value: number) => void;
+  onReset: () => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-end gap-2">
+      <Field label={`${label} (default ${fallback})`}>
+        <Input inputMode="decimal" aria-label={label} value={String(value)} onChange={(e) => onChange(Number(e.target.value) || 0)} />
+      </Field>
+      <Button variant="outline" onClick={onReset}>Reset</Button>
     </div>
   );
 }

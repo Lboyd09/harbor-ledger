@@ -56,6 +56,16 @@ export type Profile = {
   carryStartMonth?: string | null;
   /** Bank category labels the person already confirmed, normalized label to category id. Missing on older ledgers. */
   bankLabelMap?: Record<string, string> | null;
+  /** Calendar year of birth. Missing on older ledgers. Age is the year you pass in, minus this. */
+  birthYear?: number;
+  /** Age to stop working. Missing means the full Social Security age default. */
+  retireAge?: number;
+  /** Inflation as a decimal, such as 0.02. Missing means the reference default. */
+  plannerInflation?: number;
+  /** Withdrawal rate as a decimal. Missing means 0.04. */
+  withdrawalRate?: number;
+  /** Yearly return band as decimals. Missing means the planning range. */
+  returnBand?: { conservative: number; expected: number; optimistic: number };
 };
 
 export type Category = {
