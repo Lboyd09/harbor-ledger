@@ -1,45 +1,52 @@
-# Prompt 4 of 5: The Month page, and categories that change by default or for one month
+# Prompt 5 reply
 
 ## Commit
 
-[fcc0db3](https://github.com/Lboyd09/harbor-ledger/commit/fcc0db3fe648c667220cc76fe315eda0a15e8fdc) on `main`.
-
-The Month page is its own page at /month. A name has one default category for money in and one for money out. On the Month page a change can be this charge, this month, or the default, and it says what it will do before it applies. Undo puts it back. A category amount can change for one month and go back to the usual amount. Sorting is where the default is changed, and charges set by hand stay as they are. Typecheck passed. Lint has 0 errors and 4 warnings (the 3 unused-code warnings in the old month board are gone). The new sorting tests and the existing budget tests passed. `npm test` still stops on the same pre-existing sandbox script failures, so that script never reaches the app tests.
-
-Walked it in both styles. On the Month page, one Amazon charge was changed for that charge only, then for March only, then as the default, and each one was undone. The sentence showed first, including how many charges set by hand would stay. A Groceries amount was saved for March and put back. On Sorting, a default change said how many hand-set charges would stay, then Back to default cleared the one set by hand. Carry-over on that month showed what came in, what the month adds, what was spent, and what is left. Home still starts with Safe to spend, Funds, and Look back.
+a79ff24dd1e5e71c70854cedc59b503e85bad683
 
 ## Signatures
 
-- `sideOf(t: Pick<Transaction, "amount" | "status">): "in" | "out"`
-- `previewChange(input: { transactions: Transaction[]; merchantKey: string; side: "in" | "out"; ym?: string; categoryId: string | null; scope: "charge" | "month" | "default"; id?: string; includePinned?: boolean; merchantRules?: MerchantRule[] }): { changes: number; keptByHand: number; skippedDivided: number }`
-- `applyChange(input: ChangeInput): { transactions: Transaction[]; merchantRules: MerchantRule[]; before: RowBefore[]; rulesBefore: MerchantRule[] | null; preview: ChangePreview }`
-- `restoreChanges(transactions: Transaction[], before: RowBefore[]): Transaction[]`
-- `resetToDefault(t: Transaction, rules: MerchantRule[]): Transaction`
-- `ruleFor(rules: MerchantRule[], merchantKey: string, side: "in" | "out"): MerchantRule | undefined`
-- `captureRow(t: Transaction): RowBefore`
-- Store: `setCategoryScoped(id: string, categoryId: string | null, scope: "charge" | "month" | "default"): CategoryUndo | null`
-- Store: `setMerchantDefault(merchantKey: string, side: "in" | "out", categoryId: string | null, options?: { includePinned?: boolean }): CategoryUndo`
-- Store: `resetChargeToDefault(id: string): CategoryUndo | null`
-- Store: `restoreCategories(undo: CategoryUndo): void`
-
-`CategoryUndo` is `{ rows: RowBefore[]; rules: MerchantRule[] | null }`. `RowBefore` keeps the category, whether the person set it, the pin, the split, and the import note.
+- topSlices(parts: SlicePart[], n: number): SlicePart[]
+- monthSeries(endYm: string, rows?: { ym: string; a?: number; b?: number }[]): MonthPoint[]
+- yearOverview(transactions: Transaction[], categories: Category[], year: string): YearOverview
+- spanOverview(transactions: Transaction[], categories: Category[], year: string, throughMonth: number): YearOverview
+- spendingSlices(transactions: Transaction[], categories: Category[], year: string): SpendingSlice[]
+- accountRows(accounts: Account[], balances: BalancePoint[], today: string): AccountRows
+- monthGlance(input: { style: BudgetStyle; ym: string; transactions: Transaction[]; categories: Category[]; budgets?: MonthBudget[]; carryStartMonth?: string | null; safeToSpend: number }): MonthGlance
+- needsALook(input: { transactions: Transaction[]; categories: Category[]; profile: Profile; ym: string; budgets?: MonthBudget[] }): NeedsALook
+- staleLabel(ageDays: number): string
+- ProgressRing({ pct: number; label: string; tone?: "primary" | "good" | "warn" | "danger" })
+- MiniBars({ months: MiniMonth[]; aLabel: string; bLabel: string; onSelect?: (index: number) => void })
+- StackedBar({ parts: StackPart[] })
+- Donut({ parts: SlicePart[]; centerLabel: string; onPick?: (part: SlicePart) => void })
+- CountUp({ value: number; format: (n: number) => string })
+- Delta({ amount: number; goodWhen: "up" | "down"; format: (n: number) => string })
+- ShowNumbers({ caption: string; columns: string[]; rows: string[][] })
+- EmptyArt({ kind: "home" | "budget" | "funds" | "grow" | "sorting" })
+- HomeSwitch()
+- HomeDashboard()
+- YourMoney({ accounts: Account[]; balances: BalancePoint[]; netWorth: NetWorthPoint[] })
+- PlaceMap()
+- GrowthArea({ principal: number; years: number; inflation: number; today: boolean; gainTax: number; lively: boolean })
+- RothBars({ roth: number; traditional: number; taxNow: string; taxLater: string })
+- PayoffRace({ snowMonths: number; avaMonths: number; snowInterest: number; avaInterest: number })
+- FillJar gained an optional celebrate flag. Existing pct, negative, and overflow are unchanged.
 
 ## Conflicts and later prompts
 
-Conflicts with the code:
+- yearCash lives in totals.ts, not year.ts. yearOverview calls that function and matches it. The Home headline uses spanOverview: January through the month you are on, compared with those same months last year. A full calendar year still matches yearCash when throughMonth is 12.
+- The Year page cannot open on one category from an address, so tapping a spending slice shows the amount on Home instead of jumping there.
+- Import does not read a chosen account from the address. Add a file opens Import, and the person picks the account. The wizard still remembers the last one.
+- Decision 23 said Home would not change yet. This prompt replaces that. Home is the dashboard. The month is /month, still under the Home tab. There is no sixth tab.
+- Meadow and Midnight were added. Harbor, Tide, Brass, and Dusk stay. Dusk is still a dark look, as this prompt asked for midnight in addition, not instead.
+- Put it to work and the monthly picture hide their inputs under Change the numbers. Loan, inflation, double, how long to reach a number, lump plus monthly, and save for a goal still show the older forms. Nerd tools stay hidden until asked for.
+- Prompts 3 and 4 were already on main (import-review, auto-sort, month page, sorting). Their math and the Month page internals were left alone, aside from the Home | Month switch at the top of the month.
 
-- A single charge needs an id. `previewChange` and `applyChange` take an optional `id`. The prompt's list did not include it.
-- `setTransactionCategory` and `setMerchantCategory` still do what they did for the import review and the coach. They do not set the pin. "Do this for every" still overwrites hand-set rows and clears a split. The Month page and Sorting use the new actions, which leave pinned rows alone.
-- A month change skips a divided charge and counts it. A default change updates the overall category and leaves the pieces, so that month still follows the pieces.
-- Undo of a default also puts the merchant rule back. `restoreChanges` only restores rows. The store keeps the old rule list on the undo and writes it back.
-- Carry-over numbers show from the month carry-over started. Earlier months still show spent of the usual amount.
-- A category tied to a fund still cannot take a one-month amount. `setMonthPlan` already refuses, and the card says it is a fund.
-- The coach still walks every uncategorized charge, not only the month named on the card. The coach was left alone.
-- Home still shows the Month page under Safe to spend, because Home is the safe-to-spend block plus the Month page. The year strip, the three summary cards, and the search box are not on the new Month page. The top of Home is unchanged.
-- One hand-set charge reads "stays" rather than "stay".
+## Still not done or not working as well as it could
 
-Left for later prompts:
-
-- Home as a year dashboard, navigation, Grow visuals, and polish (prompt 5). The Settings link still says Merchants.
-- The import review's "every one of these" path still uses the old overwrite.
-- The coach is still the old one-at-a-time flow.
+- Grow is picture-first for where money can go, the lump-sum paths, the monthly line, Roth versus traditional, the IRA limit, the emergency cushion, and the two payoff orders. The rest of the calculators are still forms.
+- A slice on Home does not open that category on the Year page.
+- Add a file from an account row does not preselect that account.
+- Chart colors were chosen to stay readable on all six looks, but there was no automated contrast pass on every slice.
+- The sparkle when a goal is reached or a carry-over category finishes under its amount plays once and is easy to miss. Start-fresh rows do not sparkle.
+- Onboarding, import sorting, account editing, and the inside of the Month page are whatever the earlier prompts shipped. This pass did not reopen them.
