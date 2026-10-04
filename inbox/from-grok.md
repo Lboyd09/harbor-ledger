@@ -1,55 +1,45 @@
-# Prompt 3 of 5: Import into accounts, and sort charges automatically
+# Prompt 4 of 5: The Month page, and categories that change by default or for one month
 
 ## Commit
 
-[dc11eff](https://github.com/Lboyd09/harbor-ledger/commit/dc11effb32727e5268337bf315302ceba29f0f48) on `main`.
+[fcc0db3](https://github.com/Lboyd09/harbor-ledger/commit/fcc0db3fe648c667220cc76fe315eda0a15e8fdc) on `main`.
 
-Each bank file belongs to one account. Sure charges get a category on their own. Everything else waits on the import screen with a suggestion ready to accept. The Account screen lists the accounts and can switch leftover style later. Typecheck passed. Lint has 0 errors and the same 7 warnings as before. The new sorting tests and the existing budget tests passed (54 when run directly). `npm test` still stops on the same pre-existing sandbox script failures, so that script never reaches the app tests.
+The Month page is its own page at /month. A name has one default category for money in and one for money out. On the Month page a change can be this charge, this month, or the default, and it says what it will do before it applies. Undo puts it back. A category amount can change for one month and go back to the usual amount. Sorting is where the default is changed, and charges set by hand stay as they are. Typecheck passed. Lint has 0 errors and 4 warnings (the 3 unused-code warnings in the old month board are gone). The new sorting tests and the existing budget tests passed. `npm test` still stops on the same pre-existing sandbox script failures, so that script never reaches the app tests.
 
-Walked it as a first-time user: finished setup, imported a small file into a new checking account, saw “We sorted 3 of 7 charges for you,” accepted three suggestions, and found Everyday checking at $2,866.50 on Account. Switching to “Carry over what's left” kept the account, the balance, and all seven charges. September still shows Kroger.
+Walked it in both styles. On the Month page, one Amazon charge was changed for that charge only, then for March only, then as the default, and each one was undone. The sentence showed first, including how many charges set by hand would stay. A Groceries amount was saved for March and put back. On Sorting, a default change said how many hand-set charges would stay, then Back to default cleared the one set by hand. Carry-over on that month showed what came in, what the month adds, what was spent, and what is left. Home still starts with Safe to spend, Funds, and Look back.
 
 ## Signatures
 
-- `sortCharge(input: { description: string; amount: number; merchantKey: string; date?: string }, ctx: SortContext): SortedCharge`
-- `importNewRows(args: { rows: ImportRow[]; sourceLabel: string; existing: Transaction[]; categories: Category[]; rules: MerchantRule[]; incomeStreams?: IncomeStream[]; accountId?: string | null; createId?: () => string }): { added: Transaction[]; skipped: number; transactions: Transaction[] }`
-- `pairAccountTransfers(rows: Transaction[], freshIds: Set<string>, categories: Category[]): Transaction[]`
-- `nextAccountId(name: string, usedIds: Iterable<string>): string`
-- `createAccount(accounts: Account[], input: { name: string; kind: AccountKind; institution?: string | null }, now?: string): Account | null`
-- `accountHasActivity(id: string, transactions: { accountId?: string | null }[], imports: { accountId?: string | null }[]): boolean`
-- `accountAcceptsFile(kind: AccountKind): boolean`
-- `enteredBalanceAmount(kind: AccountKind, amount: number): number`
-- `storedFileBalance(kind: AccountKind, fileAmount: number): number`
-- `creditFileSignLooksWrong(kind: AccountKind, fileAmount: number): boolean`
-- `upsertFileBalance(balances: BalancePoint[], point: { accountId: string; date: string; amount: number }): BalancePoint[]`
-- `endingBalanceFrom(rows: ParsePreviewRow[], columns: DetectedColumn[]): { amount: number; asOf: string } | null`
-- `merchantNormalized(description: string): string`
-- `matchKeyword(text: string): { slug: string; pattern: string; weak: boolean } | null`
-- `suggestCategory(description: string, amount: number, categories: Category[], rules: MerchantRule[], merchantKeyValue: string, history?: SortHistory[], incomeStreams?: IncomeStream[]): SuggestResult`
-- Store: `addAccount(input: { name: string; kind: AccountKind; institution?: string | null }): string`
-- Store: `updateAccount(id: string, patch: Partial<Pick<Account, "name" | "kind" | "institution">>): void`
-- Store: `removeAccount(id: string): boolean`
-- Store: `addBalance(accountId: string, amount: number, date?: string): void`
-- Store: `importPreview(preview: CsvPreview, flipSign: boolean, accountId?: string | null, balanceAmount?: number | null): ImportResult`
+- `sideOf(t: Pick<Transaction, "amount" | "status">): "in" | "out"`
+- `previewChange(input: { transactions: Transaction[]; merchantKey: string; side: "in" | "out"; ym?: string; categoryId: string | null; scope: "charge" | "month" | "default"; id?: string; includePinned?: boolean; merchantRules?: MerchantRule[] }): { changes: number; keptByHand: number; skippedDivided: number }`
+- `applyChange(input: ChangeInput): { transactions: Transaction[]; merchantRules: MerchantRule[]; before: RowBefore[]; rulesBefore: MerchantRule[] | null; preview: ChangePreview }`
+- `restoreChanges(transactions: Transaction[], before: RowBefore[]): Transaction[]`
+- `resetToDefault(t: Transaction, rules: MerchantRule[]): Transaction`
+- `ruleFor(rules: MerchantRule[], merchantKey: string, side: "in" | "out"): MerchantRule | undefined`
+- `captureRow(t: Transaction): RowBefore`
+- Store: `setCategoryScoped(id: string, categoryId: string | null, scope: "charge" | "month" | "default"): CategoryUndo | null`
+- Store: `setMerchantDefault(merchantKey: string, side: "in" | "out", categoryId: string | null, options?: { includePinned?: boolean }): CategoryUndo`
+- Store: `resetChargeToDefault(id: string): CategoryUndo | null`
+- Store: `restoreCategories(undo: CategoryUndo): void`
+
+`CategoryUndo` is `{ rows: RowBefore[]; rules: MerchantRule[] | null }`. `RowBefore` keeps the category, whether the person set it, the pin, the split, and the import note.
 
 ## Conflicts and later prompts
 
 Conflicts with the code:
 
-- Amazon, Walmart, Target, and Costco are weak, so they are no longer given a category on import. That includes the demo sample. They stay as a suggestion.
-- `importPreview` has an optional fourth argument, `balanceAmount`, so a corrected card balance is stored as typed and is not flipped again. Callers that leave it off still work.
-- “An expense keyword never claims a deposit” is still a refund in that expense category when the keyword is strong. A weak one stays a suggestion and does not set a category. The old refund test needs this.
-- A deposit within 5 percent of a paycheck, whose description also says payroll, is likely, not sure, even though the payroll word alone would be sure. A deposit whose words match an income hint is sure even when the amount is far off.
-- Older history rows that have no amount still count for either side, so the old “last category you set” test still passes.
-- A positive balance on a credit-card file is stored as a negative amount owed. The correction box shows only in that case. A file that is already negative is kept.
-- Remove is blocked by charges or by imports. The note always says “This one has imports.”
-- The fingerprint text is unchanged. A repeat is skipped for one account only when this import has an account. Rows that still have no account id block every account, the same as before.
-- The column map and the sign flip sit under “Something look wrong?” unless parsing reported a problem. The preview table stays visible. The bank-file help starts closed so the account question is first.
-- A reload used to invent a second account named after the file, such as “Bank CSV”, even when every row already belonged to the account you chose. It no longer does. An old ledger whose rows have no account still gains one account per bank name.
+- A single charge needs an id. `previewChange` and `applyChange` take an optional `id`. The prompt's list did not include it.
+- `setTransactionCategory` and `setMerchantCategory` still do what they did for the import review and the coach. They do not set the pin. "Do this for every" still overwrites hand-set rows and clears a split. The Month page and Sorting use the new actions, which leave pinned rows alone.
+- A month change skips a divided charge and counts it. A default change updates the overall category and leaves the pieces, so that month still follows the pieces.
+- Undo of a default also puts the merchant rule back. `restoreChanges` only restores rows. The store keeps the old rule list on the undo and writes it back.
+- Carry-over numbers show from the month carry-over started. Earlier months still show spent of the usual amount.
+- A category tied to a fund still cannot take a one-month amount. `setMonthPlan` already refuses, and the card says it is a fund.
+- The coach still walks every uncategorized charge, not only the month named on the card. The coach was left alone.
+- Home still shows the Month page under Safe to spend, because Home is the safe-to-spend block plus the Month page. The year strip, the three summary cards, and the search box are not on the new Month page. The top of Home is unchanged.
+- One hand-set charge reads "stays" rather than "stay".
 
 Left for later prompts:
 
-- The month page and per-month amounts (prompt 4).
-- Home, navigation, Grow, and visual polish (prompt 5).
-- `categorize-coach`, the month board, and the year page were left as they are.
-- Month math, fund math, and the setup steps were not changed, except that import reads the income words, the categories, and the accounts.
-- Setup still does not delete an account or a savings plan after it has been saved.
+- Home as a year dashboard, navigation, Grow visuals, and polish (prompt 5). The Settings link still says Merchants.
+- The import review's "every one of these" path still uses the old overwrite.
+- The coach is still the old one-at-a-time flow.
