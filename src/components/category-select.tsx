@@ -18,6 +18,7 @@ export function CategorySelect({
   className,
   payback = false,
   onPayback,
+  emptyLabel,
 }: {
   categories: Category[];
   value: string | null;
@@ -28,11 +29,12 @@ export function CategorySelect({
   /** Expense rows can mark a repayment from this list. */
   payback?: boolean;
   onPayback?: () => void;
+  emptyLabel?: string;
 }) {
   const selected = categories.find((c) => c.id === value);
   const income = labels(categories.filter((c) => c.kind === "income" && (!kind || kind === "income")));
   const expense = labels(categories.filter((c) => c.kind === "expense" && (!kind || kind === "expense")));
-  const emptyLabel = kind === "income" ? "Pick an income category" : kind === "expense" ? "Pick an expense category" : "Needs category";
+  const blank = emptyLabel ?? (kind === "income" ? "Pick an income category" : kind === "expense" ? "Pick an expense category" : "Needs category");
   const shown = value === "__payback__" ? "__payback__" : (value ?? "");
   return (
     <Select
@@ -47,7 +49,7 @@ export function CategorySelect({
         onChange(e.target.value || null);
       }}
     >
-      {allowEmpty ? <option value="">{emptyLabel}</option> : null}
+      {allowEmpty ? <option value="">{blank}</option> : null}
       {selected && kind && selected.kind !== kind ? <option value={selected.id}>{selected.name} (move this)</option> : null}
       {income.length ? (
         <optgroup label="Income">

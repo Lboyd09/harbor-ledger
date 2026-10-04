@@ -76,10 +76,15 @@ function normHeader(h: string): string {
     .trim();
 }
 
+function isBalanceHeader(n: string): boolean {
+  return n === "balance" || n === "running bal" || n === "running balance" || n.includes("balance");
+}
+
 function roleForHeader(h: string): ColumnRole {
   const n = normHeader(h);
   if (!n) return "ignore";
-  if (IGNORE_EXACT.has(n) || n.includes("balance") || n.includes("check or") || n.endsWith(" id")) {
+  if (isBalanceHeader(n)) return "balance";
+  if (IGNORE_EXACT.has(n) || n.includes("check or") || n.endsWith(" id")) {
     return "ignore";
   }
   if (n === "category" || n.includes("category")) return "ignore";
@@ -340,6 +345,38 @@ function applyDirectionIfNeeded(rows: ParsePreviewRow[], columns: DetectedColumn
   return { rows: next, applied };
 }
 
+function runsNewestFirst(dates: string[]): boolean {
+  if (dates.length < 2) return true;
+  const first = dates[0];
+  const last = dates[dates.length - 1];
+  if (first > last) return true;
+  if (first < last) return false;
+  for (let i = 1; i < dates.length; i++) {
+    if (dates[i] < dates[i - 1]) return true;
+    if (dates[i] > dates[i - 1]) return false;
+  }
+  return true;
+}
+
+/** Balance on the latest date. Same-day rows: first if the file is newest-first, last if oldest-first. */
+export function endingBalanceFrom(rows: ParsePreviewRow[], columns: DetectedColumn[]): CsvPreview["endingBalance"] {
+  const col = columns.find((c) => c.role === "balance");
+  if (!col) return null;
+  const points: { date: string; amount: number }[] = [];
+  for (const row of rows) {
+    if (!row.date) continue;
+    const amount = parseAmountToken(row.raw[col.index] ?? "");
+    if (amount == null) continue;
+    points.push({ date: row.date, amount });
+  }
+  if (!points.length) return null;
+  const latest = points.reduce((max, point) => (point.date > max ? point.date : max), points[0].date);
+  const onDay = points.filter((point) => point.date === latest);
+  const newestFirst = runsNewestFirst(points.map((point) => point.date));
+  const pick = newestFirst ? onDay[0] : onDay[onDay.length - 1];
+  return { amount: pick.amount, asOf: pick.date };
+}
+
 function buildRows(records: string[][], columns: DetectedColumn[]): ParsePreviewRow[] {
   return records.map((raw) => {
     const dateRaw = firstCell(raw, columns, "date", (v) => Boolean(parseDateToken(v)));
@@ -391,6 +428,7 @@ function finishPreview(
     guessedSource,
     amountNote,
     issues,
+    endingBalance: endingBalanceFrom(rows, columns),
   };
 }
 
@@ -408,6 +446,7 @@ export function parseCsvText(text: string, fileName: string): CsvPreview {
       guessedSource: "Bank CSV",
       amountNote: "File had no rows.",
       issues: ["That file did not contain any rows."],
+      endingBalance: null,
     };
   }
 

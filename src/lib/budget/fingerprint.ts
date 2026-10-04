@@ -1,5 +1,5 @@
-import { merchantKey } from "./merchant";
-import { roundMoney } from "./money";
+import { merchantKey } from "./merchant.ts";
+import { roundMoney } from "./money.ts";
 
 export function fingerprint(date: string, amount: number, description: string): string {
   const key = merchantKey(description);

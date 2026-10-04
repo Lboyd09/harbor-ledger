@@ -2,15 +2,22 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { linkCategoryState, migrateGoals, withMonthlyChange, withPaused } from "@/lib/budget/buckets";
 import { parseBackup } from "@/lib/budget/backup";
-import { replaceMerchantRule, suggestCategory } from "@/lib/budget/categorize";
+import { replaceMerchantRule } from "@/lib/budget/categorize";
 import { parseCsvText, applyAmountFlip } from "@/lib/budget/csv";
-import { fingerprint } from "@/lib/budget/fingerprint";
+import { importNewRows } from "@/lib/budget/auto-sort";
 import { newId } from "@/lib/budget/ids";
 import { DEFAULT_IRA } from "@/lib/budget/ira";
-import { merchantKey } from "@/lib/budget/merchant";
 import { roundMoney } from "@/lib/budget/money";
 import { emptySnapshot, normalizeProfile, normalizeSnapshot } from "@/lib/budget/normalize";
-import { migrateLedgerAccounts } from "@/lib/budget/accounts";
+import {
+  accountAcceptsFile,
+  accountHasActivity,
+  createAccount,
+  enteredBalanceAmount,
+  migrateLedgerAccounts,
+  storedFileBalance,
+  upsertFileBalance,
+} from "@/lib/budget/accounts";
 import { applyCompleteSetup, type SetupExtras } from "@/lib/budget/onboarding-plan";
 import { withBudgetStyle } from "@/lib/budget/style";
 import { currentMonthKey, currentWeekKey } from "@/lib/budget/parse-date";
@@ -20,6 +27,9 @@ import { buildPresetCategories } from "@/lib/budget/presets";
 import { recommendedPlans } from "@/lib/budget/year";
 import { SAMPLE_CSV, SAMPLE_PROFILE } from "@/lib/budget/sample";
 import type {
+  Account,
+  AccountKind,
+  BalancePoint,
   BucketMove,
   BudgetPeriod,
   BudgetStyle,
@@ -29,7 +39,6 @@ import type {
   ImportBatch,
   IraRules,
   LedgerSnapshot,
-  MerchantRule,
   MoneyBucket,
   MonthBudget,
   NetWorthPoint,
@@ -37,10 +46,17 @@ import type {
   SavingsGoal,
   Transaction,
   TxSplit,
-  TxStatus,
 } from "@/lib/budget/types";
 
-type ImportResult = { added: number; skipped: number; categorized: number; uncategorized: number };
+type ImportResult = {
+  added: number;
+  skipped: number;
+  categorized: number;
+  uncategorized: number;
+  addedIds: string[];
+  accountId: string | null;
+  needsBalance: boolean;
+};
 type SaveState = "idle" | "saving" | "saved" | "error";
 
 const LOCAL_KEY = "harbor-ledger-v3";
@@ -92,11 +108,21 @@ type State = LedgerSnapshot & {
   cancelSetup: () => void;
   patchProfile: (patch: Partial<Profile>) => void;
   setBudgetStyle: (style: BudgetStyle, options?: { carryStartMonth?: string; today?: string }) => void;
-  importPreview: (preview: CsvPreview, flipSign: boolean) => ImportResult;
+  addAccount: (input: { name: string; kind: AccountKind; institution?: string | null }) => string;
+  updateAccount: (id: string, patch: Partial<Pick<Account, "name" | "kind" | "institution">>) => void;
+  removeAccount: (id: string) => boolean;
+  addBalance: (accountId: string, amount: number, date?: string) => void;
+  importPreview: (preview: CsvPreview, flipSign: boolean, accountId?: string | null, balanceAmount?: number | null) => ImportResult;
   loadSample: () => void;
   deleteTransaction: (id: string) => void;
   restoreBackup: (raw: unknown) => { ok: true; count: number } | { ok: false; error: string };
 };
+
+function todayInput() {
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+}
 
 function openToday() {
   return { activeMonth: currentMonthKey(), activeWeek: currentWeekKey() };
@@ -177,51 +203,6 @@ async function flushPersist() {
     }
   });
   return persistChain;
-}
-
-function applyImportRows(
-  rows: { date: string | null; description: string; amount: number | null }[],
-  sourceLabel: string,
-  existing: Transaction[],
-  categories: Category[],
-  rules: MerchantRule[],
-): { added: Transaction[]; skipped: number } {
-  const seen = new Set(existing.map((t) => t.fingerprint));
-  const added: Transaction[] = [];
-  let skipped = 0;
-  for (const row of rows) {
-    if (!row.date || row.amount == null || !row.description) {
-      skipped += 1;
-      continue;
-    }
-    const fp = fingerprint(row.date, row.amount, row.description);
-    if (seen.has(fp)) {
-      skipped += 1;
-      continue;
-    }
-    seen.add(fp);
-    const key = merchantKey(row.description);
-    const suggestion = suggestCategory(row.description, row.amount, categories, rules, key, existing);
-    const cat = suggestion.categoryId ? categories.find((c) => c.id === suggestion.categoryId) : undefined;
-    let status: TxStatus = "posted";
-    if (suggestion.reason === "refund") status = "refund";
-    if (cat?.slug === "transfers-out") status = "transfer";
-    added.push({
-      id: newId("tx"),
-      date: row.date,
-      description: row.description,
-      merchantKey: key,
-      amount: row.amount,
-      sourceLabel,
-      fingerprint: fp,
-      categoryId: suggestion.categoryId,
-      userSet: false,
-      notes: "",
-      excluded: false,
-      status,
-    });
-  }
-  return { added, skipped };
 }
 
 function readLegacy(): LedgerSnapshot | null {
@@ -354,6 +335,50 @@ export const useBudgetStore = create<State>()(
         set({ profile: withBudgetStyle(get().profile, style, options) });
         schedulePersist();
       },
+      addAccount: (input) => {
+        const account = createAccount(get().accounts ?? [], input);
+        if (!account) return "";
+        set({ accounts: [...(get().accounts ?? []), account] });
+        schedulePersist();
+        return account.id;
+      },
+      updateAccount: (id, patch) => {
+        set({
+          accounts: (get().accounts ?? []).map((account) => {
+            if (account.id !== id) return account;
+            const next = { ...account };
+            if (patch.name != null && patch.name.trim()) next.name = patch.name.trim();
+            if (patch.kind != null) next.kind = patch.kind;
+            if (patch.institution !== undefined) next.institution = patch.institution?.trim() ? patch.institution.trim() : null;
+            return next;
+          }),
+        });
+        schedulePersist();
+      },
+      removeAccount: (id) => {
+        if (!(get().accounts ?? []).some((account) => account.id === id)) return false;
+        if (accountHasActivity(id, get().transactions, get().imports ?? [])) return false;
+        set({
+          accounts: (get().accounts ?? []).filter((account) => account.id !== id),
+          balances: (get().balances ?? []).filter((point) => point.accountId !== id),
+        });
+        schedulePersist();
+        return true;
+      },
+      addBalance: (accountId, amount, date) => {
+        const account = (get().accounts ?? []).find((item) => item.id === accountId);
+        if (!account || !Number.isFinite(amount)) return;
+        const day = date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : todayInput();
+        const point: BalancePoint = {
+          id: newId("bal"),
+          accountId,
+          date: day,
+          amount: enteredBalanceAmount(account.kind, amount),
+          source: "entered",
+        };
+        set({ balances: [...(get().balances ?? []), point] });
+        schedulePersist();
+      },
       resetAll: async () => {
         saveEpoch += 1;
         if (persistTimer) {
@@ -445,7 +470,9 @@ export const useBudgetStore = create<State>()(
           return;
         }
         set({
-          transactions: get().transactions.map((t) => (t.id === id ? { ...t, categoryId, userSet: true } : t)),
+          transactions: get().transactions.map((t) =>
+            t.id === id ? { ...t, categoryId, userSet: true, auto: null } : t,
+          ),
         });
         schedulePersist();
       },
@@ -459,7 +486,7 @@ export const useBudgetStore = create<State>()(
         set({
           merchantRules: replaceMerchantRule(get().merchantRules, key, categoryId, side),
           transactions: get().transactions.map((t) =>
-            match(t) ? { ...t, categoryId, userSet: true, splits: null } : t,
+            match(t) ? { ...t, categoryId, userSet: true, splits: null, auto: null } : t,
           ),
         });
         schedulePersist();
@@ -494,6 +521,7 @@ export const useBudgetStore = create<State>()(
               splits: next,
               categoryId: t.categoryId ?? bigger?.categoryId ?? null,
               userSet: true,
+              auto: null,
             };
           }),
         });
@@ -822,15 +850,31 @@ export const useBudgetStore = create<State>()(
         if (n) schedulePersist();
         return n;
       },
-      importPreview: (preview, flipSign) => {
+      importPreview: (preview, flipSign, accountId, balanceAmount) => {
         const rows = applyAmountFlip(preview, flipSign);
-        const { added, skipped } = applyImportRows(
+        const chosen = accountId || null;
+        const { added, skipped, transactions } = importNewRows({
           rows,
-          preview.guessedSource,
-          get().transactions,
-          get().categories,
-          get().merchantRules,
-        );
+          sourceLabel: preview.guessedSource,
+          existing: get().transactions,
+          categories: get().categories,
+          rules: get().merchantRules,
+          incomeStreams: get().profile.incomeStreams ?? [],
+          accountId: chosen,
+          createId: () => newId("tx"),
+        });
+        const account = chosen ? (get().accounts ?? []).find((item) => item.id === chosen) : undefined;
+        const rawEnd = preview.endingBalance;
+        let ending: ImportBatch["endingBalance"] = null;
+        let balances = get().balances ?? [];
+        if (account && rawEnd && /^\d{4}-\d{2}-\d{2}$/.test(rawEnd.asOf) && Number.isFinite(rawEnd.amount)) {
+          const amount =
+            balanceAmount != null && Number.isFinite(balanceAmount)
+              ? roundMoney(balanceAmount)
+              : storedFileBalance(account.kind, rawEnd.amount);
+          ending = { amount, asOf: rawEnd.asOf };
+          balances = upsertFileBalance(balances, { accountId: account.id, date: rawEnd.asOf, amount });
+        }
         const batch: ImportBatch = {
           id: newId("imp"),
           fileName: preview.fileName,
@@ -838,21 +882,26 @@ export const useBudgetStore = create<State>()(
           added: added.length,
           skippedDuplicates: skipped,
           sourceLabel: preview.guessedSource,
+          accountId: chosen,
+          endingBalance: ending,
         };
-        const next = [...added, ...get().transactions].sort(
-          (a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id),
-        );
+        const next = [...transactions].sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
         set({
           transactions: next,
-          imports: [batch, ...get().imports].slice(0, 40),
+          balances,
+          imports: [batch, ...(get().imports ?? [])].slice(0, 40),
           ...openToday(),
         });
         void flushPersist();
+        const needsBalance = Boolean(account && accountAcceptsFile(account.kind) && !rawEnd);
         return {
           added: added.length,
           skipped,
-          categorized: added.filter((t) => t.categoryId).length,
-          uncategorized: added.filter((t) => !t.categoryId).length,
+          categorized: added.filter((t) => t.categoryId || t.auto?.confidence === "sure").length,
+          uncategorized: added.filter((t) => !t.categoryId && t.auto?.confidence !== "sure").length,
+          addedIds: added.map((t) => t.id),
+          accountId: chosen,
+          needsBalance,
         };
       },
       loadSample: () => {
@@ -862,7 +911,14 @@ export const useBudgetStore = create<State>()(
           c.slug === "food" ? { ...c, plannedMonthly: 0 } : c,
         );
         const preview = parseCsvText(SAMPLE_CSV, "sample-chase.csv");
-        const { added } = applyImportRows(preview.rows, "Demo bank file", [], categories, []);
+        const { added } = importNewRows({
+          rows: preview.rows,
+          sourceLabel: "Demo bank file",
+          existing: [],
+          categories,
+          rules: [],
+          createId: () => newId("tx"),
+        });
         const food = categories.find((c) => c.slug === "food");
         const pay = categories.find((c) => c.slug === "paycheck");
         const side = categories.find((c) => c.slug === "side-work");
@@ -877,6 +933,7 @@ export const useBudgetStore = create<State>()(
           ];
           split.categoryId = pay.id;
           split.userSet = true;
+          split.auto = null;
         }
         const cafe = dressed.find((t) => t.description.includes("CORNER CAFE") && t.amount === -22.4);
         const friend = dressed.find((t) => t.description.includes("ZELLE PAYMENT FROM A FRIEND"));
@@ -884,9 +941,11 @@ export const useBudgetStore = create<State>()(
           cafe.status = "reimbursement";
           cafe.notes = paybackNotes(friend.id, "A friend");
           cafe.userSet = true;
+          cafe.auto = null;
           friend.status = "reimbursement";
           friend.notes = paybackNotes(cafe.id, "A friend");
           friend.userSet = true;
+          friend.auto = null;
         }
         const goalId = "goal_demo_car";
         set({

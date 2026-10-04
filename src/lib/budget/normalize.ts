@@ -6,6 +6,7 @@ import { currentMonthKey, currentWeekKey, weekKeyFromDate } from "./parse-date.t
 import { DEFAULT_PROFILE } from "./presets.ts";
 import type {
   Account,
+  AutoSource,
   BalancePoint,
   BucketMove,
   BudgetGoal,
@@ -126,6 +127,7 @@ export function normalizeTransaction(raw: unknown, index = 0): Transaction | nul
   const date = asString(raw.date);
   if (!date) return null;
   const status = STATUSES.includes(raw.status as TxStatus) ? (raw.status as TxStatus) : "posted";
+  const auto = normalizeAuto(raw.auto);
   return {
     id: asString(raw.id, `tx_restored_${index}`),
     date,
@@ -141,7 +143,20 @@ export function normalizeTransaction(raw: unknown, index = 0): Transaction | nul
     status,
     splits: normalizeSplits(raw.splits),
     accountId: typeof raw.accountId === "string" && raw.accountId ? raw.accountId : null,
+    ...(auto ? { auto } : {}),
   };
+}
+
+function normalizeAuto(raw: unknown): Transaction["auto"] {
+  if (!isRecord(raw)) return undefined;
+  const confidence =
+    raw.confidence === "sure" || raw.confidence === "likely" || raw.confidence === "unsure" ? raw.confidence : null;
+  if (!confidence) return undefined;
+  const sources: AutoSource[] = ["rule", "history", "income", "keyword", "repeat", "transfer", "none"];
+  const source = sources.includes(raw.source as AutoSource) ? (raw.source as AutoSource) : "none";
+  const suggested =
+    typeof raw.suggestedCategoryId === "string" && raw.suggestedCategoryId ? raw.suggestedCategoryId : null;
+  return { source, confidence, suggestedCategoryId: suggested };
 }
 
 function normalizeSplits(raw: unknown): Transaction["splits"] {

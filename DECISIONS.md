@@ -4,6 +4,10 @@ Newest first. If this file conflicts with earlier chat, this file wins.
 
 ## 2026-10-03
 
+22. The Account screen lists the accounts and lets the person change the budget style later, as setup promises.
+21. After an import, the person sees what was sorted and then reviews the unsure charges one at a time, on the import screen itself.
+20. Import sorts a charge on its own only when it is sure. Deposits are matched to the expected income entered in setup. Everything else is left for the person with a suggested category ready to accept.
+19. Every file is imported into one chosen account. Each account has its own imports. Retirement and investment accounts have no file; their balance is updated by typing it in.
 15. Setup is one path of seven steps: About you, What you pay for, Money coming in, How leftover money works, Your amounts, Accounts and a savings plan, Your plan on one page. There is no bank-file path in setup. Charges are categorized after setup, inside the app. This supersedes 6.
 16. Setup collects expected income for every source, including how often it is paid and words from the deposit, so income can be recognized on import without being added later.
 17. The person picks the budget style in setup ("Start fresh each month" or "Carry over what's left") and can change it later in Account.

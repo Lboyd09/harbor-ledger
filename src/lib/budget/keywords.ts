@@ -1,5 +1,5 @@
 /** Deterministic keyword → category slug. Longer / more specific entries win. No models. No personal names. */
-export type KeywordRule = { pattern: string; slug: string };
+export type KeywordRule = { pattern: string; slug: string; weak?: boolean };
 
 export const KEYWORD_RULES: KeywordRule[] = [
   { pattern: "DIR DEP", slug: "paycheck" },
@@ -178,10 +178,10 @@ export const KEYWORD_RULES: KeywordRule[] = [
   { pattern: "FOOD LION", slug: "food" },
   { pattern: "STOP & SHOP", slug: "food" },
   { pattern: "GIANT ", slug: "food" },
-  { pattern: "WALMART", slug: "food" },
-  { pattern: "WM SUPERCENTER", slug: "food" },
-  { pattern: "COSTCO", slug: "food" },
-  { pattern: "SAMS CLUB", slug: "food" },
+  { pattern: "WALMART", slug: "food", weak: true },
+  { pattern: "WM SUPERCENTER", slug: "food", weak: true },
+  { pattern: "COSTCO", slug: "food", weak: true },
+  { pattern: "SAMS CLUB", slug: "food", weak: true },
   { pattern: "GROCERY", slug: "food" },
   { pattern: "INSTACART", slug: "food" },
   { pattern: "VONS", slug: "food" },
@@ -267,9 +267,9 @@ export const KEYWORD_RULES: KeywordRule[] = [
   { pattern: "GOFUNDME", slug: "giving" },
   { pattern: "PATREON", slug: "giving" },
 
-  { pattern: "AMAZON", slug: "personal" },
-  { pattern: "AMZN", slug: "personal" },
-  { pattern: "TARGET", slug: "personal" },
+  { pattern: "AMAZON", slug: "personal", weak: true },
+  { pattern: "AMZN", slug: "personal", weak: true },
+  { pattern: "TARGET", slug: "personal", weak: true },
   { pattern: "DICKS SPORTING", slug: "personal" },
   { pattern: "NIKE", slug: "personal" },
   { pattern: "HOME DEPOT", slug: "personal" },
@@ -399,14 +399,109 @@ export const KEYWORD_RULES: KeywordRule[] = [
   { pattern: "PITA JUNGLE", slug: "dining" },
   { pattern: "EEGEES", slug: "dining" },
   { pattern: "DISNEY STORE", slug: "personal" },
+
+  { pattern: "NATIONAL GRID", slug: "utilities" },
+  { pattern: "PSEG", slug: "utilities" },
+  { pattern: "COMED", slug: "utilities" },
+  { pattern: "XCEL ENERGY", slug: "utilities" },
+  { pattern: "FLORIDA POWER", slug: "utilities" },
+  { pattern: "FPL ", slug: "utilities" },
+  { pattern: "ENTERGY", slug: "utilities" },
+  { pattern: "DOMINION ENERGY", slug: "utilities" },
+  { pattern: "EVERSOURCE", slug: "utilities" },
+  { pattern: "AMEREN", slug: "utilities" },
+  { pattern: "NIPSCO", slug: "utilities" },
+  { pattern: "WASTE MANAGEMENT", slug: "utilities" },
+  { pattern: "REPUBLIC SERVICES", slug: "utilities" },
+  { pattern: "CITY WATER", slug: "utilities" },
+
+  { pattern: "US CELLULAR", slug: "utilities" },
+  { pattern: "CRICKET WIRELESS", slug: "utilities" },
+  { pattern: "MINT MOBILE", slug: "utilities" },
+  { pattern: "BOOST MOBILE", slug: "utilities" },
+  { pattern: "CONSUMER CELLULAR", slug: "utilities" },
+  { pattern: "OPTIMUM", slug: "utilities" },
+  { pattern: "FRONTIER COMM", slug: "utilities" },
+  { pattern: "CHARTER COMM", slug: "utilities" },
+
+  { pattern: "FARMERS INS", slug: "transport" },
+  { pattern: "NATIONWIDE INS", slug: "transport" },
+  { pattern: "TRAVELERS INS", slug: "transport" },
+  { pattern: "HARTFORD INS", slug: "transport" },
+  { pattern: "BLUE CROSS", slug: "health" },
+  { pattern: "AETNA", slug: "health" },
+  { pattern: "CIGNA", slug: "health" },
+  { pattern: "UNITEDHEALTH", slug: "health" },
+  { pattern: "HUMANA", slug: "health" },
+  { pattern: "EXPRESS SCRIPTS", slug: "health" },
+  { pattern: "LABCORP", slug: "health" },
+  { pattern: "QUEST DIAG", slug: "health" },
+  { pattern: "DUANE READE", slug: "health" },
+
+  { pattern: "SLING TV", slug: "subscriptions" },
+  { pattern: "YOUTUBE TV", slug: "subscriptions" },
+  { pattern: "APPLE TV", slug: "subscriptions" },
+  { pattern: "SLACK", slug: "subscriptions" },
+  { pattern: "1PASSWORD", slug: "subscriptions" },
+  { pattern: "NORTON", slug: "subscriptions" },
+  { pattern: "DUOLINGO", slug: "subscriptions" },
+
+  { pattern: "PHILLIPS 66", slug: "gas" },
+  { pattern: "CONOCO", slug: "gas" },
+  { pattern: "TEXACO", slug: "gas" },
+  { pattern: "SHEETZ", slug: "gas" },
+  { pattern: "KUM & GO", slug: "gas" },
+  { pattern: "GETGO", slug: "gas" },
+  { pattern: "BUCCEE", slug: "gas" },
+
+  { pattern: "SHOPRITE", slug: "food" },
+  { pattern: "PIGGLY WIGGLY", slug: "food" },
+  { pattern: "WINN DIXIE", slug: "food" },
+  { pattern: "RALPHS", slug: "food" },
+  { pattern: "JEWEL OSCO", slug: "food" },
+  { pattern: "HY-VEE", slug: "food" },
+  { pattern: "HY VEE", slug: "food" },
+  { pattern: "FRED MEYER", slug: "food" },
+  { pattern: "GIANT EAGLE", slug: "food" },
+  { pattern: "PRICE CHOPPER", slug: "food" },
+  { pattern: "MARKET BASKET", slug: "food" },
+  { pattern: "BJS WHOLESALE", slug: "food", weak: true },
+  { pattern: "BJ'S", slug: "food", weak: true },
+  { pattern: "EBAY", slug: "personal", weak: true },
+
+  { pattern: "OUTBACK", slug: "dining" },
+  { pattern: "RED LOBSTER", slug: "dining" },
+  { pattern: "BUFFALO WILD", slug: "dining" },
+  { pattern: "EL POLLO", slug: "dining" },
+  { pattern: "POTBELLY", slug: "dining" },
+  { pattern: "NOODLES & CO", slug: "dining" },
+  { pattern: "PORTILLO", slug: "dining" },
+
+  { pattern: "FASTRAK", slug: "transport" },
+  { pattern: "IPASS", slug: "transport" },
+  { pattern: "PEACH PASS", slug: "transport" },
+  { pattern: "TXTAG", slug: "transport" },
+
+  { pattern: "POWERSCHOOL", slug: "education" },
+  { pattern: "SCHOOL DISTRICT", slug: "education" },
+  { pattern: "SCHOLASTIC", slug: "education" },
+  { pattern: "FOLLETT", slug: "education" },
+
+  { pattern: "MONTHLY SERVICE FEE", slug: "other" },
+  { pattern: "SERVICE FEE", slug: "other" },
+  { pattern: "NSF FEE", slug: "other" },
+  { pattern: "WIRE FEE", slug: "other" },
+  { pattern: "PAPER STATEMENT", slug: "other" },
 ];
 
 const SORTED = [...KEYWORD_RULES].sort((a, b) => b.pattern.length - a.pattern.length);
 
-export function matchKeyword(text: string): { slug: string; pattern: string } | null {
+export function matchKeyword(text: string): { slug: string; pattern: string; weak: boolean } | null {
   const hay = ` ${String(text || "").toUpperCase()} `;
   for (const rule of SORTED) {
-    if (hay.includes(rule.pattern.toUpperCase())) return { slug: rule.slug, pattern: rule.pattern };
+    if (hay.includes(rule.pattern.toUpperCase())) {
+      return { slug: rule.slug, pattern: rule.pattern, weak: rule.weak === true };
+    }
   }
   return null;
 }

@@ -1,9 +1,95 @@
+import { roundMoney } from "./money.ts";
 import type { Account, AccountKind, BalancePoint, ImportBatch, Transaction } from "./types.ts";
 
 const KINDS: AccountKind[] = ["checking", "savings", "credit", "investment", "retirement", "other"];
 
+export const ACCOUNT_KIND_OPTIONS: { id: AccountKind; label: string }[] = [
+  { id: "checking", label: "Checking" },
+  { id: "savings", label: "Savings" },
+  { id: "credit", label: "Credit card" },
+  { id: "retirement", label: "Roth IRA or other retirement" },
+  { id: "investment", label: "Investments" },
+  { id: "other", label: "Other" },
+];
+
 export function isAccountKind(value: string): value is AccountKind {
   return (KINDS as string[]).includes(value);
+}
+
+export function accountKindLabel(kind: AccountKind): string {
+  return ACCOUNT_KIND_OPTIONS.find((item) => item.id === kind)?.label ?? kind;
+}
+
+/** Retirement and investment balances are typed in. They do not take a bank file. */
+export function accountAcceptsFile(kind: AccountKind): boolean {
+  return kind !== "retirement" && kind !== "investment";
+}
+
+export function accountSlug(label: string): string {
+  const s = label
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return s || "account";
+}
+
+/** Stable id, same scheme as migrated accounts. A second account with the same name gets -2, -3, … */
+export function nextAccountId(name: string, usedIds: Iterable<string>): string {
+  const used = new Set(usedIds);
+  const base = accountSlug(name);
+  let id = `acct_${base}`;
+  let n = 2;
+  while (used.has(id)) {
+    id = `acct_${base}-${n}`;
+    n += 1;
+  }
+  return id;
+}
+
+export function createAccount(
+  accounts: Account[],
+  input: { name: string; kind: AccountKind; institution?: string | null },
+  now = new Date().toISOString(),
+): Account | null {
+  const name = input.name.trim();
+  if (!name || !isAccountKind(input.kind)) return null;
+  return {
+    id: nextAccountId(name, accounts.map((a) => a.id)),
+    name,
+    kind: input.kind,
+    institution: input.institution?.trim() ? input.institution.trim() : null,
+    createdAt: now,
+  };
+}
+
+export function accountHasActivity(
+  id: string,
+  transactions: { accountId?: string | null }[],
+  imports: { accountId?: string | null }[],
+): boolean {
+  return transactions.some((t) => t.accountId === id) || imports.some((b) => b.accountId === id);
+}
+
+/** What the person typed. A card stores what is owed, as a negative number. */
+export function enteredBalanceAmount(kind: AccountKind, amount: number): number {
+  if (!Number.isFinite(amount)) return 0;
+  if (kind === "credit") return amount === 0 ? 0 : roundMoney(-Math.abs(amount));
+  return roundMoney(amount);
+}
+
+/**
+ * Balance column from a file. A positive number on a card is what is owed, stored negative.
+ * A number that is already negative is kept so a corrected sign is not flipped again.
+ */
+export function storedFileBalance(kind: AccountKind, fileAmount: number): number {
+  if (!Number.isFinite(fileAmount)) return 0;
+  if (kind === "credit" && fileAmount > 0) return roundMoney(-fileAmount);
+  return roundMoney(fileAmount);
+}
+
+/** A positive card balance in a file uses the opposite sign from the one we store. */
+export function creditFileSignLooksWrong(kind: AccountKind, fileAmount: number): boolean {
+  return kind === "credit" && fileAmount > 0;
 }
 
 export function latestBalance(accountId: string, balances: BalancePoint[]): BalancePoint | null {
@@ -31,12 +117,26 @@ export function totalBalance(accounts: Account[], balances: BalancePoint[], kind
   return Math.round(sum * 100) / 100;
 }
 
-function slug(label: string): string {
-  const s = label
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-  return s || "account";
+/** Replace a file balance for the same account and date. Entered balances stay. */
+export function upsertFileBalance(
+  balances: BalancePoint[],
+  point: { accountId: string; date: string; amount: number },
+): BalancePoint[] {
+  const rest = balances.filter(
+    (b) => !(b.source === "file" && b.accountId === point.accountId && b.date === point.date),
+  );
+  const id = `bal_${point.accountId}_${point.date}`;
+  const taken = rest.some((b) => b.id === id);
+  return [
+    ...rest,
+    {
+      id: taken ? `${id}_file` : id,
+      accountId: point.accountId,
+      date: point.date,
+      amount: roundMoney(point.amount),
+      source: "file" as const,
+    },
+  ];
 }
 
 function dayOf(value: string): string | null {
@@ -61,7 +161,9 @@ function createdAt(label: string | null, transactions: Transaction[], imports: I
 }
 
 /**
- * Old ledgers have no accounts. One checking account is created per source label.
+ * Old ledgers have no accounts. One checking account is created per source label
+ * that still has a row with no account. A file already filed under an account
+ * does not grow a second account from the bank name on the file.
  * No labels and some transactions means a single "Main account". An empty ledger stays empty.
  * Already-saved accounts are kept. Ids are stable so a second load does not fork them.
  */
@@ -83,14 +185,9 @@ export function migrateLedgerAccounts(input: {
     if (label) labels.add(label);
   }
   const usedIds = new Set(accounts.map((a) => a.id));
-  function addAccount(name: string, sampleLabel: string | null) {
+  function addMigrated(name: string, sampleLabel: string | null) {
     if (byName.has(name)) return byName.get(name)!;
-    let id = `acct_${slug(name)}`;
-    let n = 2;
-    while (usedIds.has(id)) {
-      id = `acct_${slug(name)}-${n}`;
-      n += 1;
-    }
+    const id = nextAccountId(name, usedIds);
     usedIds.add(id);
     const account: Account = {
       id,
@@ -103,11 +200,22 @@ export function migrateLedgerAccounts(input: {
     byName.set(name, account);
     return account;
   }
+  function rowOpen(accountId: string | null | undefined): boolean {
+    return !(accountId && accounts.some((a) => a.id === accountId));
+  }
+  function labelOpen(label: string): boolean {
+    const txOpen = input.transactions.some((t) => t.sourceLabel.trim() === label && rowOpen(t.accountId));
+    const impOpen = input.imports.some((batch) => batch.sourceLabel.trim() === label && rowOpen(batch.accountId));
+    return txOpen || impOpen;
+  }
 
   if (labels.size === 0 && input.transactions.length > 0 && accounts.length === 0) {
-    addAccount("Main account", null);
+    addMigrated("Main account", null);
   }
-  for (const label of [...labels].sort()) addAccount(label, label);
+  for (const label of [...labels].sort()) {
+    if (!labelOpen(label)) continue;
+    addMigrated(label, label);
+  }
 
   const main = accounts.find((a) => a.name === "Main account") ?? null;
   const transactions = input.transactions.map((t) => {

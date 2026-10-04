@@ -100,6 +100,47 @@ test("an old ledger and an old backup gain accounts from source labels and lose 
   assert.deepEqual(empty?.accounts, []);
   assert.deepEqual(empty?.balances, []);
 
+  const tied = normalizeSnapshot({
+    profile: { ledgerName: "Now", completedOnboarding: true },
+    categories: [food],
+    accounts: [
+      {
+        id: "acct_everyday-checking",
+        name: "Everyday checking",
+        kind: "checking",
+        institution: null,
+        createdAt: "2026-10-03T00:00:00.000Z",
+      },
+    ],
+    transactions: [
+      tx({
+        id: "k",
+        date: "2026-09-01",
+        amount: -54.2,
+        sourceLabel: "Bank CSV",
+        accountId: "acct_everyday-checking",
+        description: "KROGER",
+      }),
+    ],
+    imports: [
+      {
+        id: "imp2",
+        fileName: "harbor-import.csv",
+        importedAt: "2026-10-03T00:00:00.000Z",
+        added: 1,
+        skippedDuplicates: 0,
+        sourceLabel: "Bank CSV",
+        accountId: "acct_everyday-checking",
+        endingBalance: { amount: 2866.5, asOf: "2026-09-08" },
+      },
+    ],
+  });
+  assert.deepEqual(
+    tied?.accounts.map((a) => a.name),
+    ["Everyday checking"],
+  );
+  assert.equal(tied?.transactions[0]?.accountId, "acct_everyday-checking");
+
   const backup = parseBackup(old);
   assert.equal(backup.ok, true);
   if (backup.ok) {

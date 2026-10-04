@@ -92,11 +92,24 @@ export type Transaction = {
   splits?: TxSplit[] | null;
   /** Which account this row came from. Missing on older rows. */
   accountId?: string | null;
+  /** How this row was sorted on import. Cleared when the person picks a category. Missing on older rows. */
+  auto?: TransactionAuto | null;
 };
 
 export type TxSplit = {
   categoryId: string;
   amount: number;
+};
+
+export type AutoConfidence = "sure" | "likely" | "unsure";
+
+export type AutoSource = "rule" | "history" | "income" | "keyword" | "repeat" | "transfer" | "none";
+
+/** Why an imported charge was sorted, and how sure that was. */
+export type TransactionAuto = {
+  source: AutoSource;
+  confidence: AutoConfidence;
+  suggestedCategoryId: string | null;
 };
 
 /** Money set aside for a specific purchase, separate from the monthly envelopes. */
@@ -247,6 +260,7 @@ export type ColumnRole =
   | "debit"
   | "credit"
   | "direction"
+  | "balance"
   | "ignore";
 
 export type DetectedColumn = {
@@ -272,6 +286,8 @@ export type CsvPreview = {
   guessedSource: string;
   amountNote: string;
   issues: string[];
+  /** Balance on the latest-dated row, when the file has a balance column. */
+  endingBalance: { amount: number; asOf: string } | null;
 };
 
 export type LedgerSnapshot = {

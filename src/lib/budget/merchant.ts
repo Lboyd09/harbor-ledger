@@ -14,7 +14,8 @@ const NOISE = [
   /\bRECURRING\b/g,
 ];
 
-export function merchantKey(description: string): string {
+/** Same cleaning as merchantKey, without the six-word cap. */
+export function merchantNormalized(description: string): string {
   let s = String(description || "").toUpperCase();
   s = s.replace(/['’]/g, "");
   s = s.replace(/\d{1,2}\/\d{1,2}(\/\d{2,4})?/g, " ");
@@ -24,6 +25,11 @@ export function merchantKey(description: string): string {
   for (const re of NOISE) s = s.replace(re, " ");
   s = s.replace(/[^A-Z0-9 &]/g, " ");
   s = s.replace(/\s+/g, " ").trim();
+  return s;
+}
+
+export function merchantKey(description: string): string {
+  const s = merchantNormalized(description);
   if (!s) return "UNKNOWN";
   const words = s.split(" ").filter(Boolean);
   return words.slice(0, 6).join(" ");

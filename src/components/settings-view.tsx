@@ -2,11 +2,20 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Link } from "@tanstack/react-router";
 import { authClient, signOut } from "@/lib/auth/client";
 import { useCurrentUser } from "@/lib/auth/use-current-user";
+import {
+  ACCOUNT_KIND_OPTIONS,
+  accountHasActivity,
+  accountKindLabel,
+  latestBalance,
+  totalBalance,
+} from "@/lib/budget/accounts";
 import { emailStatus, sendConfirmationEmail, sendOwnResetLink } from "@/lib/budget/email-links";
 import { deleteAccount, issueRecoveryCode } from "@/lib/budget/persist";
 import { HOUSEHOLD_LABELS, HOUSING_LABELS, STAGE_LABELS } from "@/lib/budget/presets";
 import { formatMoney } from "@/lib/budget/money";
-import type { DetailMode, HarborLook, HarborMotion } from "@/lib/budget/types";
+import { monthLabel } from "@/lib/budget/parse-date";
+import { TERMS } from "@/lib/copy/terms";
+import type { AccountKind, DetailMode, HarborLook, HarborMotion } from "@/lib/budget/types";
 import { useBudgetStore } from "@/store/budget-store";
 import { ExportBar } from "./export-bar";
 import { Button } from "./ui/button";
@@ -33,6 +42,8 @@ export function SettingsView() {
         <p className="mt-2 text-sm text-muted">
           Import, categories, how much detail to show, and the file for Excel or Google Sheets.
         </p>
+        <YourAccounts />
+        <LeftoverStyle />
         <section className="mt-4 space-y-2 rounded-lg border border-border bg-surface p-4">
           <h2 className="font-display text-lg font-semibold">Do this next</h2>
           <p className="text-sm text-muted">If a file is already in, start with categories. Then set monthly amounts.</p>
@@ -160,6 +171,221 @@ export function SettingsView() {
         </Link>
       </section>
     </div>
+  );
+}
+
+function todayInput() {
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+}
+
+function prettyDate(iso: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (!match) return iso;
+  return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3])).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function YourAccounts() {
+  const accounts = useBudgetStore((s) => s.accounts ?? []);
+  const balances = useBudgetStore((s) => s.balances ?? []);
+  const transactions = useBudgetStore((s) => s.transactions);
+  const imports = useBudgetStore((s) => s.imports ?? []);
+  const addAccount = useBudgetStore((s) => s.addAccount);
+  const updateAccount = useBudgetStore((s) => s.updateAccount);
+  const removeAccount = useBudgetStore((s) => s.removeAccount);
+  const addBalance = useBudgetStore((s) => s.addBalance);
+  const [adding, setAdding] = useState(false);
+  const [name, setName] = useState("");
+  const [kind, setKind] = useState<AccountKind>("checking");
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editKind, setEditKind] = useState<AccountKind>("checking");
+  const [balanceId, setBalanceId] = useState<string | null>(null);
+  const [amount, setAmount] = useState("");
+  const [date, setDate] = useState(todayInput);
+
+  return (
+    <section className="mt-4 space-y-3 rounded-lg border border-border bg-surface p-4">
+      <h2 className="font-display text-xl font-semibold">Your accounts</h2>
+      {accounts.length === 0 ? <p className="text-sm text-muted">No accounts yet.</p> : null}
+      <ul className="space-y-3">
+        {accounts.map((account) => {
+          const latest = latestBalance(account.id, balances);
+          const blocked = accountHasActivity(account.id, transactions, imports);
+          return (
+            <li key={account.id} className="rounded-md border border-border px-3 py-3">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <p className="font-medium">
+                  {account.name} <span className="text-sm font-normal text-muted">· {accountKindLabel(account.kind)}</span>
+                </p>
+                <p className="text-sm tabular">
+                  {latest ? (
+                    <>
+                      {formatMoney(latest.amount)} <span className="text-muted">as of {prettyDate(latest.date)}</span>
+                    </>
+                  ) : (
+                    <span className="text-muted">No balance yet</span>
+                  )}
+                </p>
+              </div>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setBalanceId(balanceId === account.id ? null : account.id);
+                    setEditId(null);
+                    setAmount("");
+                    setDate(todayInput());
+                  }}
+                >
+                  Update balance
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setEditId(editId === account.id ? null : account.id);
+                    setBalanceId(null);
+                    setEditName(account.name);
+                    setEditKind(account.kind);
+                  }}
+                >
+                  Edit
+                </Button>
+              </div>
+              {blocked ? <p className="mt-2 text-sm text-muted">This one has imports.</p> : (
+                <Button className="mt-2" variant="ghost" size="sm" onClick={() => removeAccount(account.id)}>
+                  Remove
+                </Button>
+              )}
+              {balanceId === account.id ? (
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <Field label={account.kind === "credit" ? "What you owe" : "Balance"}>
+                    <Input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
+                  </Field>
+                  <Field label="Date">
+                    <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+                  </Field>
+                  <Button
+                    className="sm:col-span-2 sm:w-fit"
+                    onClick={() => {
+                      const next = Number(amount);
+                      if (!Number.isFinite(next) || amount.trim() === "") return;
+                      addBalance(account.id, next, date);
+                      setBalanceId(null);
+                      setAmount("");
+                    }}
+                  >
+                    Save balance
+                  </Button>
+                </div>
+              ) : null}
+              {editId === account.id ? (
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <Field label="Name">
+                    <Input value={editName} onChange={(e) => setEditName(e.target.value)} />
+                  </Field>
+                  <Field label="Kind">
+                    <Select value={editKind} onChange={(e) => setEditKind(e.target.value as AccountKind)}>
+                      {ACCOUNT_KIND_OPTIONS.map((option) => (
+                        <option key={option.id} value={option.id}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
+                  <Button
+                    className="sm:col-span-2 sm:w-fit"
+                    onClick={() => {
+                      updateAccount(account.id, { name: editName, kind: editKind });
+                      setEditId(null);
+                    }}
+                  >
+                    Save
+                  </Button>
+                </div>
+              ) : null}
+            </li>
+          );
+        })}
+      </ul>
+      <p className="text-sm">All accounts together: {formatMoney(totalBalance(accounts, balances))}</p>
+      {adding ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Name">
+            <Input value={name} onChange={(e) => setName(e.target.value)} />
+          </Field>
+          <Field label="Kind">
+            <Select value={kind} onChange={(e) => setKind(e.target.value as AccountKind)}>
+              {ACCOUNT_KIND_OPTIONS.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.label}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <div className="flex gap-2 sm:col-span-2">
+            <Button
+              onClick={() => {
+                const id = addAccount({ name, kind });
+                if (!id) return;
+                setAdding(false);
+                setName("");
+                setKind("checking");
+              }}
+            >
+              Save account
+            </Button>
+            <Button variant="ghost" onClick={() => setAdding(false)}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <Button variant="outline" onClick={() => setAdding(true)}>
+          Add account
+        </Button>
+      )}
+    </section>
+  );
+}
+
+function LeftoverStyle() {
+  const profile = useBudgetStore((s) => s.profile);
+  const setBudgetStyle = useBudgetStore((s) => s.setBudgetStyle);
+  const style = profile.budgetStyle === "buckets" ? "buckets" : "monthly";
+  return (
+    <section className="mt-4 space-y-3 rounded-lg border border-border bg-surface p-4">
+      <h2 className="font-display text-xl font-semibold">How leftover money works</h2>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <button
+          type="button"
+          aria-pressed={style === "monthly"}
+          className={`min-h-11 rounded-md border px-3 py-2 text-left text-sm ${style === "monthly" ? "border-primary bg-chip" : "border-border bg-surface"}`}
+          onClick={() => setBudgetStyle("monthly")}
+        >
+          {TERMS.monthlyReset}
+        </button>
+        <button
+          type="button"
+          aria-pressed={style === "buckets"}
+          className={`min-h-11 rounded-md border px-3 py-2 text-left text-sm ${style === "buckets" ? "border-primary bg-chip" : "border-border bg-surface"}`}
+          onClick={() => setBudgetStyle("buckets")}
+        >
+          {TERMS.carryOver}
+        </button>
+      </div>
+      <p className="text-sm text-muted">Switching never deletes anything.</p>
+      {style === "buckets" && profile.carryStartMonth ? (
+        <p className="text-sm">This started in {monthLabel(profile.carryStartMonth)}.</p>
+      ) : null}
+    </section>
   );
 }
 
