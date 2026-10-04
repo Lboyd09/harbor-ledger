@@ -110,7 +110,7 @@ export function SortingView() {
       <div>
         <h1 className="font-display text-2xl font-semibold md:text-3xl">Sorting</h1>
         <p className="mt-2 max-w-2xl text-sm text-muted">
-          Each name has one default category. Changing it here changes every month. Charges you set by hand stay as you set them.
+          Each name has one default category. Those categories are the budget: rent, groceries, insurance, eating out. Changing a name here changes every month, except charges you set by hand.
         </p>
       </div>
       <LedgerTabs page="merchants" />

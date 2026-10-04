@@ -5,6 +5,7 @@ import { formatMoney, roundMoney } from "@/lib/budget/money";
 import type { Category, Transaction } from "@/lib/budget/types";
 import { useBudgetStore } from "@/store/budget-store";
 import { CategorySelect } from "./category-select";
+import { ReadoutCard } from "./readout-card";
 import { Button } from "./ui/button";
 
 function prettyDate(iso: string): string {
@@ -92,6 +93,7 @@ export function ImportReview({ addedIds, skipped }: { addedIds: string[]; skippe
 
   return (
     <div className="space-y-5">
+      <ReadoutCard transactions={rows} categories={categories} title="From this file" />
       <div>
         <h2 className="font-display text-2xl font-semibold">
           We sorted {headline.sorted} of {headline.total} charges for you.

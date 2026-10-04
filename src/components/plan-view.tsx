@@ -1,45 +1,63 @@
 import { useState } from "react";
-import { useNavigate } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { bucketFunding } from "@/lib/budget/buckets";
+import { TERMS } from "@/lib/copy/terms";
 import { formatMoney } from "@/lib/budget/money";
 import { newId } from "@/lib/budget/ids";
 import { orderedCategories, planAmount, hasMonthOverride } from "@/lib/budget/plans";
-import { envelopeRows, plannedTotals } from "@/lib/budget/totals";
-import { carryStatus, carryYear, categorySpent, nextMonthAllowance, surplusToPutToWork, type CarryContext } from "@/lib/budget/carry";
+import { incomeRows, spendingRows, type SideRow } from "@/lib/budget/readout";
+import { categorySpent } from "@/lib/budget/carry";
 import { shiftMonth } from "@/lib/budget/parse-date";
 import { monthSeries } from "@/lib/budget/visual-data";
-import type { Category, MonthBudget, Transaction } from "@/lib/budget/types";
+import type { BudgetStyle, Category, MonthBudget, Transaction } from "@/lib/budget/types";
 import { useBudgetStore } from "@/store/budget-store";
-import { queueFundWizard } from "./fund-wizard";
-import { FillJar, SpendMeter } from "./money-visual";
 import { MonthSwitcher } from "./month-switcher";
 import { EmptyArt } from "./visuals/empty-art";
 import { MiniBars } from "./visuals/mini-bars";
-import { useLivelyMotion } from "./use-lively-motion";
 import { Button } from "./ui/button";
 import { Input } from "./ui/field";
 
 export function PlanView() {
-  const carry = useBudgetStore((s) => s.profile.budgetStyle) === "buckets";
+  const style: BudgetStyle = useBudgetStore((s) => (s.profile.budgetStyle === "buckets" ? "buckets" : "monthly"));
+  const setBudgetStyle = useBudgetStore((s) => s.setBudgetStyle);
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="font-display text-2xl font-semibold md:text-3xl">Budget</h1>
           <p className="mt-2 max-w-xl text-sm text-muted">
-            {carry
-              ? "What’s left stays in the category. The jar is full at three times this month’s amount."
-              : "These amounts start over every month. A fund, on its own tab, keeps what you don’t spend."}
+            Rent, groceries, insurance, and eating out live here. A savings fund is separate and is not this budget.
           </p>
         </div>
         <MonthSwitcher compact />
       </div>
-      <BudgetList carry={carry} />
+      <div className="grid gap-2 sm:grid-cols-2" role="group" aria-label="How leftover spending works">
+        <button
+          type="button"
+          aria-pressed={style === "monthly"}
+          className={`min-h-11 rounded-md border px-3 py-2 text-left text-sm ${style === "monthly" ? "border-primary bg-chip" : "border-border bg-surface"}`}
+          onClick={() => setBudgetStyle("monthly")}
+        >
+          <span className="font-medium">{TERMS.monthlyReset}</span>
+          <span className="mt-1 block text-muted">Each spending category starts over.</span>
+        </button>
+        <button
+          type="button"
+          aria-pressed={style === "buckets"}
+          className={`min-h-11 rounded-md border px-3 py-2 text-left text-sm ${style === "buckets" ? "border-primary bg-chip" : "border-border bg-surface"}`}
+          onClick={() => setBudgetStyle("buckets")}
+        >
+          <span className="font-medium">{TERMS.carryOver}</span>
+          <span className="mt-1 block text-muted">Leftover spending stays in that category.</span>
+        </button>
+      </div>
+      <p className="text-sm text-muted">Income is not part of this choice. Pay changes, so it is compared with what usually comes in.</p>
+      <BudgetSides style={style} />
     </div>
   );
 }
 
-function BudgetList({ carry }: { carry: boolean }) {
+function BudgetSides({ style }: { style: BudgetStyle }) {
   const categories = useBudgetStore((s) => s.categories);
   const ym = useBudgetStore((s) => s.activeMonth);
   const transactions = useBudgetStore((s) => s.transactions);
@@ -50,50 +68,61 @@ function BudgetList({ carry }: { carry: boolean }) {
   const monthBudgets = useBudgetStore((s) => s.monthBudgets) ?? [];
   const moneyBuckets = useBudgetStore((s) => s.moneyBuckets) ?? [];
   const carryStart = useBudgetStore((s) => s.profile.carryStartMonth);
-  const lively = useLivelyMotion();
-  const navigate = useNavigate();
   const [openId, setOpenId] = useState<string | null>(null);
-  const linked = new Set(moneyBuckets.flatMap((b) => b.categoryIds));
-  const rows = envelopeRows(transactions, categories, "month", ym);
-  const plan = plannedTotals(
-    categories.filter((c) => !linked.has(c.id)),
-    "month",
-  );
+  const income = incomeRows({ transactions, categories, ym, budgets: monthBudgets });
+  const spending = spendingRows({
+    transactions,
+    categories,
+    ym,
+    budgets: monthBudgets,
+    style,
+    carryStartMonth: carryStart,
+  });
   const funding = bucketFunding(moneyBuckets, ym);
-  const ready = plan.leftover - funding;
-  const incomeWidth = plan.income > 0 ? Math.min(100, Math.round((Math.max(0, plan.expenses + funding) / plan.income) * 100)) : 0;
-  const expenses = orderedCategories(categories, "expense").filter((c) => !linked.has(c.id));
-
-  function keepInFund(categoryId: string) {
-    queueFundWizard(categoryId);
-    void navigate({ to: "/funds" });
-  }
+  const expenses = orderedCategories(categories, "expense");
 
   return (
-    <div className="space-y-6">
-      <section className="rounded-lg border border-border bg-surface p-4">
-        <div className="text-xs font-medium uppercase tracking-wide text-muted">Not given a job yet</div>
-        <div className={`mt-1 font-display text-3xl tabular ${ready < 0 ? "text-danger" : "text-good"}`}>
-          {formatMoney(ready, { signed: true })}
-        </div>
-        <p className="mt-1 text-sm text-muted">
-          {ready < 0
-            ? "The monthly amounts and funds add up to more than the income you planned."
-            : ready === 0
-              ? "Every planned dollar has a job."
-              : "This is planned income that is not in a monthly amount or a fund yet."}
-        </p>
-        <div className="mt-3 h-3 overflow-hidden rounded-full bg-chip">
-          <div className={`h-full ${incomeWidth > 100 ? "bg-danger" : "bg-primary"}`} style={{ width: `${Math.min(100, incomeWidth)}%` }} />
-        </div>
+    <div className="grid gap-6 lg:grid-cols-2">
+      <section className="space-y-3">
+        <h2 className="font-display text-lg font-semibold">Money in</h2>
+        <p className="text-sm text-muted">What arrived, next to what usually arrives. Nothing rolls into next month.</p>
+        <ul className="space-y-3">
+          {income.map((row) => {
+            const category = categories.find((item) => item.id === row.id);
+            if (!category) return null;
+            return (
+              <li key={row.id} className="rounded-lg border border-border bg-surface p-4">
+                <SideHead row={row} />
+                <label className="mt-3 block text-xs text-muted">
+                  Usual amount, if you want one
+                  <Input
+                    className="mt-1 max-w-xs"
+                    inputMode="decimal"
+                    aria-label={`Usual amount for ${category.name}`}
+                    value={category.plannedMonthly ? String(category.plannedMonthly) : ""}
+                    placeholder="0"
+                    onChange={(e) => updateCategory(category.id, { plannedMonthly: Number(e.target.value) || 0, name: category.name })}
+                  />
+                </label>
+                <label className="mt-2 block text-xs text-muted">
+                  Name
+                  <Input className="mt-1" aria-label={`Name for ${category.name}`} value={category.name} onChange={(e) => updateCategory(category.id, { name: e.target.value })} />
+                </label>
+              </li>
+            );
+          })}
+        </ul>
+        <Button variant="outline" size="sm" onClick={() => addCategory({ slug: `income-${newId("s")}`, name: "Other income", kind: "income", plannedMonthly: 0 })}>
+          Add income
+        </Button>
       </section>
 
       <section className="space-y-3">
-        <h2 className="font-display text-lg font-semibold">{carry ? "Keeps what’s left" : "Starts over every month"}</h2>
+        <h2 className="font-display text-lg font-semibold">Money out</h2>
         <p className="text-sm text-muted">
-          {carry
-            ? "The jar is what’s left. The words next to it say the same thing. Tap a card for the last 12 months."
-            : "The bar is what you spent against this month’s amount. Next month starts over. Tap a row to change it."}
+          {style === "buckets"
+            ? "What’s left stays in the category. The bar is that leftover, full at three months of the amount."
+            : "The bar is what you spent against this month’s amount. Next month starts over."}
         </p>
         {expenses.length === 0 ? (
           <div className="rounded-lg border border-dashed border-line px-4 py-6 text-center">
@@ -102,76 +131,25 @@ function BudgetList({ carry }: { carry: boolean }) {
           </div>
         ) : null}
         <ul className="space-y-3">
-          {expenses.map((c) => {
-            const row = rows.find((r) => r.category.id === c.id);
-            const spent = Math.max(0, row?.actual ?? 0);
-            const monthAmount = planAmount(c, ym, monthBudgets);
-            const custom = hasMonthOverride(c.id, ym, monthBudgets);
-            const child = Boolean(c.parentId);
-            const open = openId === c.id;
-            const left = monthAmount - spent;
-            const ctx: CarryContext = {
-              transactions,
-              categories,
-              budgets: monthBudgets,
-              carryStartMonth: carryStart || ym,
-            };
-            const history = carry
-              ? monthSeries(ym, carryYear(c, ym, ctx).map((row) => ({ ym: row.ym, a: row.planned, b: row.spent })))
-              : monthSeries(ym, spendHistory(c, ym, transactions, categories, monthBudgets));
-            const carryLeft = carry ? (carryYear(c, ym, ctx).at(-1)?.carryOut ?? 0) : left;
-            const status = carry ? carryStatus(c, ym, ctx) : null;
-            const allowance = carry ? nextMonthAllowance(c, ym, ctx) : null;
-            const full = monthAmount * 3;
-            const extra = carry ? surplusToPutToWork(c, ym, ctx) : 0;
+          {expenses.map((category) => {
+            const row = spending.find((item) => item.id === category.id);
+            if (!row) return null;
+            const open = openId === category.id;
+            const child = Boolean(category.parentId);
+            const monthAmount = planAmount(category, ym, monthBudgets);
+            const custom = hasMonthOverride(category.id, ym, monthBudgets);
+            const history = monthSeries(ym, spendHistory(category, ym, transactions, categories, monthBudgets));
             return (
-              <li key={c.id} className={`rounded-lg border border-border bg-surface p-4 ${child ? "ml-4" : ""}`}>
-                <button type="button" className="w-full text-left" aria-expanded={open} onClick={() => setOpenId(open ? null : c.id)}>
-                  <div className="font-medium">{c.name}</div>
-                  {carry ? (
-                    <div className="mt-3 flex items-center gap-3">
-                      <FillJar
-                        pct={full > 0 ? (Math.max(0, carryLeft) / full) * 100 : 0}
-                        negative={carryLeft < -0.004}
-                        overflow={full > 0 ? carryLeft > full + 0.004 : carryLeft > 0.004}
-                        celebrate={lively && monthAmount > 0 && spent <= monthAmount + 0.004 && carryLeft >= -0.004}
-                      />
-                      <div>
-                        <p className={`font-display text-2xl tabular ${carryLeft < -0.004 ? "text-danger" : ""}`}>Left: {formatMoney(carryLeft, { signed: true })}</p>
-                        <p className="text-sm">{carrySentence(status, allowance)}</p>
-                      </div>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="mt-3">
-                        <SpendMeter spent={spent} plan={monthAmount} />
-                      </div>
-                      <p className="mt-2 text-sm">
-                        {monthAmount > 0 ? (
-                          <span className={left < -0.004 ? "text-danger" : ""}>
-                            {left < -0.004 ? `${formatMoney(Math.abs(left))} over` : `${formatMoney(left)} left this month`}
-                          </span>
-                        ) : (
-                          <span className="text-muted">{formatMoney(spent)} spent. No monthly amount yet.</span>
-                        )}
-                      </p>
-                    </>
-                  )}
+              <li key={category.id} className={`rounded-lg border border-border bg-surface p-4 ${child ? "ml-4" : ""}`}>
+                <button type="button" className="w-full text-left" aria-expanded={open} onClick={() => setOpenId(open ? null : category.id)}>
+                  <SideHead row={row} />
                 </button>
                 {open ? (
                   <div className="mt-3 space-y-3 border-t border-border pt-3">
-                    <MiniBars months={history} aLabel={carry ? "Put in" : "Amount"} bLabel="Spent" />
-                    {extra > 0 ? (
-                      <p className="text-sm">
-                        {formatMoney(extra)} extra.{" "}
-                        <a className="font-medium text-primary" href={`/grow?lump=${Math.round(extra)}`}>
-                          See what it could grow to
-                        </a>
-                      </p>
-                    ) : null}
+                    <MiniBars months={history} aLabel="Amount" bLabel="Spent" />
                     <label className="block text-xs text-muted">
                       Name
-                      <Input className="mt-1" aria-label={`Name for ${c.name}`} value={c.name} onChange={(e) => updateCategory(c.id, { name: e.target.value })} />
+                      <Input className="mt-1" aria-label={`Name for ${category.name}`} value={category.name} onChange={(e) => updateCategory(category.id, { name: e.target.value })} />
                     </label>
                     <div className="grid grid-cols-2 gap-2">
                       <label className="text-xs text-muted">
@@ -179,41 +157,27 @@ function BudgetList({ carry }: { carry: boolean }) {
                         <Input
                           className="mt-1"
                           inputMode="decimal"
-                          aria-label={`Monthly amount for ${c.name}`}
-                          value={c.plannedMonthly ? String(c.plannedMonthly) : ""}
+                          aria-label={`Monthly amount for ${category.name}`}
+                          value={category.plannedMonthly ? String(category.plannedMonthly) : ""}
                           placeholder="0"
-                          onChange={(e) => updateCategory(c.id, { plannedMonthly: Number(e.target.value) || 0 })}
+                          onChange={(e) => updateCategory(category.id, { plannedMonthly: Number(e.target.value) || 0 })}
                         />
                       </label>
                       <label className="text-xs text-muted">
-                        Change
+                        This month only
                         <Input
                           className="mt-1"
                           inputMode="decimal"
-                          aria-label={`This month for ${c.name}`}
+                          aria-label={`This month for ${category.name}`}
                           value={custom ? String(monthAmount) : ""}
                           placeholder="Same"
                           onChange={(e) => {
                             const raw = e.target.value.trim();
-                            setMonthPlan(c.id, ym, raw ? Number(raw) || 0 : null);
+                            setMonthPlan(category.id, ym, raw ? Number(raw) || 0 : null);
                           }}
                         />
                       </label>
                     </div>
-                    {!child ? (
-                      <div>
-                        <p className="text-sm font-medium">When the month ends</p>
-                        <p className="mt-1 text-xs text-muted">Start over means next month begins again. A fund keeps what you don’t spend.</p>
-                        <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                          <button type="button" className="min-h-11 rounded-md border border-primary bg-chip px-3 text-left text-sm" aria-pressed="true">
-                            Start over
-                          </button>
-                          <button type="button" className="min-h-11 rounded-md border border-border bg-surface px-3 text-left text-sm" onClick={() => keepInFund(c.id)}>
-                            Keep what’s left in a Fund
-                          </button>
-                        </div>
-                      </div>
-                    ) : null}
                     <details>
                       <summary className="cursor-pointer text-sm text-muted">More</summary>
                       <div className="mt-2 flex flex-wrap gap-2">
@@ -224,17 +188,17 @@ function BudgetList({ carry }: { carry: boolean }) {
                             onClick={() =>
                               addCategory({
                                 slug: `split-${newId("s")}`,
-                                name: `${c.name} part`,
+                                name: `${category.name} part`,
                                 kind: "expense",
                                 plannedMonthly: 0,
-                                parentId: c.id,
+                                parentId: category.id,
                               })
                             }
                           >
                             Add a part
                           </Button>
                         ) : null}
-                        <Button variant="ghost" size="sm" onClick={() => removeCategory(c.id)}>
+                        <Button variant="ghost" size="sm" onClick={() => removeCategory(category.id)}>
                           Remove
                         </Button>
                       </div>
@@ -245,66 +209,45 @@ function BudgetList({ carry }: { carry: boolean }) {
             );
           })}
         </ul>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => addCategory({ slug: `custom-${newId("s")}`, name: "New category", kind: "expense", plannedMonthly: 0 })}
-        >
+        <Button variant="outline" size="sm" onClick={() => addCategory({ slug: `custom-${newId("s")}`, name: "New category", kind: "expense", plannedMonthly: 0 })}>
           Add a spending category
         </Button>
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="font-display text-lg font-semibold">Money coming in</h2>
-        <p className="text-sm text-muted">What usually comes in. The bar is this month’s deposits against that amount.</p>
-        <ul className="space-y-3">
-          {orderedCategories(categories, "income").map((c) => {
-            const row = rows.find((r) => r.category.id === c.id);
-            const got = Math.max(0, row?.actual ?? 0);
-            return (
-              <li key={c.id} className="rounded-lg border border-border bg-surface p-4">
-                <Input aria-label={`Name for ${c.name}`} value={c.name} onChange={(e) => updateCategory(c.id, { name: e.target.value })} />
-                <div className="mt-3">
-                  <SpendMeter spent={got} plan={c.plannedMonthly} />
-                </div>
-                <p className="mt-2 text-sm text-muted">
-                  {formatMoney(got)} in this month. You planned {formatMoney(c.plannedMonthly)}.
-                </p>
-                <label className="mt-2 block text-xs text-muted">
-                  Every month
-                  <Input
-                    className="mt-1 max-w-xs"
-                    inputMode="decimal"
-                    value={c.plannedMonthly ? String(c.plannedMonthly) : ""}
-                    onChange={(e) => updateCategory(c.id, { plannedMonthly: Number(e.target.value) || 0 })}
-                  />
-                </label>
-              </li>
-            );
-          })}
-        </ul>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => addCategory({ slug: `income-${newId("s")}`, name: "Other income", kind: "income", plannedMonthly: 0 })}
-        >
-          Add income
-        </Button>
+        {funding > 0 ? (
+          <p className="text-sm text-muted">
+            {formatMoney(funding)} is set aside in funds this month. That is extra savings, not these categories.{" "}
+            <Link to="/funds" className="font-medium text-primary">
+              Funds
+            </Link>
+          </p>
+        ) : (
+          <p className="text-sm text-muted">
+            Saving for one purchase is a fund, not a category.{" "}
+            <Link to="/funds" className="font-medium text-primary">
+              Funds
+            </Link>
+          </p>
+        )}
       </section>
     </div>
   );
 }
 
-function carrySentence(
-  status: "over" | "extra" | "even" | null,
-  allowance: { amount: number; cutBack: boolean } | null,
-) {
-  if (!status || !allowance) return "";
-  if (status === "over" || allowance.cutBack) {
-    return `Over. Next month starts at ${formatMoney(allowance.amount)}. Cut back until this is caught up.`;
-  }
-  if (status === "extra") return `Extra left. Next month can spend ${formatMoney(allowance.amount)}.`;
-  return `Even. Next month starts at ${formatMoney(allowance.amount)}.`;
+function SideHead({ row }: { row: SideRow }) {
+  const width = Math.max(0, Math.min(100, row.fill));
+  return (
+    <div>
+      <div className="flex items-baseline justify-between gap-3">
+        <p className="font-medium">{row.name}</p>
+        <p className={`text-sm tabular ${row.tone === "danger" ? "text-danger" : row.tone === "warn" ? "text-warn" : row.tone === "good" ? "text-good" : ""}`}>
+          {row.primary}
+        </p>
+      </div>
+      <div className="mt-2 h-3 overflow-hidden rounded-full bg-chip" aria-hidden>
+        <div className={`h-full ${row.tone === "danger" ? "bg-danger" : "bg-primary"}`} style={{ width: `${width}%` }} />
+      </div>
+      <p className="mt-2 text-sm text-muted">{row.detail}</p>
+    </div>
+  );
 }
 
 function spendHistory(

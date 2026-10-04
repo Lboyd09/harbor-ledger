@@ -48,7 +48,9 @@ export function FundsView() {
     <div className="space-y-4">
       <div>
         <h1 className="font-display text-2xl font-semibold md:text-3xl">Funds</h1>
-        <p className="mt-2 max-w-xl text-sm text-muted">A fund keeps what you don’t spend. It is not a bill, and it is not new income.</p>
+        <p className="mt-2 max-w-xl text-sm text-muted">
+          Your budget is the categories on Budget, such as rent, groceries, and eating out. A fund is only extra money set aside for one purchase. It is not the budget, and it is not income.
+        </p>
       </div>
       {funds.length ? (
         <p className="font-display text-xl">Across all funds: {formatMoney(total)}</p>

@@ -602,7 +602,7 @@ function StyleStep({
           <div className="flex items-start justify-between gap-3">
             <div>
               <div className="text-base font-medium">{TERMS.monthlyReset}</div>
-              <p className="mt-1 text-sm text-muted">Each month starts with a new amount. What you don't spend does not carry over.</p>
+              <p className="mt-1 text-sm text-muted">Each spending category, like rent or groceries, starts over. Income is compared with what usually comes in. It does not roll over.</p>
             </div>
             <Jar mode="refill" lively={lively} />
           </div>
@@ -613,7 +613,7 @@ function StyleStep({
             <div>
               <div className="text-base font-medium">{TERMS.carryOver}</div>
               <p className="mt-1 text-sm text-muted">
-                Extra stays in the category for next month. If you go over, next month has less, so you know to cut back. You'll also be shown when extra could go to work.
+                Leftover in a spending category stays for next month. Going over means next month has less. Income is not carried, because pay changes.
               </p>
             </div>
             <Jar mode="carry" lively={lively} />

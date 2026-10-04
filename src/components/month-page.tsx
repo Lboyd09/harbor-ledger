@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { displayMerchant } from "@/lib/budget/merchant";
 import { formatMoney } from "@/lib/budget/money";
 import { groupMonth } from "@/lib/budget/month-view";
+import { incomeRows, spendingRows } from "@/lib/budget/readout";
 import { monthKeyFromDate, monthLabel } from "@/lib/budget/parse-date";
 import type { CategoryUndo } from "@/lib/budget/sorting";
 import { useBudgetStore } from "@/store/budget-store";
@@ -57,6 +58,19 @@ export function MonthPage({ titleAs = "h1" }: { titleAs?: "h1" | "h2" }) {
     () => groupMonth(transactions, categories, ym, budgets),
     [transactions, categories, ym, budgets],
   );
+  const style = useBudgetStore((s) => (s.profile.budgetStyle === "buckets" ? "buckets" : "monthly"));
+  const carryStart = useBudgetStore((s) => s.profile.carryStartMonth);
+  const incomeSide = useMemo(
+    () => incomeRows({ transactions, categories, ym, budgets }).filter((row) => row.amount > 0.004 || row.mark > 0.004).slice(0, 4),
+    [transactions, categories, ym, budgets],
+  );
+  const spendSide = useMemo(
+    () =>
+      spendingRows({ transactions, categories, ym, budgets, style, carryStartMonth: carryStart })
+        .filter((row) => row.amount > 0.004 || row.mark > 0.004)
+        .slice(0, 4),
+    [transactions, categories, ym, budgets, style, carryStart],
+  );
   const inMonth = transactions.filter((t) => monthKeyFromDate(t.date) === ym);
   const hiddenDeposits = layout.aside.filter((t) => t.amount > 0);
   const hiddenOut = layout.aside.filter((t) => t.amount <= 0);
@@ -96,6 +110,35 @@ export function MonthPage({ titleAs = "h1" }: { titleAs?: "h1" | "h2" }) {
           </p>
         </div>
         <MonthSwitcher />
+      </div>
+      <div className="grid gap-3 md:grid-cols-2">
+        <section className="rounded-lg border border-border bg-surface p-4">
+          <h2 className="font-display text-lg font-semibold">Money in</h2>
+          <ul className="mt-2 space-y-2 text-sm">
+            {incomeSide.map((row) => (
+              <li key={row.id} className="flex items-baseline justify-between gap-3">
+                <span>{row.name}</span>
+                <span className="tabular text-muted">{row.primary}</span>
+              </li>
+            ))}
+            {incomeSide.length === 0 ? <li className="text-muted">No income in this month yet.</li> : null}
+          </ul>
+        </section>
+        <section className="rounded-lg border border-border bg-surface p-4">
+          <h2 className="font-display text-lg font-semibold">Money out</h2>
+          <ul className="mt-2 space-y-2 text-sm">
+            {spendSide.map((row) => (
+              <li key={row.id} className="flex items-baseline justify-between gap-3">
+                <span>{row.name}</span>
+                <span className={`tabular ${row.tone === "danger" ? "text-danger" : "text-muted"}`}>{row.primary}</span>
+              </li>
+            ))}
+            {spendSide.length === 0 ? <li className="text-muted">No spending categories with an amount yet.</li> : null}
+          </ul>
+          <Link to="/plan" className="mt-3 inline-flex text-sm font-medium text-primary">
+            Open the budget
+          </Link>
+        </section>
       </div>
       <LedgerTabs page="month" />
       {coach ? (

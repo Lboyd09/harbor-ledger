@@ -117,7 +117,7 @@ export function GrowView() {
       <div>
         <h1 className="font-display text-3xl font-semibold">Grow</h1>
         <p className="mt-1 max-w-xl text-sm text-muted">
-          Pick one question. The numbers start from this ledger. Add a debt or a net-worth snapshot yourself — Harbor never logs into a bank. {DISCLAIMER}
+          The pictures start from your file and your spending categories. A fund is extra savings, not the budget. Add a debt or a net-worth snapshot yourself — Harbor never logs into a bank. {DISCLAIMER}
         </p>
       </div>
 

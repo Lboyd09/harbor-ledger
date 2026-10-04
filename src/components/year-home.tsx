@@ -10,6 +10,7 @@ import { cn } from "@/lib/cn";
 import { useBudgetStore } from "@/store/budget-store";
 import { CashChart } from "./cash-chart";
 import { MonthRail } from "./month-rail";
+import { ReadoutCard } from "./readout-card";
 import { SummaryCard } from "./summary-card";
 import { useLivelyMotion } from "./use-lively-motion";
 import { Button } from "./ui/button";
@@ -102,7 +103,7 @@ export function YearHome() {
 
   function openMonth(ym: string) {
     setActiveMonth(ym);
-    void navigate({ to: "/" });
+    void navigate({ to: "/month" });
   }
 
   if (!transactions.length) {
@@ -136,11 +137,12 @@ export function YearHome() {
         <div>
           <h1 className="font-display text-3xl font-semibold md:text-4xl">{year}</h1>
           <p className="mt-1 max-w-xl text-sm text-muted">
-            Open a month, or tap a category below it to see that income or expense.
+            Open a month, or tap a category. The budget for those categories is on Budget.
           </p>
         </div>
         <YearSwitcher />
       </div>
+      <ReadoutCard transactions={transactions} categories={categories} title="What this year already shows" />
 
       <div className="flex flex-wrap gap-1">
         {(

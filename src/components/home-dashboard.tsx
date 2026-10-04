@@ -15,6 +15,7 @@ import { CategorizeCoach } from "./categorize-coach";
 import { EmptyArt } from "./visuals/empty-art";
 import { queueFundWizard } from "./fund-wizard";
 import { HomeSwitch } from "./home-switch";
+import { ReadoutCard } from "./readout-card";
 import { CountUp } from "./visuals/count-up";
 import { Delta } from "./visuals/delta";
 import { Donut } from "./visuals/donut";
@@ -103,7 +104,7 @@ export function HomeDashboard() {
         <HomeSwitch />
         <EmptyArt kind="home" />
         <h1 className="font-display text-3xl font-semibold">Nothing here yet</h1>
-        <p className="text-sm text-muted">Add a bank file and Home will show the year, your accounts, and what needs a look.</p>
+        <p className="text-sm text-muted">Add a bank file. Harbor reads a typical month, what repeats, and where the money went.</p>
         <Link to="/import">
           <Button>Add your first bank file</Button>
         </Link>
@@ -122,6 +123,8 @@ export function HomeDashboard() {
         <HomeSwitch />
         <YearSwitcher />
       </div>
+
+      <ReadoutCard transactions={transactions} categories={categories} />
 
       <section className="rise panel rounded-lg border border-border bg-surface p-4">
         <h1 className="font-display text-2xl font-semibold md:text-3xl">So far in {year}</h1>

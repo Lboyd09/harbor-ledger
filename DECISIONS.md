@@ -2,6 +2,13 @@
 
 Newest first. If this file conflicts with earlier chat, this file wins.
 
+## 2026-10-04
+
+36. The app leads with what the charges already show: a typical month, the biggest category, what repeats, and what has no category. The person should not have to type that.
+35. Budget is two sides on one screen: money in, and money out. Spending categories such as rent, groceries, insurance, and eating out are the budget.
+34. Income is compared with what usually comes in. It does not carry a balance, because pay changes from month to month.
+33. Start fresh or carry over applies to spending categories only. A fund is extra savings for one purchase. It is not the budget, and linking a category to a fund does not take that category off the budget.
+
 ## 2026-10-03
 
 32. The look gets more visual and animated. Animation obeys the Motion setting and the device's reduced-motion setting.
