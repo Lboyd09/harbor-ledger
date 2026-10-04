@@ -2,7 +2,21 @@ import { Link } from "@tanstack/react-router";
 import { CreditCard, Landmark, LineChart, PiggyBank, Wallet } from "lucide-react";
 import { useMemo, useState } from "react";
 import { accountAcceptsFile, accountKindLabel } from "@/lib/budget/accounts";
-import { fileInsights } from "@/lib/budget/analytics";
+import { fileInsights, monthEndForecast } from "@/lib/budget/analytics";
+import {
+  categoryTrends,
+  dataDepth,
+  incomeStability,
+  payCycle,
+  recurringBills,
+  runway,
+  savingsRateSeries,
+  typicalMonth,
+  unusualCharges,
+} from "@/lib/budget/analytics-depth";
+import { fileReadout } from "@/lib/budget/readout";
+import { coverSentence, queueStats, reviewQueue } from "@/lib/budget/review-queue";
+import { comingUp } from "@/lib/budget/screen-plan";
 import { bucketBalance, safeToSpend } from "@/lib/budget/buckets";
 import { accountRows, monthGlance, needsALook, spanOverview, spendingSlices, staleLabel } from "@/lib/budget/dashboard";
 import { downloadText } from "@/lib/budget/download";
@@ -10,13 +24,12 @@ import { formatMoney } from "@/lib/budget/money";
 import { monthShort } from "@/lib/budget/parse-date";
 import { monthCash } from "@/lib/budget/totals";
 import { buildYearWorkbook, yearSheetCsv } from "@/lib/budget/year";
-import type { AccountKind } from "@/lib/budget/types";
+import type { Account, AccountKind, BalancePoint, Category, Transaction } from "@/lib/budget/types";
 import { useBudgetStore } from "@/store/budget-store";
 import { CategorizeCoach } from "./categorize-coach";
 import { EmptyArt } from "./visuals/empty-art";
 import { queueFundWizard } from "./fund-wizard";
 import { HomeSwitch } from "./home-switch";
-import { ReadoutCard } from "./readout-card";
 import { CountUp } from "./visuals/count-up";
 import { Delta } from "./visuals/delta";
 import { Donut } from "./visuals/donut";
@@ -96,7 +109,19 @@ export function HomeDashboard() {
     safeToSpend: safe.amount,
   });
   const look = needsALook({ transactions, categories, profile, ym, budgets: monthBudgets });
-  const insights = useMemo(() => fileInsights(transactions, categories), [transactions, categories]);
+  const insights = useMemo(() => fileInsights(transactions, categories, todayIso()), [transactions, categories]);
+  const read = useMemo(() => fileReadout(transactions, categories), [transactions, categories]);
+  const typical = useMemo(() => typicalMonth(transactions, categories), [transactions, categories]);
+  const queue = useMemo(() => {
+    return reviewQueue(transactions, categories).filter((group) =>
+      group.ids.some((id) => transactions.some((row) => row.id === id && !row.categoryId)),
+    );
+  }, [transactions, categories]);
+  const stats = queueStats(queue);
+  const forecast = monthEndForecast({ transactions, categories, ym, today: todayIso(), budgets: monthBudgets });
+  const soon = comingUp(recurringBills(transactions, categories, todayIso()), todayIso(), 30);
+  const cushion = runway(accounts, balances, transactions, categories);
+  const nerd = profile.detail === "nerd";
   const priorHas = prior.moneyIn !== 0 || prior.moneyOut !== 0;
   const ratePct = Math.round(now.savingsRate * 100);
 
@@ -126,32 +151,31 @@ export function HomeDashboard() {
         <YearSwitcher />
       </div>
 
-      <ReadoutCard transactions={transactions} categories={categories} />
+      <section className="rounded-lg border border-border bg-surface p-4">
+        <h1 className="font-display text-2xl font-semibold md:text-3xl">
+          {forecast?.sentence ?? typical?.sentence ?? read.headline ?? "Not enough history yet."}
+        </h1>
+        <p className="mt-2 text-sm text-muted">
+          {forecast ? (typical?.sentence ?? "Based on this month so far.") : "Add another month before a month-end guess."}
+        </p>
+        <div className="mt-3">
+          {queue.length ? (
+            <Button onClick={() => setCoach(true)}>Sort {stats.groups} names</Button>
+          ) : (
+            <Link to="/month"><Button variant="outline">Open this month</Button></Link>
+          )}
+        </div>
+      </section>
 
-      {insights && insights.items.length ? (
-        <section className="rounded-lg border border-border bg-surface p-4">
-          <h2 className="font-display text-xl font-semibold">What the charges already say</h2>
-          <ul className="mt-3 space-y-2">
-            {insights.items.slice(0, 5).map((item) => (
-              <li key={item.id} className="text-sm">
-                <span className="font-medium">{item.title}.</span> <span className="text-muted">{item.detail}</span>
-              </li>
-            ))}
-          </ul>
-          {insights.waiting.length ? (
-            <details className="mt-3">
-              <summary className="cursor-pointer text-sm text-muted">Still waiting on more history ({insights.waiting.length})</summary>
-              <ul className="mt-2 space-y-1">
-                {insights.waiting.map((item) => (
-                  <li key={item.id} className="text-sm text-muted">
-                    {item.title}. {item.detail}
-                  </li>
-                ))}
-              </ul>
-            </details>
-          ) : null}
+      {queue.length ? (
+        <section className="rounded-lg border border-primary/40 bg-surface p-4">
+          <h2 className="font-display text-xl font-semibold">Needs you</h2>
+          <p className="mt-1 text-sm">{coverSentence(stats)}</p>
+          <Button className="mt-3" onClick={() => setCoach(true)}>Sort them</Button>
         </section>
       ) : null}
+
+      {coach ? <CategorizeCoach onClose={() => setCoach(false)} /> : null}
 
       <section className="rise panel rounded-lg border border-border bg-surface p-4">
         <h1 className="font-display text-2xl font-semibold md:text-3xl">So far in {year}</h1>
@@ -179,8 +203,59 @@ export function HomeDashboard() {
         </div>
       </section>
 
+      {insights && insights.items.length ? (
+        <section className="rounded-lg border border-border bg-surface p-4">
+          <h2 className="font-display text-xl font-semibold">What the charges say</h2>
+          <ul className="mt-3 space-y-3">
+            {insights.items.slice(0, 3).map((item) => (
+              <li key={item.id}>
+                <p className="text-sm"><span className="font-medium">{item.title}.</span> {item.detail}</p>
+                {item.basis ? <p className="text-xs text-muted">{item.basis}</p> : null}
+                {item.chart?.length ? (
+                  <div className="mt-2">
+                    <MiniBars months={item.chart.map((point) => ({ label: point.label, a: point.value, b: 0 }))} aLabel={item.title} bLabel="Hidden" />
+                  </div>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+          {insights.items.length > 3 ? (
+            <details className="mt-3">
+              <summary className="cursor-pointer text-sm text-muted">More</summary>
+              <ul className="mt-2 space-y-2">
+                {insights.items.slice(3).map((item) => (
+                  <li key={item.id} className="text-sm"><span className="font-medium">{item.title}.</span> {item.detail}{item.basis ? ` ${item.basis}` : ""}</li>
+                ))}
+              </ul>
+            </details>
+          ) : null}
+          {insights.waiting.length ? (
+            <details className="mt-3">
+              <summary className="cursor-pointer text-sm text-muted">Still waiting on more history ({insights.waiting.length})</summary>
+              <ul className="mt-2 space-y-1">
+                {insights.waiting.map((item) => (
+                  <li key={item.id} className="text-sm text-muted">{item.title}. {item.detail}</li>
+                ))}
+              </ul>
+            </details>
+          ) : null}
+        </section>
+      ) : null}
+
+      {soon ? (
+        <section className="rounded-lg border border-border bg-surface p-4">
+          <h2 className="font-display text-xl font-semibold">Coming up</h2>
+          <ul className="mt-2 space-y-1 text-sm">
+            {soon.slice(0, 5).map((item) => (
+              <li key={item.merchantKey}>{item.description} · {formatMoney(item.usual)} · {item.nextDate}</li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
       <section className="rise panel rounded-lg border border-border bg-surface p-4" style={{ animationDelay: "80ms" }}>
         <h2 className="font-display text-xl font-semibold">Your accounts</h2>
+        {cushion ? <p className="mt-1 text-sm">{cushion.sentence} Based on checking and savings balances over a typical month of spending.</p> : null}
         {accountsView.rows.length === 0 ? (
           <div className="mt-3">
             <p className="text-sm">No accounts yet. Add one, then its balance can show here.</p>
@@ -300,22 +375,9 @@ export function HomeDashboard() {
         </Link>
       </section>
 
-      {coach ? (
-        <CategorizeCoach onClose={() => setCoach(false)} />
-      ) : look.uncategorized > 0 || look.incomeLine ? (
-        <section className="rounded-lg border border-primary/40 bg-surface p-4">
-          <h2 className="font-display text-xl font-semibold">Needs a look</h2>
-          {look.uncategorized > 0 ? (
-            <p className="mt-1 text-sm">{look.uncategorized} charge{look.uncategorized === 1 ? "" : "s"} in {year} have no category.</p>
-          ) : null}
-          {look.incomeLine ? <p className="mt-1 text-sm">{look.incomeLine}</p> : null}
-          {look.uncategorized > 0 ? (
-            <Button className="mt-3" onClick={() => setCoach(true)}>
-              Put them in categories
-            </Button>
-          ) : null}
-        </section>
-      ) : null}
+      {nerd ? <AllNumbers transactions={transactions} categories={categories} accounts={accounts} balances={balances} today={todayIso()} ym={ym} /> : null}
+
+      {look.incomeLine ? <p className="text-sm text-muted">{look.incomeLine}</p> : null}
 
       <div>
         <div className="mb-2 flex items-baseline justify-between">
@@ -350,6 +412,128 @@ export function HomeDashboard() {
         </div>
       </section>
     </div>
+  );
+}
+
+function AllNumbers({
+  transactions,
+  categories,
+  accounts,
+  balances,
+  today,
+  ym,
+}: {
+  transactions: Transaction[];
+  categories: Category[];
+  accounts: Account[];
+  balances: BalancePoint[];
+  today: string;
+  ym: string;
+}) {
+  const depth = dataDepth(transactions);
+  const typical = typicalMonth(transactions, categories);
+  const steady = incomeStability(transactions, categories);
+  const bills = recurringBills(transactions, categories, today);
+  const trends = categoryTrends(transactions, categories, ym);
+  const cushion = runway(accounts, balances, transactions, categories);
+  const rates = savingsRateSeries(transactions, categories);
+  const cycle = payCycle(transactions);
+  const odd = unusualCharges(transactions, ym);
+  const groups: { title: string; rows: { name: string; value: string; meaning: string; how: string }[] }[] = [
+    {
+      title: "Income",
+      rows: [
+        typical
+          ? { name: "Typical money in", value: formatMoney(typical.moneyIn), meaning: typical.sentence, how: `Median of ${typical.months} months.` }
+          : null,
+        steady
+          ? { name: "How steady pay is", value: steady.label, meaning: steady.sentence, how: "Highest month minus lowest, over the middle month." }
+          : null,
+      ].filter((row): row is NonNullable<typeof row> => Boolean(row)),
+    },
+    {
+      title: "Spending",
+      rows: [
+        typical
+          ? { name: "Typical money out", value: formatMoney(typical.moneyOut), meaning: `${formatMoney(typical.left)} left in a typical month.`, how: `Median of ${typical.months} months.` }
+          : null,
+        ...(trends ?? []).slice(0, 4).map((trend) => ({
+          name: trend.name,
+          value: `${trend.direction} ${Math.abs(trend.percent)}%`,
+          meaning: `${formatMoney(trend.recent)} lately, against ${formatMoney(trend.prior)} earlier.`,
+          how: "Last 3 months against the earlier average.",
+        })),
+      ].filter((row): row is NonNullable<typeof row> => Boolean(row)),
+    },
+    {
+      title: "Bills",
+      rows: (bills ?? []).slice(0, 6).map((bill) => ({
+        name: bill.description,
+        value: formatMoney(bill.usual),
+        meaning: `${bill.kind === "fixed" ? "Fixed" : "Variable"}${bill.nextDate ? `, next ${bill.nextDate}` : ""}. ${bill.status === "active" ? "On schedule." : bill.status === "late" ? "This looks late." : "This one stopped."}`,
+        how: "Same name, similar amount, regular gap.",
+      })),
+    },
+    {
+      title: "Savings and cushion",
+      rows: [
+        cushion
+          ? { name: "Cushion", value: `${cushion.months.toFixed(1)} months`, meaning: cushion.sentence, how: "Checking and savings over a typical month. Cards and retirement are left out." }
+          : null,
+        rates
+          ? {
+              name: "What was left last month",
+              value: formatMoney(rates[rates.length - 1].saved),
+              meaning: `${Math.round(rates[rates.length - 1].rate * 100)} percent of income in ${rates[rates.length - 1].ym}.`,
+              how: "Income minus spending, each month.",
+            }
+          : null,
+      ].filter((row): row is NonNullable<typeof row> => Boolean(row)),
+    },
+    {
+      title: "Patterns",
+      rows: [
+        cycle
+          ? { name: "After payday", value: `${Math.round(cycle.firstWeekShare * 100)}% in the first week`, meaning: cycle.sentence, how: "Spending by day since the last paycheck." }
+          : null,
+        odd?.[0]
+          ? { name: "Unusual charge", value: formatMoney(odd[0].amount), meaning: odd[0].sentence, how: "Above 3 times the usual amount, a first large charge, or a near duplicate." }
+          : null,
+      ].filter((row): row is NonNullable<typeof row> => Boolean(row)),
+    },
+    {
+      title: "Data quality",
+      rows: [
+        depth
+          ? { name: "History", value: `${depth.months} months`, meaning: depth.sentence, how: "Count of charges and distinct months." }
+          : null,
+      ].filter((row): row is NonNullable<typeof row> => Boolean(row)),
+    },
+  ];
+  const visible = groups.filter((group) => group.rows.length);
+  if (!visible.length) return null;
+  return (
+    <section className="rounded-lg border border-border bg-surface p-4">
+      <h2 className="font-display text-xl font-semibold">All the numbers</h2>
+      <p className="mt-1 text-sm text-muted">Every reading the file can support. Simple mode leaves this section out.</p>
+      <div className="mt-4 space-y-5">
+        {visible.map((group) => (
+          <div key={group.title}>
+            <h3 className="text-sm font-medium">{group.title}</h3>
+            <ul className="mt-2 space-y-3">
+              {group.rows.map((row) => (
+                <li key={`${group.title}-${row.name}`}>
+                  <p className="font-medium">{row.name}</p>
+                  <p className="text-sm tabular">{row.value}</p>
+                  <p className="text-sm text-muted">{row.meaning}</p>
+                  <p className="text-xs text-muted">How: {row.how}</p>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 

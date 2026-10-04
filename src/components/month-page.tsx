@@ -1,7 +1,10 @@
 import { Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { displayMerchant } from "@/lib/budget/merchant";
+import { monthEndForecast } from "@/lib/budget/analytics";
+import { recurringBills, typicalMonth } from "@/lib/budget/analytics-depth";
 import { formatMoney } from "@/lib/budget/money";
+import { comingUp, dueLabel, monthStrip, paceSentence } from "@/lib/budget/screen-plan";
 import { groupMonth } from "@/lib/budget/month-view";
 import { incomeRows, spendingRows } from "@/lib/budget/readout";
 import { monthKeyFromDate, monthLabel } from "@/lib/budget/parse-date";
@@ -12,10 +15,17 @@ import { CategorySelect } from "./category-select";
 import { HomeSwitch } from "./home-switch";
 import { LedgerTabs } from "./ledger-tabs";
 import { MonthSwitcher } from "./month-switcher";
+import { SideSwitch, useMoneySide } from "./side-switch";
 import { EmptyMonth, MonthSheet, RowTools, Section, TxRow } from "./month-parts";
 import { Button } from "./ui/button";
 
 const NO_BUDGETS: never[] = [];
+
+function todayIso() {
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+}
 
 function dayLabel(iso: string) {
   const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -41,6 +51,11 @@ export function MonthPage({ titleAs = "h1" }: { titleAs?: "h1" | "h2" }) {
   const [divideKey, setDivideKey] = useState<string | null>(null);
   const [paybackId, onPayback] = useState<string | null>(null);
   const [coach, setCoach] = useState(false);
+  const [moneySide, setMoneySide] = useMoneySide();
+  const today = todayIso();
+  const forecast = monthEndForecast({ transactions, categories, ym, today, budgets });
+  const upcoming = comingUp(recurringBills(transactions, categories, today), today, 45);
+  const stillComing = upcoming?.filter((item) => item.status !== "active" || item.nextDate.startsWith(ym)) ?? null;
 
   useEffect(() => {
     setUndo(null);
@@ -60,6 +75,7 @@ export function MonthPage({ titleAs = "h1" }: { titleAs?: "h1" | "h2" }) {
   );
   const style = useBudgetStore((s) => (s.profile.budgetStyle === "buckets" ? "buckets" : "monthly"));
   const carryStart = useBudgetStore((s) => s.profile.carryStartMonth);
+  const streams = useBudgetStore((s) => s.profile.incomeStreams ?? []);
   const incomeSide = useMemo(
     () => incomeRows({ transactions, categories, ym, budgets }).filter((row) => row.amount > 0.004 || row.mark > 0.004).slice(0, 4),
     [transactions, categories, ym, budgets],
@@ -71,6 +87,20 @@ export function MonthPage({ titleAs = "h1" }: { titleAs?: "h1" | "h2" }) {
         .slice(0, 4),
     [transactions, categories, ym, budgets, style, carryStart],
   );
+  const typical = useMemo(() => typicalMonth(transactions, categories), [transactions, categories]);
+  const usualById = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const row of [...(typical?.fixed ?? []), ...(typical?.flexible ?? [])]) map.set(row.id, row.typical);
+    return map;
+  }, [typical]);
+  const incomeSoFar = incomeSide.reduce((sum, row) => sum + row.amount, 0);
+  const incomeStill = streams.length
+    ? streams.reduce((sum, stream) => {
+        const received = incomeSide.find((row) => row.id === stream.categoryId)?.amount ?? 0;
+        return dueLabel(stream.matchHints ?? [], stream.cadence, transactions, ym, received) ? sum + stream.amount : sum;
+      }, 0)
+    : null;
+  const strip = monthStrip({ forecast, incomeSoFar, incomeStill });
   const inMonth = transactions.filter((t) => monthKeyFromDate(t.date) === ym);
   const hiddenDeposits = layout.aside.filter((t) => t.amount > 0);
   const hiddenOut = layout.aside.filter((t) => t.amount <= 0);
@@ -111,12 +141,46 @@ export function MonthPage({ titleAs = "h1" }: { titleAs?: "h1" | "h2" }) {
         </div>
         <MonthSwitcher />
       </div>
-      <div className="grid gap-3 md:grid-cols-2">
+      <section className="rounded-lg border border-border bg-surface p-4">
+        <h2 className="font-display text-lg font-semibold">Month so far</h2>
+        {strip.ready ? (
+          <div className="mt-2 space-y-1 text-sm">
+            <p>{paceSentence(forecast)}</p>
+            <p>{strip.daysLeft} {strip.daysLeft === 1 ? "day" : "days"} left. Spent {formatMoney(strip.spent ?? 0)} so far.</p>
+            <p>
+              The month ends around {formatMoney(strip.expected ?? 0)}, between {formatMoney(strip.low ?? 0)} and {formatMoney(strip.high ?? 0)}.
+            </p>
+            {strip.incomeStill != null ? <p>Income still expected: {formatMoney(strip.incomeStill)}.</p> : null}
+            {strip.projectedLeft != null ? <p>Projected left: {formatMoney(strip.projectedLeft, { signed: true })}.</p> : null}
+          </div>
+        ) : (
+          <p className="mt-1 text-sm text-muted">{strip.reason}</p>
+        )}
+      </section>
+      {stillComing && stillComing.length ? (
         <section className="rounded-lg border border-border bg-surface p-4">
+          <h2 className="font-display text-lg font-semibold">Still coming this month</h2>
+          <ul className="mt-2 space-y-1 text-sm">
+            {stillComing.slice(0, 6).map((item) => (
+              <li key={item.merchantKey}>
+                {item.description} · {formatMoney(item.usual)} · {item.nextDate}
+                {item.status === "late" ? " · this looks late" : ""}
+                {item.status === "stopped" ? " · this one stopped" : ""}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-xs text-muted">
+            About {formatMoney(stillComing.reduce((sum, item) => sum + item.yearly, 0))} a year for the ones listed, from repeating charges.
+          </p>
+        </section>
+      ) : null}
+      <SideSwitch side={moneySide} onChange={setMoneySide} />
+      <div className="grid gap-3 lg:grid-cols-2">
+        <section className={`rounded-lg border border-border bg-surface p-4 ${moneySide === "in" ? "block" : "hidden"} lg:block`}>
           <h2 className="font-display text-lg font-semibold">Money in</h2>
           <ul className="mt-2 space-y-2 text-sm">
             {incomeSide.map((row) => (
-              <li key={row.id} className="flex items-baseline justify-between gap-3">
+              <li key={row.id} className="flex flex-wrap items-baseline justify-between gap-3">
                 <span>{row.name}</span>
                 <span className="tabular text-muted">{row.primary}</span>
               </li>
@@ -124,15 +188,30 @@ export function MonthPage({ titleAs = "h1" }: { titleAs?: "h1" | "h2" }) {
             {incomeSide.length === 0 ? <li className="text-muted">No income in this month yet.</li> : null}
           </ul>
         </section>
-        <section className="rounded-lg border border-border bg-surface p-4">
+        <section className={`rounded-lg border border-border bg-surface p-4 ${moneySide === "out" ? "block" : "hidden"} lg:block`}>
           <h2 className="font-display text-lg font-semibold">Money out</h2>
           <ul className="mt-2 space-y-2 text-sm">
-            {spendSide.map((row) => (
-              <li key={row.id} className="flex items-baseline justify-between gap-3">
-                <span>{row.name}</span>
-                <span className={`tabular ${row.tone === "danger" ? "text-danger" : "text-muted"}`}>{row.primary}</span>
-              </li>
-            ))}
+            {spendSide.map((row) => {
+              const usual = usualById.get(row.id);
+              const delta = usual != null ? row.amount - usual : null;
+              const compared =
+                delta == null
+                  ? null
+                  : Math.abs(delta) < 0.5
+                    ? "About the usual amount"
+                    : delta > 0
+                      ? `${formatMoney(delta)} more than usual`
+                      : `${formatMoney(Math.abs(delta))} less than usual`;
+              return (
+                <li key={row.id} className="flex flex-wrap items-baseline justify-between gap-3">
+                  <span>{row.name}</span>
+                  <span className="text-right">
+                    <span className={`tabular ${row.tone === "danger" ? "text-danger" : "text-muted"}`}>{row.primary}</span>
+                    {compared ? <span className="mt-0.5 block text-xs text-muted">{compared}</span> : null}
+                  </span>
+                </li>
+              );
+            })}
             {spendSide.length === 0 ? <li className="text-muted">No spending categories with an amount yet.</li> : null}
           </ul>
           <Link to="/plan" className="mt-3 inline-flex text-sm font-medium text-primary">

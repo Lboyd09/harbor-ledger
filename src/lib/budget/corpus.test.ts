@@ -15,7 +15,8 @@ import { matchBankLabel } from "./bank-label.ts";
 import { parseBackup } from "./backup.ts";
 import { parseCsvText } from "./csv.ts";
 import { merchantKey } from "./merchant.ts";
-import type { Category, Transaction } from "./types.ts";
+import { buildPresetCategories } from "./presets.ts";
+import type { Category, Profile, Transaction } from "./types.ts";
 
 const categories: Category[] = [
   { id: "food", slug: "food", name: "Groceries", kind: "expense", plannedMonthly: 400 },
@@ -86,6 +87,23 @@ const BANK_LABELS: { label: string; slug: string | null }[] = [
   { label: "Miscellaneous", slug: null },
   { label: "", slug: null },
   { label: "Purchase", slug: null },
+  { label: "Fuel", slug: "gas" },
+  { label: "Electricity", slug: "utilities" },
+  { label: "Phone", slug: "utilities" },
+  { label: "Streaming", slug: "subscriptions" },
+  { label: "Shopping", slug: "personal" },
+  { label: "Parking", slug: "transport" },
+  { label: "Transit", slug: "transport" },
+  { label: "Hotel", slug: "travel" },
+  { label: "Donation", slug: "giving" },
+  { label: "Daycare", slug: "childcare" },
+  { label: "Payroll", slug: "paycheck" },
+  { label: "Student loan", slug: "debt" },
+  { label: "Savings transfer", slug: "savings" },
+  { label: "Coffee shop", slug: "dining" },
+  { label: "Supermarket", slug: "food" },
+  { label: "Medical", slug: "health" },
+  { label: "Miscellaneous", slug: null },
 ];
 
 function paceFixture(): Transaction[] {
@@ -229,6 +247,8 @@ test("a category column is read, a memo does not replace the description, and va
 03/04/2026,LANDLORD LLC,-1400.00,Rent,march rent
 03/05/2026,GEICO PAYMENT,-155.00,Car Insurance,policy
 03/06/2026,RANDOM PLACE,-12.00,Other,no idea
+03/08/2026,UNIT 4B,-1400.00,Rent or mortgage,march
+03/09/2026,POLICY 88,-90.00,Car insurance,policy
 03/07/2026,CARD PURCHASE 4411,-15.49,,NETFLIX.COM
 `;
   const preview = parseCsvText(csv, "labeled.csv");
@@ -248,11 +268,17 @@ test("a category column is read, a memo does not replace the description, and va
     createId: () => `tx_${Math.random().toString(36).slice(2, 8)}`,
   });
   const byDesc = (needle: string) => imported.added.find((row) => row.description.includes(needle));
-  for (const needle of ["ACME", "MYSTERY", "LANDLORD", "GEICO"]) {
+  for (const needle of ["ACME", "MYSTERY"]) {
     const row = byDesc(needle);
     assert.equal(row?.auto?.source, "bank", needle);
     assert.equal(row?.auto?.confidence, "sure", needle);
     assert.match(row?.auto?.reason ?? "", /bank called this/i, needle);
+    assert.ok(row?.categoryId, needle);
+  }
+  for (const needle of ["LANDLORD", "GEICO"]) {
+    const row = byDesc(needle);
+    assert.equal(row?.auto?.source, "keyword", needle);
+    assert.equal(row?.auto?.confidence, "sure", needle);
     assert.ok(row?.categoryId, needle);
   }
   const other = byDesc("RANDOM");
@@ -340,4 +366,233 @@ test("old backups without the new fields still load, and new fields restore", ()
   assert.equal(next.data.transactions[0].auto?.source, "bank");
   assert.match(next.data.transactions[0].auto?.reason ?? "", /Groceries/);
   assert.equal(next.data.monthBudgets[0].amount, 50);
+});
+
+
+test("merchant corpus of everyday descriptions", () => {
+  const profile: Profile = {
+    ledgerName: "t", household: "single", dependents: 0, lifeStage: "early-career", housing: "rent",
+    hasVehicle: true, usesTransit: true, hasPets: true, monthlyIncome: 4000,
+    incomeStreams: [],
+    buckets: ["housing","food","dining","gas","transport","utilities","personal","health","subscriptions","entertainment","giving","education","childcare","pets","travel","debt"],
+    goals: ["track"], completedOnboarding: true, budgetPeriod: "month",
+  };
+  const categories = buildPresetCategories(profile);
+  const cases: { description: string; amount: number; slug: string | null; confidence: "sure" | "likely" | "unsure"; gate: boolean }[] = [
+    { description: 'SQ *CHIPOTLE 5521 PHOENIX, AZ', amount: -14, slug: "dining", confidence: "sure", gate: true },
+    { description: 'TST* STARBUCKS STORE 88 AUSTIN, TX', amount: -6.5, slug: "dining", confidence: "sure", gate: true },
+    { description: "MCDONALD'S #4412", amount: -8, slug: "dining", confidence: "sure", gate: true },
+    { description: 'BURGER KING 12', amount: -9, slug: "dining", confidence: "sure", gate: true },
+    { description: 'TACO BELL 009', amount: -7, slug: "dining", confidence: "sure", gate: true },
+    { description: 'CHICK-FIL-A #0123', amount: -11, slug: "dining", confidence: "sure", gate: true },
+    { description: 'OLIVE GARDEN 441', amount: -32, slug: "dining", confidence: "sure", gate: true },
+    { description: "DOMINO'S PIZZA", amount: -18, slug: "dining", confidence: "sure", gate: true },
+    { description: 'PIZZA HUT 19', amount: -16, slug: "dining", confidence: "sure", gate: true },
+    { description: 'PANERA BREAD 3', amount: -13, slug: "dining", confidence: "sure", gate: true },
+    { description: 'DUNKIN 220', amount: -4, slug: "dining", confidence: "sure", gate: true },
+    { description: 'DOORDASH*DASHPASS', amount: -24, slug: "dining", confidence: "sure", gate: true },
+    { description: 'GRUBHUB ORDER', amount: -21, slug: "dining", confidence: "sure", gate: true },
+    { description: 'KROGER #441 PHOENIX AZ', amount: -62, slug: "food", confidence: "sure", gate: true },
+    { description: 'PUBLIX 1234', amount: -48, slug: "food", confidence: "sure", gate: true },
+    { description: "TRADER JOE'S 551", amount: -36, slug: "food", confidence: "sure", gate: true },
+    { description: 'WHOLE FOODS MKT', amount: -70, slug: "food", confidence: "sure", gate: true },
+    { description: 'ALDI 8821', amount: -33, slug: "food", confidence: "sure", gate: true },
+    { description: 'FOOD LION 12', amount: -29, slug: "food", confidence: "sure", gate: true },
+    { description: 'H MART AUSTIN', amount: -44, slug: "food", confidence: "sure", gate: true },
+    { description: '99 RANCH MARKET', amount: -38, slug: "food", confidence: "sure", gate: true },
+    { description: 'WINCO FOODS', amount: -41, slug: "food", confidence: "sure", gate: true },
+    { description: 'SHELL OIL 1221 XXXX4411', amount: -40, slug: "gas", confidence: "sure", gate: true },
+    { description: 'CHEVRON 0099881', amount: -36, slug: "gas", confidence: "sure", gate: true },
+    { description: 'CIRCLE K 441', amount: -28, slug: "gas", confidence: "sure", gate: true },
+    { description: 'COSTCO GAS 119', amount: -44, slug: "gas", confidence: "sure", gate: true },
+    { description: 'EXXON 7761', amount: -31, slug: "gas", confidence: "sure", gate: true },
+    { description: 'WAWA 552 FUEL', amount: -27, slug: "gas", confidence: "sure", gate: true },
+    { description: 'UBER TRIP XXXX2291', amount: -18, slug: "transport", confidence: "sure", gate: true },
+    { description: 'LYFT RIDE 0091', amount: -16, slug: "transport", confidence: "sure", gate: true },
+    { description: 'EZPASS REPLENISH', amount: -25, slug: "transport", confidence: "sure", gate: true },
+    { description: 'GEICO AUTO', amount: -120, slug: "transport", confidence: "sure", gate: true },
+    { description: 'STATE FARM INS', amount: -140, slug: "transport", confidence: "sure", gate: true },
+    { description: 'JIFFY LUBE 19', amount: -49, slug: "transport", confidence: "sure", gate: true },
+    { description: 'AUTOZONE 332', amount: -22, slug: "transport", confidence: "sure", gate: true },
+    { description: 'DUKE ENERGY BILL', amount: -88, slug: "utilities", confidence: "sure", gate: true },
+    { description: 'VERIZON WIRELESS', amount: -75, slug: "utilities", confidence: "sure", gate: true },
+    { description: 'COMCAST CABLE', amount: -70, slug: "utilities", confidence: "sure", gate: true },
+    { description: 'NATIONAL GRID', amount: -64, slug: "utilities", confidence: "sure", gate: true },
+    { description: 'PG&E ENERGY', amount: -91, slug: "utilities", confidence: "sure", gate: true },
+    { description: 'T-MOBILE PCS', amount: -50, slug: "utilities", confidence: "sure", gate: true },
+    { description: 'NETFLIX.COM', amount: -15.49, slug: "subscriptions", confidence: "sure", gate: true },
+    { description: 'SPOTIFY USA', amount: -11.99, slug: "subscriptions", confidence: "sure", gate: true },
+    { description: 'HULU 8801', amount: -17.99, slug: "subscriptions", confidence: "sure", gate: true },
+    { description: 'ADOBE CREATIVE', amount: -54.99, slug: "subscriptions", confidence: "sure", gate: true },
+    { description: 'SLACK TECH', amount: -8, slug: "subscriptions", confidence: "sure", gate: true },
+    { description: 'CVS/PHARMACY 221', amount: -12, slug: "health", confidence: "sure", gate: true },
+    { description: 'WALGREENS 4412', amount: -9, slug: "health", confidence: "sure", gate: true },
+    { description: 'BLUE CROSS', amount: -210, slug: "health", confidence: "sure", gate: true },
+    { description: 'PLANET FITNESS', amount: -24, slug: "health", confidence: "sure", gate: true },
+    { description: 'CHEWY.COM', amount: -42, slug: "pets", confidence: "sure", gate: true },
+    { description: 'PETCO 118', amount: -28, slug: "pets", confidence: "sure", gate: true },
+    { description: 'KINDERCARE', amount: -800, slug: "childcare", confidence: "sure", gate: true },
+    { description: 'TUITION PAYMENT', amount: -500, slug: "education", confidence: "sure", gate: true },
+    { description: 'DELTA AIR 006', amount: -280, slug: "travel", confidence: "sure", gate: true },
+    { description: 'MARRIOTT HOTELS', amount: -190, slug: "travel", confidence: "sure", gate: true },
+    { description: 'AIRBNB * STAY', amount: -140, slug: "travel", confidence: "sure", gate: true },
+    { description: 'HOME DEPOT 441', amount: -46, slug: "personal", confidence: "sure", gate: true },
+    { description: 'BEST BUY 009', amount: -80, slug: "personal", confidence: "sure", gate: true },
+    { description: 'NORDSTROM 12', amount: -60, slug: "personal", confidence: "sure", gate: true },
+    { description: 'USPS PO 441', amount: -8, slug: "personal", confidence: "sure", gate: true },
+    { description: 'GOODWILL DONATION', amount: -20, slug: "giving", confidence: "sure", gate: true },
+    { description: 'RED CROSS', amount: -25, slug: "giving", confidence: "sure", gate: true },
+    { description: 'ATM FEE', amount: -3, slug: "other", confidence: "sure", gate: true },
+    { description: 'NSF FEE', amount: -35, slug: "other", confidence: "sure", gate: true },
+    { description: 'OVERDRAFT FEE', amount: -34, slug: "other", confidence: "sure", gate: true },
+    { description: 'WALMART SUPERCENTER', amount: -60, slug: "food", confidence: "likely", gate: true },
+    { description: 'TARGET STORE 112', amount: -22, slug: "personal", confidence: "likely", gate: true },
+    { description: 'AMAZON MKTPL', amount: -19, slug: "personal", confidence: "likely", gate: true },
+    { description: 'COSTCO WHSE', amount: -110, slug: "food", confidence: "likely", gate: true },
+    { description: "SAM'S CLUB", amount: -70, slug: "food", confidence: "likely", gate: true },
+    { description: 'EBAY SALE', amount: -15, slug: "personal", confidence: "likely", gate: true },
+    { description: "WENDY'S 441", amount: -20, slug: "dining", confidence: "sure", gate: true },
+    { description: 'FIVE GUYS 2', amount: -20, slug: "dining", confidence: "sure", gate: true },
+    { description: 'SHAKE SHACK', amount: -20, slug: "dining", confidence: "sure", gate: true },
+    { description: 'IN-N-OUT 18', amount: -20, slug: "dining", confidence: "sure", gate: true },
+    { description: 'DAIRY QUEEN', amount: -20, slug: "dining", confidence: "sure", gate: true },
+    { description: 'WHITE CASTLE', amount: -20, slug: "dining", confidence: "sure", gate: true },
+    { description: 'PAPA JOHNS', amount: -20, slug: "dining", confidence: "sure", gate: true },
+    { description: 'LITTLE CAESARS', amount: -20, slug: "dining", confidence: "sure", gate: true },
+    { description: 'CHIPOTLE 0091', amount: -20, slug: "dining", confidence: "sure", gate: true },
+    { description: 'RAISING CANES', amount: -20, slug: "dining", confidence: "sure", gate: true },
+    { description: 'WINGSTOP 14', amount: -20, slug: "dining", confidence: "sure", gate: true },
+    { description: 'PANDA EXPRESS', amount: -20, slug: "dining", confidence: "sure", gate: true },
+    { description: 'QDOBA 3', amount: -20, slug: "dining", confidence: "sure", gate: true },
+    { description: 'JERSEY MIKES', amount: -20, slug: "dining", confidence: "sure", gate: true },
+    { description: 'FIREHOUSE SUBS', amount: -20, slug: "dining", confidence: "sure", gate: true },
+    { description: 'WHATABURGER 8', amount: -20, slug: "dining", confidence: "sure", gate: true },
+    { description: 'PEETS COFFEE', amount: -20, slug: "dining", confidence: "sure", gate: true },
+    { description: 'DUTCH BROS', amount: -20, slug: "dining", confidence: "sure", gate: true },
+    { description: 'CARIBOU COFFEE', amount: -20, slug: "dining", confidence: "sure", gate: true },
+    { description: 'TIM HORTONS', amount: -20, slug: "dining", confidence: "sure", gate: true },
+    { description: 'HARRIS TEETER', amount: -20, slug: "food", confidence: "sure", gate: true },
+    { description: 'KING SOOPERS', amount: -20, slug: "food", confidence: "sure", gate: true },
+    { description: 'SPROUTS FARMERS', amount: -20, slug: "food", confidence: "sure", gate: true },
+    { description: 'GELSONS MARKET', amount: -20, slug: "food", confidence: "sure", gate: true },
+    { description: 'SAVE A LOT', amount: -20, slug: "food", confidence: "sure", gate: true },
+    { description: 'SMART AND FINAL', amount: -20, slug: "food", confidence: "sure", gate: true },
+    { description: 'BROOKSHIRE BROS', amount: -20, slug: "food", confidence: "sure", gate: true },
+    { description: 'CUB FOODS', amount: -20, slug: "food", confidence: "sure", gate: true },
+    { description: 'GIANT EAGLE', amount: -20, slug: "food", confidence: "sure", gate: true },
+    { description: 'FOODMAXX 2', amount: -20, slug: "food", confidence: "sure", gate: true },
+    { description: 'CARDENAS 9', amount: -20, slug: "food", confidence: "sure", gate: true },
+    { description: 'VALLARTA SUPERMERCADO', amount: -20, slug: "food", confidence: "sure", gate: true },
+    { description: 'PATEL BROTHERS', amount: -20, slug: "food", confidence: "sure", gate: true },
+    { description: 'FAREWAY STORE', amount: -20, slug: "food", confidence: "sure", gate: true },
+    { description: 'MEIJER 441', amount: -20, slug: "food", confidence: "sure", gate: true },
+    { description: 'WEGMANS 12', amount: -20, slug: "food", confidence: "sure", gate: true },
+    { description: 'SAFEWAY 229', amount: -20, slug: "food", confidence: "sure", gate: true },
+    { description: 'ALBERTSONS 10', amount: -20, slug: "food", confidence: "sure", gate: true },
+    { description: 'HYVEE 441', amount: -20, slug: "food", confidence: "sure", gate: true },
+    { description: 'STATER BROS', amount: -20, slug: "food", confidence: "sure", gate: true },
+    { description: 'QUIKTRIP 441', amount: -20, slug: "gas", confidence: "sure", gate: true },
+    { description: 'SHEETZ 118', amount: -20, slug: "gas", confidence: "sure", gate: true },
+    { description: 'BUCCEES 12', amount: -20, slug: "gas", confidence: "sure", gate: true },
+    { description: 'CASEYS GEN', amount: -20, slug: "gas", confidence: "sure", gate: true },
+    { description: 'SUNOCO 77', amount: -20, slug: "gas", confidence: "sure", gate: true },
+    { description: 'VALERO 19', amount: -20, slug: "gas", confidence: "sure", gate: true },
+    { description: 'KUM & GO', amount: -20, slug: "gas", confidence: "sure", gate: true },
+    { description: 'PILOT TRAVEL CENTER', amount: -20, slug: "gas", confidence: "sure", gate: true },
+    { description: 'CHARGEPOINT', amount: -20, slug: "transport", confidence: "sure", gate: true },
+    { description: 'PARKWHIZ', amount: -20, slug: "transport", confidence: "sure", gate: true },
+    { description: 'SPOTHERO PARK', amount: -20, slug: "transport", confidence: "sure", gate: true },
+    { description: 'DISCOUNT TIRE', amount: -20, slug: "transport", confidence: "sure", gate: true },
+    { description: "O'REILLY AUTO", amount: -20, slug: "transport", confidence: "sure", gate: true },
+    { description: 'ALLSTATE INS', amount: -20, slug: "transport", confidence: "sure", gate: true },
+    { description: 'PROGRESSIVE INS', amount: -20, slug: "transport", confidence: "sure", gate: true },
+    { description: 'LIBERTY MUTUAL', amount: -20, slug: "transport", confidence: "sure", gate: true },
+    { description: 'XCEL ENERGY', amount: -20, slug: "utilities", confidence: "sure", gate: true },
+    { description: 'DOMINION ENERGY', amount: -20, slug: "utilities", confidence: "sure", gate: true },
+    { description: 'AMEREN ILLINOIS', amount: -20, slug: "utilities", confidence: "sure", gate: true },
+    { description: 'WASTE MANAGEMENT', amount: -20, slug: "utilities", confidence: "sure", gate: true },
+    { description: 'SPECTRUM 441', amount: -20, slug: "utilities", confidence: "sure", gate: true },
+    { description: 'XFINITY', amount: -20, slug: "utilities", confidence: "sure", gate: true },
+    { description: 'CRICKET WIRELESS', amount: -20, slug: "utilities", confidence: "sure", gate: true },
+    { description: 'MINT MOBILE', amount: -20, slug: "utilities", confidence: "sure", gate: true },
+    { description: 'YOUTUBE TV', amount: -20, slug: "subscriptions", confidence: "sure", gate: true },
+    { description: 'APPLE TV PLUS', amount: -20, slug: "subscriptions", confidence: "sure", gate: true },
+    { description: 'DROPBOX', amount: -20, slug: "subscriptions", confidence: "sure", gate: true },
+    { description: 'ZOOM.US', amount: -20, slug: "subscriptions", confidence: "sure", gate: true },
+    { description: '1PASSWORD', amount: -20, slug: "subscriptions", confidence: "sure", gate: true },
+    { description: 'PEACOCK TV', amount: -20, slug: "subscriptions", confidence: "sure", gate: true },
+    { description: 'HBO MAX', amount: -20, slug: "subscriptions", confidence: "sure", gate: true },
+    { description: 'PARAMOUNT PLUS', amount: -20, slug: "subscriptions", confidence: "sure", gate: true },
+    { description: 'ANYTIME FITNESS', amount: -20, slug: "health", confidence: "sure", gate: true },
+    { description: 'LA FITNESS', amount: -20, slug: "health", confidence: "sure", gate: true },
+    { description: 'ASPEN DENTAL', amount: -20, slug: "health", confidence: "sure", gate: true },
+    { description: 'WARBY PARKER', amount: -20, slug: "health", confidence: "sure", gate: true },
+    { description: 'PETSMART 441', amount: -20, slug: "pets", confidence: "sure", gate: true },
+    { description: 'BANFIELD PET', amount: -20, slug: "pets", confidence: "sure", gate: true },
+    { description: 'BRIGHT HORIZONS', amount: -20, slug: "childcare", confidence: "sure", gate: true },
+    { description: 'GODDARD SCHOOL', amount: -20, slug: "childcare", confidence: "sure", gate: true },
+    { description: 'MOHELA STUDENT', amount: -20, slug: "debt", confidence: "sure", gate: true },
+    { description: 'NELNET LOAN', amount: -20, slug: "debt", confidence: "sure", gate: true },
+    { description: 'NAVIENT PAYMENT', amount: -20, slug: "debt", confidence: "sure", gate: true },
+    { description: 'SALLIE MAE', amount: -20, slug: "debt", confidence: "sure", gate: true },
+    { description: 'UNITED AIRLINES', amount: -20, slug: "travel", confidence: "sure", gate: true },
+    { description: 'SOUTHWEST AIR', amount: -20, slug: "travel", confidence: "sure", gate: true },
+    { description: 'JETBLUE 441', amount: -20, slug: "travel", confidence: "sure", gate: true },
+    { description: 'HILTON HOTELS', amount: -20, slug: "travel", confidence: "sure", gate: true },
+    { description: 'HYATT REGENCY', amount: -20, slug: "travel", confidence: "sure", gate: true },
+    { description: 'HERTZ RENT', amount: -20, slug: "travel", confidence: "sure", gate: true },
+    { description: 'AIRBNB HM', amount: -20, slug: "travel", confidence: "sure", gate: true },
+    { description: 'EXPEDIA HOTEL', amount: -20, slug: "travel", confidence: "sure", gate: true },
+    { description: 'LOWES 441', amount: -20, slug: "personal", confidence: "sure", gate: true },
+    { description: 'IKEA STORE', amount: -20, slug: "personal", confidence: "sure", gate: true },
+    { description: 'WAYFAIR.COM', amount: -20, slug: "personal", confidence: "sure", gate: true },
+    { description: 'MACYS 12', amount: -20, slug: "personal", confidence: "sure", gate: true },
+    { description: 'KOHLS 441', amount: -20, slug: "personal", confidence: "sure", gate: true },
+    { description: 'OLD NAVY', amount: -20, slug: "personal", confidence: "sure", gate: true },
+    { description: 'SEPHORA', amount: -20, slug: "personal", confidence: "sure", gate: true },
+    { description: 'ULTA BEAUTY', amount: -20, slug: "personal", confidence: "sure", gate: true },
+    { description: 'UNITED WAY', amount: -20, slug: "giving", confidence: "sure", gate: true },
+    { description: 'SALVATION ARMY', amount: -20, slug: "giving", confidence: "sure", gate: true },
+    { description: 'GOFUNDME', amount: -20, slug: "giving", confidence: "sure", gate: true },
+    { description: 'GOODWILL STORE', amount: -20, slug: "giving", confidence: "sure", gate: true },
+    { description: 'IRS USATAXPYMT', amount: -20, slug: "other", confidence: "sure", gate: true },
+    { description: 'DMV FEE', amount: -20, slug: "other", confidence: "sure", gate: true },
+    { description: 'FOREIGN TRANSACTION FEE', amount: -20, slug: "other", confidence: "sure", gate: true },
+    { description: 'WIRE FEE', amount: -20, slug: "other", confidence: "sure", gate: true },
+    { description: 'VENMO CASHOUT', amount: -30, slug: "transfers-out", confidence: "unsure", gate: false },
+    { description: 'ZELLE TO A FRIEND', amount: -25, slug: null, confidence: "unsure", gate: false },
+    { description: 'CASH APP PAYMENT', amount: -15, slug: null, confidence: "unsure", gate: false },
+    { description: 'ACME WIDGETS UNKNOWN', amount: -12, slug: null, confidence: "unsure", gate: false },
+    { description: 'MYSTERY MERCHANT', amount: -9, slug: null, confidence: "unsure", gate: false },
+  ];
+  assert.ok(cases.length >= 150);
+  let sortable = 0, right = 0, sureN = 0, sureBad = 0, likelyN = 0, likelyBad = 0, unsureSure = 0;
+  const misses: string[] = [];
+  for (const item of cases) {
+    const sorted = sortCharge(
+      { description: item.description, amount: item.amount, merchantKey: merchantKey(item.description) },
+      { categories, rules: [] },
+    );
+    const slug = categories.find((c) => c.id === sorted.categoryId)?.slug ?? null;
+    if (item.confidence === "unsure" && sorted.auto.confidence === "sure") {
+      unsureSure += 1;
+      misses.push(`${item.description} was sure`);
+    }
+    if (!item.gate || !item.slug) continue;
+    sortable += 1;
+    const ok = (sorted.auto.confidence === "sure" || sorted.auto.confidence === "likely") && slug === item.slug;
+    if (ok) right += 1;
+    else misses.push(`${item.description} expected ${item.slug}/${item.confidence} got ${slug}/${sorted.auto.confidence}`);
+    if (sorted.auto.confidence === "sure") { sureN += 1; if (slug !== item.slug) sureBad += 1; }
+    if (sorted.auto.confidence === "likely") { likelyN += 1; if (slug !== item.slug) likelyBad += 1; }
+  }
+  const rate = sortable ? right / sortable : 0;
+  const sureRate = sureN ? sureBad / sureN : 0;
+  const likelyRate = likelyN ? likelyBad / likelyN : 0;
+  console.log(`merchant corpus: ${right}/${sortable} (${percent(right, sortable)}%) sure-wrong ${percent(sureBad, Math.max(sureN, 1))}% likely-wrong ${percent(likelyBad, Math.max(likelyN, 1))}%`);
+  for (const miss of misses.slice(0, 25)) console.log(`  miss: ${miss}`);
+  assert.equal(unsureSure, 0);
+  assert.ok(rate >= 0.8, `sortable pass rate ${rate}`);
+  assert.ok(sureRate <= 0.03, `sure wrong ${sureRate}`);
+  assert.ok(likelyRate <= 0.08, `likely wrong ${likelyRate}`);
 });

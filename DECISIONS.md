@@ -4,6 +4,11 @@ Newest first. If this file conflicts with earlier chat, this file wins.
 
 ## 2026-10-04
 
+44. Every number says what it is based on. A reading that the data cannot support shows what more history would unlock.
+43. Simple mode shows the answer, one picture, and one next action. Advanced mode shows every metric the data supports, grouped, each explained in plain words and with how it was worked out.
+42. Budget, Month, and Home lead with what matters: what is over or at risk, what is coming, what the file already shows. Money in is on one side and money out is on the other.
+41. When the person must choose, they decide once per name, biggest dollars first, with ranked suggestions. The same screen is used everywhere charges are sorted.
+40. A charge the app is fairly sure about is sorted for the person, marked "Check", and counted in every total until confirmed or changed. Only charges with no good guess wait.
 39. A reading stays quiet until the charges can support it. A month-end forecast uses the date you pass in, not the clock. One month can already say what went out, the largest charge, the busiest day, and the biggest category, and it lists what is still waiting on more history.
 38. A bank file's Category column is a label, not something to ignore. When it matches a category, that charge is checked and sorted, and the reason is shown. Memo is extra words for sorting and for the note. It does not replace the description. Vague labels such as Other stay unsorted.
 37. A spending category can carry over or start fresh on its own. If that choice is missing, it follows the ledger. Income never carries. Switching a category does not delete its usual amount, a one-month amount, or its charges. The ledger still has one default. This narrows decision 1 and decision 33 only for that override.

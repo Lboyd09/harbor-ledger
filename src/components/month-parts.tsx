@@ -12,6 +12,7 @@ import { piecesOf } from "@/lib/budget/splits";
 import { downloadText } from "@/lib/budget/download";
 import type { Category, Transaction } from "@/lib/budget/types";
 import { cn } from "@/lib/cn";
+import { unusualCharges } from "@/lib/budget/analytics-depth";
 import { useBudgetStore } from "@/store/budget-store";
 import { CategorySelect } from "./category-select";
 import { Button } from "./ui/button";
@@ -244,6 +245,10 @@ export function Section({
     Boolean(profile.carryStartMonth) &&
     ym >= (profile.carryStartMonth as string);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+  const [quietOdd, setQuietOdd] = useState<string[]>([]);
+  const odd = new Set(
+    (unusualCharges(transactions, ym) ?? []).filter((item) => !quietOdd.includes(item.id)).map((item) => item.id),
+  );
   return (
     <section className={cn("rounded-xl border p-3 md:p-4", tone === "in" ? "border-good/40" : "border-danger/35")}>
       <div className="mb-3 px-1">
@@ -377,6 +382,14 @@ export function Section({
                           <>
                             {t.pinned === "charge" ? <p className="mt-1 text-xs text-muted">Set for this charge</p> : null}
                             {t.pinned === "month" ? <p className="mt-1 text-xs text-muted">Set for this month</p> : null}
+                            {odd.has(t.id) ? (
+                              <p className="mt-1 text-sm">
+                                This looks off.{" "}
+                                <button type="button" className="font-medium text-primary" onClick={() => setQuietOdd((list) => [...list, t.id])}>
+                                  That's normal
+                                </button>
+                              </p>
+                            ) : null}
                             {t.status === "refund" ? <RefundLine t={t} onNotice={onNotice} /> : pieceLine ? <p className="mt-1 text-xs text-muted">{pieceLine}</p> : null}
                           </>
                         }

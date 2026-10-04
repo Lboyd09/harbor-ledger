@@ -1,3 +1,4 @@
+import { rankedInsights, waitingUnlocks } from "./analytics-depth.ts";
 import { formatMoney, roundMoney } from "./money.ts";
 import { monthCash, monthsInData } from "./totals.ts";
 import { planAmount } from "./plans.ts";
@@ -8,6 +9,10 @@ export type InsightItem = {
   id: string;
   title: string;
   detail: string;
+  /** How the number was worked out. Missing on older readings. */
+  basis?: string;
+  /** Small chart. Missing when there is nothing to draw. */
+  chart?: { label: string; value: number }[];
 };
 
 export type FileInsights = {
@@ -20,6 +25,10 @@ export type MonthEndForecast = {
   today: string;
   spentSoFar: number;
   projectedSpend: number;
+  /** Lower end of the pace band. The same today always gives the same band. */
+  low: number;
+  /** Upper end of the pace band. */
+  high: number;
   planned: number | null;
   sentence: string;
 };
@@ -166,6 +175,9 @@ export function monthEndForecast(input: {
   const spentSoFar = roundMoney(rows.reduce((sum, row) => sum + Math.abs(row.amount), 0));
   const paceBase = roundMoney(spentSoFar - oneOffTotal);
   const projectedSpend = roundMoney(oneOffTotal + paceBase * (parsed.days / parsed.day));
+  const remaining = parsed.day > 0 ? paceBase * ((parsed.days - parsed.day) / parsed.day) : 0;
+  const low = roundMoney(oneOffTotal + paceBase + remaining * 0.75);
+  const high = roundMoney(oneOffTotal + paceBase + remaining * 1.25);
   const planned = plannedTotal > 0 ? plannedTotal : null;
   let sentence: string;
   if (spentSoFar <= 0.004) {
@@ -176,7 +188,7 @@ export function monthEndForecast(input: {
     sentence = `Spent ${formatMoney(spentSoFar)} so far. At this pace the month ends around ${formatMoney(projectedSpend)}.`;
   }
   if (planned != null) sentence = `${sentence} The plan is ${formatMoney(planned)}.`;
-  return { ym: input.ym, today: input.today, spentSoFar, projectedSpend, planned, sentence };
+  return { ym: input.ym, today: input.today, spentSoFar, projectedSpend, low, high, planned, sentence };
 }
 
 /** The largest rise in a repeating charge. Null until some name has been seen at least three times. */
@@ -514,6 +526,21 @@ export function fileInsights(transactions: Transaction[], categories: Category[]
       title: "December and January",
       detail: "A year boundary needs both December and January in the file.",
     });
+  }
+  const ranked = rankedInsights(transactions, categories, asOf ?? "1970-01-01");
+  for (const row of ranked) {
+    if (items.some((item) => item.id === row.id)) continue;
+    items.push({
+      id: row.id,
+      title: row.title,
+      detail: row.detail,
+      basis: row.basis,
+      chart: row.chart,
+    });
+  }
+  for (const row of waitingUnlocks(transactions, categories, asOf ?? "")) {
+    if (waiting.some((item) => item.id === row.id || item.title === row.title)) continue;
+    waiting.push(row);
   }
   return { items, waiting };
 }

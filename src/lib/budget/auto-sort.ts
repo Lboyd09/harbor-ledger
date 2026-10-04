@@ -1,12 +1,13 @@
-import { matchBankLabel } from "./bank-label.ts";
+import { bankLabelKey, matchBankLabel } from "./bank-label.ts";
 import { matchKeyword, SLUG_FALLBACKS } from "./keywords.ts";
 import { fingerprint } from "./fingerprint.ts";
-import { merchantKey, merchantNormalized } from "./merchant.ts";
+import { editDistance, merchantFamily, merchantKey, merchantNormalized, tokenOverlap } from "./merchant.ts";
 import { roundMoney } from "./money.ts";
 import type {
   Category,
   IncomeStream,
   MerchantRule,
+  Profile,
   Transaction,
   TransactionAuto,
   TxStatus,
@@ -26,6 +27,8 @@ export type SortContext = {
   rules: MerchantRule[];
   history?: SortHistory[];
   incomeStreams?: IncomeStream[];
+  /** Labels the person already confirmed. Missing means none. */
+  bankLabelMap?: Record<string, string> | null;
 };
 
 export type SortedCharge = {
@@ -78,6 +81,37 @@ function nearAmount(amount: number, expected: number): boolean {
   return Math.abs(amount - expected) <= expected * 0.05 + 0.009;
 }
 
+function median(values: number[]): number {
+  if (!values.length) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+function tally(rows: SortHistory[]): { id: string; n: number } | null {
+  const counts = new Map<string, { n: number; date: string }>();
+  for (const row of rows) {
+    if (!row.categoryId) continue;
+    const cur = counts.get(row.categoryId) ?? { n: 0, date: "" };
+    cur.n += 1;
+    if (row.date > cur.date) cur.date = row.date;
+    counts.set(row.categoryId, cur);
+  }
+  const ranked = [...counts.entries()].sort((a, b) => b[1].n - a[1].n || b[1].date.localeCompare(a[1].date));
+  if (!ranked.length) return null;
+  return { id: ranked[0][0], n: ranked[0][1].n };
+}
+
+function sameSide(row: SortHistory, side: "in" | "out" | "any"): boolean {
+  const pastSide = sideOf(row.amount, row.status);
+  return pastSide === "any" || pastSide === side;
+}
+
+const P2P = /\b(VENMO|ZELLE|CASH APP)\b/i;
+const CARD_PAY = /\b(PAYMENT TO\b.{0,24}\bCARD|CREDIT CRD|CARDMEMBER|CRD AUTOPAY)\b/i;
+const OWN_XFER = /\b(ONLINE TRANSFER|TRANSFER TO|TRANSFER FROM|XFER TO|XFER FROM)\b/i;
+const CASH_OUT = /\b(ATM WITHDRAWAL|CASH WITHDRAWAL)\b/i;
+
 function decide(
   description: string,
   amount: number,
@@ -91,53 +125,41 @@ function decide(
   const history = ctx.history ?? [];
   const rule = pickRule(ctx.rules, key, amount);
   if (rule && categories.some((c) => c.id === rule.categoryId)) {
-    return { source: "rule", confidence: "sure", suggestedCategoryId: rule.categoryId };
+    return { source: "rule", confidence: "sure", suggestedCategoryId: rule.categoryId, reason: "This name already has a category." };
   }
 
   const side = sideOf(amount);
-  const past = history.filter((t) => {
-    if (!t.userSet || t.merchantKey !== key || !t.categoryId) return false;
-    if (!categories.some((c) => c.id === t.categoryId)) return false;
-    const pastSide = sideOf(t.amount, t.status);
-    return pastSide === "any" || pastSide === side;
-  });
+  const past = history.filter((t) => t.userSet && t.merchantKey === key && t.categoryId && categories.some((c) => c.id === t.categoryId) && sameSide(t, side));
   if (past.length) {
-    const counts = new Map<string, { n: number; date: string }>();
-    for (const row of past) {
-      const id = row.categoryId as string;
-      const cur = counts.get(id) ?? { n: 0, date: "" };
-      cur.n += 1;
-      if (row.date > cur.date) cur.date = row.date;
-      counts.set(id, cur);
+    const top = tally(past);
+    if (top) {
+      const ids = new Set(past.map((row) => row.categoryId));
+      const agrees = ids.size === 1;
+      return {
+        source: "history",
+        confidence: agrees ? "sure" : "likely",
+        suggestedCategoryId: top.id,
+        reason: agrees ? `Same as your last ${past.length} from this name.` : "Your past charges for this name do not all agree. The most common one is used.",
+      };
     }
-    const ranked = [...counts.entries()].sort(
-      (a, b) => b[1].n - a[1].n || b[1].date.localeCompare(a[1].date),
-    );
-    const top = ranked[0][0];
-    const agrees = ranked.length === 1;
-    return {
-      source: "history",
-      confidence: agrees ? "sure" : "unsure",
-      suggestedCategoryId: top,
-    };
   }
 
-  const label = (bankCategory ?? "").trim();
-  if (label) {
-    const hit = matchBankLabel(label, categories);
-    const cat = hit ? categories.find((item) => item.id === hit.categoryId) : undefined;
-    const signOk =
-      !!cat &&
-      (amount < 0
-        ? cat.kind === "expense" || cat.slug === "transfers-out"
-        : cat.kind === "income" || cat.slug === "transfers-out");
-    if (hit && cat && signOk) {
+  const family = merchantFamily(description);
+  const familyRows = history.filter((t) => {
+    if (!t.userSet || !t.categoryId || t.merchantKey === key) return false;
+    if (!categories.some((c) => c.id === t.categoryId)) return false;
+    if (!sameSide(t, side)) return false;
+    return merchantFamily(t.merchantKey) === family && family !== "UNKNOWN";
+  });
+  if (familyRows.length) {
+    const top = tally(familyRows);
+    if (top) {
+      const sure = top.n >= 2 && familyRows.every((row) => row.categoryId === top.id);
       return {
-        source: "bank",
-        confidence: "sure",
-        suggestedCategoryId: cat.id,
-        reason: hit.reason,
-        refund: amount > 0 && cat.kind === "expense",
+        source: "family",
+        confidence: sure ? "sure" : "likely",
+        suggestedCategoryId: top.id,
+        reason: sure ? "Same as the other stores under this name." : "One earlier charge under this name pointed here.",
       };
     }
   }
@@ -155,7 +177,7 @@ function decide(
         if (!best || len > best.len) best = { id, len };
       }
     }
-    if (best) return { source: "income", confidence: "sure", suggestedCategoryId: best.id };
+    if (best) return { source: "income", confidence: "sure", suggestedCategoryId: best.id, reason: "This matches pay you already named." };
 
     if (isPayroll(text)) {
       let closest: { id: string; gap: number } | null = null;
@@ -169,12 +191,31 @@ function decide(
         const gap = Math.abs(amount - stream.amount) / stream.amount;
         if (!closest || gap < closest.gap) closest = { id, gap };
       }
-      if (closest) return { source: "income", confidence: "likely", suggestedCategoryId: closest.id };
+      if (closest) return { source: "income", confidence: "likely", suggestedCategoryId: closest.id, reason: "The amount is close to a paycheck you entered." };
     }
   }
 
+  if (!P2P.test(text) && (CARD_PAY.test(text) || OWN_XFER.test(text))) {
+    const slug = amount > 0 ? "transfers-in" : "transfers-out";
+    const cat = resolveSlug(slug, categories) ?? resolveSlug("transfers-out", categories);
+    if (cat) {
+      return { source: "transfer", confidence: "sure", suggestedCategoryId: cat.id, reason: "This looks like a transfer or a card payment." };
+    }
+  }
+
+  if (P2P.test(text)) {
+    const slug = amount > 0 ? "other-income" : "transfers-out";
+    const cat = resolveSlug(slug, categories);
+    return {
+      source: "none",
+      confidence: "unsure",
+      suggestedCategoryId: cat?.id ?? null,
+      reason: "Person-to-person payments wait until you have sorted one.",
+    };
+  }
+
   const hit = matchKeyword(text);
-  if (hit) {
+  if (hit && !hit.weak) {
     const cat = resolveSlug(hit.slug, categories);
     if (!cat) {
       const other = categories.find((c) => c.slug === "other");
@@ -183,23 +224,106 @@ function decide(
     if (amount < 0 && cat.kind === "income") {
       const spend = resolveSlug("personal", categories) ?? resolveSlug("other", categories);
       if (!spend) return { source: "keyword", confidence: "unsure", suggestedCategoryId: null };
-      return { source: "keyword", confidence: "sure", suggestedCategoryId: spend.id };
+      return { source: "keyword", confidence: "sure", suggestedCategoryId: spend.id, reason: `The name looks like ${spend.name}.` };
     }
     const refund = amount > 0 && cat.kind === "expense";
     return {
       source: "keyword",
-      confidence: hit.weak ? "likely" : "sure",
+      confidence: "sure",
       suggestedCategoryId: cat.id,
+      reason: `The name looks like ${cat.name}.`,
       refund,
     };
   }
 
-  const seen = history.filter((t) => t.merchantKey === key);
-  if (seen.length) {
-    const months = new Set(seen.map((t) => t.date.slice(0, 7)).filter((m) => /^\d{4}-\d{2}$/.test(m)));
-    if (date && /^\d{4}-\d{2}/.test(date)) months.add(date.slice(0, 7));
-    if (months.size >= 3 && !seen.some((t) => t.categoryId)) {
-      return { source: "repeat", confidence: "unsure", suggestedCategoryId: null };
+  const label = (bankCategory ?? "").trim();
+  if (label) {
+    const mappedId = ctx.bankLabelMap?.[bankLabelKey(label)];
+    const mapped = mappedId ? categories.find((c) => c.id === mappedId) : undefined;
+    if (mapped) {
+      return {
+        source: "bank",
+        confidence: "sure",
+        suggestedCategoryId: mapped.id,
+        reason: "You already confirmed this bank label.",
+        refund: amount > 0 && mapped.kind === "expense",
+      };
+    }
+    const bankHit = matchBankLabel(label, categories);
+    const cat = bankHit ? categories.find((item) => item.id === bankHit.categoryId) : undefined;
+    const signOk =
+      !!cat &&
+      (amount < 0 ? cat.kind === "expense" || cat.slug === "transfers-out" : cat.kind === "income" || cat.slug === "transfers-out");
+    if (bankHit && cat && signOk) {
+      return {
+        source: "bank",
+        confidence: "sure",
+        suggestedCategoryId: cat.id,
+        reason: bankHit.reason,
+        refund: amount > 0 && cat.kind === "expense",
+      };
+    }
+  }
+
+  const related = history.filter((t) => {
+    if (side === "out" && (t.amount ?? 0) >= 0) return false;
+    if (side === "in" && (t.amount ?? 0) <= 0) return false;
+    return t.merchantKey === key || merchantFamily(t.merchantKey) === family;
+  });
+  const amounts = [...related.map((t) => Math.abs(t.amount ?? 0)), Math.abs(amount)].filter((n) => n > 0);
+  const tight = amounts.length >= 3 && amounts.every((n) => Math.abs(n - median(amounts)) <= Math.max(0.5, median(amounts) * 0.03));
+  if (tight) {
+    const slug = hit?.slug ?? "subscriptions";
+    const cat = resolveSlug(slug, categories) ?? categories.find((c) => c.slug === "other");
+    if (cat) {
+      return {
+        source: "repeat",
+        confidence: "likely",
+        suggestedCategoryId: cat.id,
+        reason: "The same amount shows up about every month.",
+      };
+    }
+  }
+
+  if (family !== "UNKNOWN") {
+    let bestNear: { id: string; score: number } | null = null;
+    for (const row of history) {
+      if (!row.userSet || !row.categoryId || !sameSide(row, side)) continue;
+      if (!categories.some((c) => c.id === row.categoryId)) continue;
+      const other = merchantFamily(row.merchantKey);
+      if (!other || other === family) continue;
+      const overlap = tokenOverlap(family, other);
+      const distance = editDistance(family.replace(/ /g, ""), other.replace(/ /g, ""));
+      if (overlap < 0.8 && distance > 2) continue;
+      const score = overlap >= 0.8 ? overlap : 0.8;
+      if (!bestNear || score > bestNear.score) bestNear = { id: row.categoryId, score };
+    }
+    if (bestNear) {
+      const cat = categories.find((c) => c.id === bestNear?.id);
+      return {
+        source: "near",
+        confidence: "likely",
+        suggestedCategoryId: bestNear.id,
+        reason: cat ? `Very close to a name you already sorted as ${cat.name}.` : "Very close to a name you already sorted.",
+      };
+    }
+  }
+
+  if (CASH_OUT.test(text)) {
+    const cat = resolveSlug("other", categories) ?? resolveSlug("personal", categories);
+    if (cat) return { source: "cash", confidence: "sure", suggestedCategoryId: cat.id, reason: "This looks like cash taken out." };
+  }
+
+  if (hit?.weak) {
+    const cat = resolveSlug(hit.slug, categories);
+    if (cat && !(amount < 0 && cat.kind === "income")) {
+      return {
+        source: "keyword",
+        confidence: "likely",
+        suggestedCategoryId: cat.id,
+        reason: `The name often belongs in ${cat.name}, but stores like this sell more than one thing.`,
+        refund: amount > 0 && cat.kind === "expense",
+      };
     }
   }
 
@@ -226,11 +350,11 @@ export function sortCharge(
     input.bankCategory,
     input.memo,
   );
-  const categoryId = decision.confidence === "sure" ? decision.suggestedCategoryId : null;
+  const categoryId = decision.confidence === "sure" || decision.confidence === "likely" ? decision.suggestedCategoryId : null;
   let status: TxStatus = "posted";
   if (categoryId) {
     const cat = ctx.categories.find((c) => c.id === categoryId);
-    if (cat?.slug === "transfers-out") status = "transfer";
+    if (decision.source === "transfer" || cat?.slug === "transfers-out" || cat?.slug === "transfers-in") status = "transfer";
     else if (decision.refund && (decision.source === "keyword" || decision.source === "bank")) status = "refund";
   }
   return {
@@ -241,6 +365,7 @@ export function sortCharge(
       confidence: decision.confidence,
       suggestedCategoryId: decision.suggestedCategoryId,
       ...(decision.reason ? { reason: decision.reason } : {}),
+      ...(decision.confidence === "likely" ? { provisional: true } : {}),
     },
   };
 }
@@ -322,6 +447,7 @@ export function importNewRows(args: {
   categories: Category[];
   rules: MerchantRule[];
   incomeStreams?: IncomeStream[];
+  bankLabelMap?: Record<string, string> | null;
   accountId?: string | null;
   createId?: () => string;
 }): { added: Transaction[]; skipped: number; transactions: Transaction[] } {
@@ -363,6 +489,7 @@ export function importNewRows(args: {
         rules: args.rules,
         history,
         incomeStreams: args.incomeStreams,
+        bankLabelMap: args.bankLabelMap,
       },
     );
     const memo = (row.memo ?? "").trim();
@@ -381,6 +508,7 @@ export function importNewRows(args: {
       status: sorted.status,
       auto: sorted.auto,
       accountId,
+      ...(row.bankCategory?.trim() ? { bankLabel: row.bankCategory.trim() } : {}),
     };
     pool.push(tx);
     added.push(tx);
@@ -393,4 +521,29 @@ export function importNewRows(args: {
     skipped,
     transactions,
   };
+}
+
+/** Accept the guess. The category stays, the check mark goes away, and a bank label is remembered. */
+export function applyConfirmAuto(
+  transactions: Transaction[],
+  ids: string[],
+  profile: Profile,
+): { transactions: Transaction[]; profile: Profile } {
+  const wanted = new Set(ids);
+  let nextProfile = profile;
+  const next = transactions.map((row) => {
+    if (!wanted.has(row.id) || !row.categoryId) return row;
+    nextProfile = rememberBankLabel(nextProfile, row.bankLabel, row.categoryId);
+    return { ...row, userSet: true, auto: null };
+  });
+  return { transactions: next, profile: nextProfile };
+}
+
+export function rememberBankLabel(profile: Profile, label: string | null | undefined, categoryId: string | null): Profile {
+  const key = bankLabelKey(label ?? "");
+  if (!key || !categoryId) return profile;
+  const map = { ...(profile.bankLabelMap ?? {}) };
+  if (map[key] === categoryId) return profile;
+  map[key] = categoryId;
+  return { ...profile, bankLabelMap: map };
 }

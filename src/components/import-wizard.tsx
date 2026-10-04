@@ -7,8 +7,9 @@ import {
   storedFileBalance,
 } from "@/lib/budget/accounts";
 import { parseCsvText, remapPreview } from "@/lib/budget/csv";
+import { fileChecklist, guessAccountKind, inferIncomeStreams, type IncomeSuggestion } from "@/lib/budget/file-inference";
 import { formatMoney } from "@/lib/budget/money";
-import type { Account, AccountKind, ColumnRole, CsvPreview, ImportBatch } from "@/lib/budget/types";
+import type { Account, AccountKind, Category, ColumnRole, CsvPreview, ImportBatch, IncomeCadence, Profile } from "@/lib/budget/types";
 import { useBudgetStore } from "@/store/budget-store";
 import { ImportReview } from "./import-review";
 import { LedgerTabs } from "./ledger-tabs";
@@ -46,12 +47,18 @@ export function ImportWizard() {
   const addBalance = useBudgetStore((s) => s.addBalance);
   const accounts = useBudgetStore((s) => s.accounts ?? []);
   const batches = useBudgetStore((s) => s.imports);
+  const categories = useBudgetStore((s) => s.categories);
+  const profile = useBudgetStore((s) => s.profile);
+  const adoptIncomeStreams = useBudgetStore((s) => s.adoptIncomeStreams);
   const [accountId, setAccountId] = useState("");
   const [touched, setTouched] = useState(false);
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState("");
   const [nameTouched, setNameTouched] = useState(false);
   const [newKind, setNewKind] = useState<AccountKind>("checking");
+  const [kindTouched, setKindTouched] = useState(false);
+  const [kindReason, setKindReason] = useState<string | null>(null);
+  const [dismissedPay, setDismissedPay] = useState<string[]>([]);
   const [preview, setPreview] = useState<CsvPreview | null>(null);
   const [flip, setFlip] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -84,6 +91,16 @@ export function ImportWizard() {
     );
     if (match) setAccountId(match.id);
   }, [preview, accounts, touched]);
+
+  useEffect(() => {
+    if (!preview || kindTouched) return;
+    const guess = guessAccountKind(
+      preview.rows.map((row) => ({ description: row.description, amount: row.amount })),
+      preview.endingBalance?.amount ?? null,
+    );
+    setNewKind(guess.kind);
+    setKindReason(guess.reason);
+  }, [preview, kindTouched]);
 
   useEffect(() => {
     if (!preview || nameTouched || !showNew) return;
@@ -212,7 +229,13 @@ export function ImportWizard() {
               />
             </Field>
             <Field label="Kind">
-              <Select value={newKind} onChange={(e) => setNewKind(e.target.value as AccountKind)}>
+              <Select
+                value={newKind}
+                onChange={(e) => {
+                  setKindTouched(true);
+                  setNewKind(e.target.value as AccountKind);
+                }}
+              >
                 {ACCOUNT_KIND_OPTIONS.map((kind) => (
                   <option key={kind.id} value={kind.id}>
                     {kind.label}
@@ -220,6 +243,7 @@ export function ImportWizard() {
                 ))}
               </Select>
             </Field>
+            {kindReason ? <p className="text-sm text-muted sm:col-span-2">{kindReason} You can change it.</p> : null}
             <Button className="sm:col-span-2 sm:w-fit" onClick={saveNewAccount}>
               Save account
             </Button>
@@ -335,6 +359,15 @@ export function ImportWizard() {
               </tbody>
             </table>
           </div>
+          <FileRead
+            preview={preview}
+            flip={flip}
+            categories={categories}
+            profile={profile}
+            dismissed={dismissedPay}
+            onDismiss={(key) => setDismissedPay((list) => [...list, key])}
+            onAdopt={(suggestion) => adoptIncomeStreams([suggestion])}
+          />
           <div className="flex gap-2">
             <Button onClick={confirm} disabled={!fileAccount}>
               Import these rows
@@ -516,5 +549,75 @@ function CsvHelp() {
         </div>
       ) : null}
     </section>
+  );
+}
+
+function cadenceWords(cadence: IncomeCadence): string {
+  if (cadence === "weekly") return "every week";
+  if (cadence === "biweekly") return "every two weeks";
+  if (cadence === "twice-monthly") return "twice a month";
+  if (cadence === "monthly") return "every month";
+  return "on an uneven schedule";
+}
+
+function FileRead({
+  preview,
+  flip,
+  categories,
+  profile,
+  dismissed,
+  onDismiss,
+  onAdopt,
+}: {
+  preview: CsvPreview;
+  flip: boolean;
+  categories: Category[];
+  profile: Profile;
+  dismissed: string[];
+  onDismiss: (key: string) => void;
+  onAdopt: (suggestion: IncomeSuggestion) => void;
+}) {
+  const rows = preview.rows.map((row) => ({
+    ...row,
+    amount: row.amount == null || !flip ? row.amount : -row.amount,
+  }));
+  const lines = fileChecklist({
+    rows,
+    categories,
+    profile,
+    endingBalance: preview.endingBalance,
+  });
+  const drafts = rows
+    .filter((row) => row.date && row.amount != null && row.description)
+    .map((row) => ({ date: row.date as string, description: row.description, amount: row.amount as number }));
+  const pay = inferIncomeStreams(drafts, categories, profile).filter((item) => !dismissed.includes(item.merchantKey));
+  return (
+    <div className="space-y-3">
+      <div>
+        <h3 className="font-medium">What we read from your file</h3>
+        <ul className="mt-2 flex flex-wrap gap-2">
+          {lines.map((line) => (
+            <li key={line.label} className="rounded-full border border-border px-3 py-1 text-sm">
+              <span className="tabular font-medium">{line.value}</span> <span className="text-muted">{line.label}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+      {pay.map((item) => (
+        <div key={item.merchantKey} className="rounded-md border border-border p-3">
+          <p className="text-sm">
+            We found {formatMoney(item.amount)} {cadenceWords(item.cadence)} from {item.name}. Add it as income?
+          </p>
+          <div className="mt-2 flex gap-2">
+            <Button size="sm" onClick={() => onAdopt(item)}>
+              Add
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => onDismiss(item.merchantKey)}>
+              Not now
+            </Button>
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }

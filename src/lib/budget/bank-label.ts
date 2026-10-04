@@ -124,6 +124,10 @@ function normLabel(value: string): string {
     .trim();
 }
 
+export function bankLabelKey(label: string): string {
+  return normLabel(label);
+}
+
 function hasPhrase(label: string, phrase: string): boolean {
   return ` ${label} `.includes(` ${phrase} `);
 }

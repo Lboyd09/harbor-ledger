@@ -8,11 +8,11 @@ import {
   storedFileBalance,
   upsertFileBalance,
 } from "./accounts.ts";
-import { importNewRows, pairAccountTransfers, sortCharge } from "./auto-sort.ts";
+import { applyConfirmAuto, importNewRows, pairAccountTransfers, rememberBankLabel, sortCharge } from "./auto-sort.ts";
 import { parseBackup } from "./backup.ts";
 import { parseCsvText } from "./csv.ts";
 import { fingerprint } from "./fingerprint.ts";
-import { merchantKey } from "./merchant.ts";
+import { merchantFamily, merchantKey } from "./merchant.ts";
 import { buildPresetCategories } from "./presets.ts";
 import type { Category, IncomeStream, Profile, Transaction } from "./types.ts";
 
@@ -247,7 +247,8 @@ test("income hint is sure, a near payroll deposit is likely, and an expense keyw
   );
   assert.equal(near.auto.source, "income");
   assert.equal(near.auto.confidence, "likely");
-  assert.equal(near.categoryId, null);
+  assert.equal(near.categoryId, streams[0].categoryId);
+  assert.equal(near.auto.provisional, true);
   assert.equal(near.auto.suggestedCategoryId, streams[0].categoryId);
 
   const deposit = sortCharge(
@@ -259,7 +260,7 @@ test("income hint is sure, a near payroll deposit is likely, and an expense keyw
   assert.equal(categories.find((c) => c.id === deposit.categoryId)?.kind, "expense");
 });
 
-test("history agreement is sure and a conflict stays unsure with the most common suggestion", () => {
+test("history agreement is sure and a conflict is a fair guess using the most common category", () => {
   const { categories } = world();
   const food = categories.find((c) => c.slug === "food");
   const dining = categories.find((c) => c.slug === "dining");
@@ -291,8 +292,9 @@ test("history agreement is sure and a conflict stays unsure with the most common
       ],
     },
   );
-  assert.equal(conflict.auto.confidence, "unsure");
-  assert.equal(conflict.categoryId, null);
+  assert.equal(conflict.auto.confidence, "likely");
+  assert.equal(conflict.categoryId, food.id);
+  assert.equal(conflict.auto.provisional, true);
   assert.equal(conflict.auto.suggestedCategoryId, food.id);
 });
 
@@ -303,7 +305,8 @@ test("a weak keyword is only a suggestion, a strong one is sure, and a missing c
     { categories, rules: [] },
   );
   assert.equal(weak.auto.confidence, "likely");
-  assert.equal(weak.categoryId, null);
+  assert.equal(weak.categoryId, categories.find((c) => c.slug === "personal")?.id);
+  assert.equal(weak.auto.provisional, true);
   assert.equal(slugOf(categories, weak.auto.suggestedCategoryId), "personal");
 
   const strong = sortCharge(
@@ -390,7 +393,7 @@ test("a transfer pairs across two accounts once per row", () => {
   assert.equal(paired.find((t) => t.id === "c")?.status, "posted");
 });
 
-test("a merchant seen for three months with no category stays unsure", () => {
+test("a merchant seen for three months with no category is a fair repeating guess", () => {
   const categories: Category[] = [
     { id: "other", slug: "other", name: "Other", kind: "expense", plannedMonthly: 0 },
   ];
@@ -406,9 +409,10 @@ test("a merchant seen for three months with no category stays unsure", () => {
     { categories, rules: [], history },
   );
   assert.equal(hit.auto.source, "repeat");
-  assert.equal(hit.auto.confidence, "unsure");
-  assert.equal(hit.auto.suggestedCategoryId, null);
-  assert.equal(hit.categoryId, null);
+  assert.equal(hit.auto.confidence, "likely");
+  assert.equal(hit.auto.provisional, true);
+  assert.equal(hit.categoryId, "other");
+  assert.equal(hit.auto.suggestedCategoryId, "other");
 });
 
 test("about 40 everyday descriptions sort to the expected category", () => {
@@ -469,8 +473,8 @@ test("about 40 everyday descriptions sort to the expected category", () => {
     if (item.confidence === "sure") {
       assert.equal(slugOf(categories, sorted.categoryId), item.slug, item.description);
     } else {
-      assert.equal(sorted.categoryId, null, item.description);
-      assert.equal(slugOf(categories, sorted.auto.suggestedCategoryId), item.slug, item.description);
+      assert.equal(slugOf(categories, sorted.categoryId), item.slug, item.description);
+      assert.equal(sorted.auto.provisional, true, item.description);
     }
   }
 });
@@ -508,4 +512,98 @@ test("an old backup without auto fields still restores", () => {
   assert.equal(parsed.data.transactions.length, 1);
   assert.equal(parsed.data.transactions[0].auto, undefined);
   assert.equal(parsed.data.transactions[0].categoryId, "c1");
+});
+
+test("a saved rule wins over history, and a family match does not reuse the exact key", () => {
+  const { categories } = world();
+  const food = categories.find((c) => c.slug === "food");
+  const dining = categories.find((c) => c.slug === "dining");
+  assert.ok(food && dining);
+  const ruled = sortCharge(
+    { description: "CORNER MARKET", amount: -12, merchantKey: "CORNER MARKET" },
+    {
+      categories,
+      rules: [{ merchantKey: "CORNER MARKET", categoryId: dining.id, side: "out" }],
+      history: [{ merchantKey: "CORNER MARKET", categoryId: food.id, userSet: true, date: "2026-08-01", amount: -10 }],
+    },
+  );
+  assert.equal(ruled.auto.source, "rule");
+  assert.equal(ruled.auto.confidence, "sure");
+  assert.equal(ruled.auto.provisional, undefined);
+  assert.equal(ruled.categoryId, dining.id);
+
+  const family = sortCharge(
+    { description: "SQ *CORNER MARKET 4411 PHOENIX, AZ", amount: -9, merchantKey: merchantKey("SQ *CORNER MARKET 4411 PHOENIX, AZ") },
+    {
+      categories,
+      rules: [],
+      history: [
+        { merchantKey: "CORNER MARKET", categoryId: food.id, userSet: true, date: "2026-07-02", amount: -8 },
+        { merchantKey: "CORNER MARKET", categoryId: food.id, userSet: true, date: "2026-08-02", amount: -9 },
+      ],
+    },
+  );
+  assert.equal(merchantFamily("SQ *CORNER MARKET 4411 PHOENIX, AZ"), "CORNER MARKET");
+  assert.notEqual(merchantKey("SQ *CORNER MARKET 4411 PHOENIX, AZ"), "CORNER MARKET");
+  assert.equal(family.auto.source, "family");
+  assert.equal(family.auto.confidence, "sure");
+  assert.equal(family.categoryId, food.id);
+});
+
+test("a confirmed bank label is sure, person-to-person stays unsure, and cash is sure", () => {
+  const { categories } = world();
+  const food = categories.find((c) => c.slug === "food");
+  assert.ok(food);
+  const mapped = sortCharge(
+    { description: "UNKNOWN SHOP 12", amount: -20, merchantKey: "UNKNOWN SHOP", bankCategory: "Groceries" },
+    { categories, rules: [], bankLabelMap: { groceries: food.id } },
+  );
+  assert.equal(mapped.auto.source, "bank");
+  assert.equal(mapped.auto.confidence, "sure");
+  assert.equal(mapped.auto.reason, "You already confirmed this bank label.");
+  assert.equal(mapped.categoryId, food.id);
+
+  const venmo = sortCharge(
+    { description: "VENMO PAYMENT", amount: -18, merchantKey: merchantKey("VENMO PAYMENT") },
+    { categories, rules: [] },
+  );
+  assert.equal(venmo.auto.confidence, "unsure");
+  assert.equal(venmo.categoryId, null);
+
+  const cash = sortCharge(
+    { description: "ATM WITHDRAWAL", amount: -60, merchantKey: merchantKey("ATM WITHDRAWAL") },
+    { categories, rules: [] },
+  );
+  assert.equal(cash.auto.source, "cash");
+  assert.equal(cash.auto.confidence, "sure");
+  assert.equal(cash.auto.provisional, undefined);
+});
+
+test("confirming a guess clears the check and remembers the bank label", () => {
+  const { categories } = world();
+  const food = categories.find((c) => c.slug === "food");
+  assert.ok(food);
+  const base = profile();
+  const row: Transaction = {
+    id: "t1",
+    date: "2026-09-01",
+    description: "SHOP",
+    merchantKey: "SHOP",
+    amount: -10,
+    sourceLabel: "Bank",
+    fingerprint: "t1",
+    categoryId: food.id,
+    userSet: false,
+    notes: "",
+    excluded: false,
+    status: "posted",
+    bankLabel: "Groceries",
+    auto: { source: "bank", confidence: "sure", suggestedCategoryId: food.id, provisional: true },
+  };
+  const applied = applyConfirmAuto([row], ["t1"], base);
+  assert.equal(applied.transactions[0].userSet, true);
+  assert.equal(applied.transactions[0].auto, null);
+  assert.equal(applied.transactions[0].categoryId, food.id);
+  assert.equal(rememberBankLabel(base, "Groceries", food.id).bankLabelMap?.groceries, food.id);
+  assert.equal(applied.profile.bankLabelMap?.groceries, food.id);
 });

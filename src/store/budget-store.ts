@@ -13,7 +13,8 @@ import {
   type ChangeScope,
 } from "@/lib/budget/sorting";
 import { parseCsvText, applyAmountFlip } from "@/lib/budget/csv";
-import { importNewRows } from "@/lib/budget/auto-sort";
+import { importNewRows, applyConfirmAuto, rememberBankLabel } from "@/lib/budget/auto-sort";
+import { applyAdoptedIncome, monthEndBalances, type IncomeSuggestion } from "@/lib/budget/file-inference";
 import { newId } from "@/lib/budget/ids";
 import { DEFAULT_IRA } from "@/lib/budget/ira";
 import { roundMoney } from "@/lib/budget/money";
@@ -99,6 +100,8 @@ type State = LedgerSnapshot & {
   ) => CategoryUndo;
   resetChargeToDefault: (id: string) => CategoryUndo | null;
   restoreCategories: (undo: CategoryUndo) => void;
+  confirmAuto: (ids: string[]) => CategoryUndo;
+  adoptIncomeStreams: (suggestions: IncomeSuggestion[]) => void;
   applyRecommendedPlans: (year: string) => number;
   patchTransaction: (id: string, patch: Partial<Pick<Transaction, "excluded" | "status" | "notes">>) => void;
   setSplits: (id: string, splits: TxSplit[] | null) => void;
@@ -490,6 +493,7 @@ export const useBudgetStore = create<State>()(
           transactions: get().transactions.map((t) =>
             t.id === id ? { ...t, categoryId, userSet: true, auto: null } : t,
           ),
+          profile: rememberBankLabel(get().profile, tx.bankLabel, categoryId),
         });
         schedulePersist();
       },
@@ -500,11 +504,13 @@ export const useBudgetStore = create<State>()(
           if (side === "out") return t.amount < 0 || t.status === "refund";
           return t.amount > 0 && t.status !== "refund";
         };
+        const matched = get().transactions.filter(match);
         set({
           merchantRules: replaceMerchantRule(get().merchantRules, key, categoryId, side),
           transactions: get().transactions.map((t) =>
             match(t) ? { ...t, categoryId, userSet: true, splits: null, auto: null } : t,
           ),
+          profile: matched.reduce((profile, row) => rememberBankLabel(profile, row.bankLabel, categoryId), get().profile),
         });
         schedulePersist();
       },
@@ -521,7 +527,13 @@ export const useBudgetStore = create<State>()(
           scope,
           id,
         });
-        set({ transactions: applied.transactions, merchantRules: applied.merchantRules });
+        const changed = new Set(applied.before.map((row) => row.id));
+        const labeled = get().transactions.filter((row) => changed.has(row.id));
+        set({
+          transactions: applied.transactions,
+          merchantRules: applied.merchantRules,
+          profile: labeled.reduce((profile, row) => rememberBankLabel(profile, row.bankLabel, categoryId), get().profile),
+        });
         schedulePersist();
         return { rows: applied.before, rules: applied.rulesBefore };
       },
@@ -535,7 +547,13 @@ export const useBudgetStore = create<State>()(
           scope: "default",
           includePinned: options?.includePinned,
         });
-        set({ transactions: applied.transactions, merchantRules: applied.merchantRules });
+        const changed = new Set(applied.before.map((row) => row.id));
+        const labeled = get().transactions.filter((row) => changed.has(row.id));
+        set({
+          transactions: applied.transactions,
+          merchantRules: applied.merchantRules,
+          profile: labeled.reduce((profile, row) => rememberBankLabel(profile, row.bankLabel, categoryId), get().profile),
+        });
         schedulePersist();
         return { rows: applied.before, rules: applied.rulesBefore };
       },
@@ -554,6 +572,27 @@ export const useBudgetStore = create<State>()(
           transactions: restoreChanges(get().transactions, undo.rows),
           ...(undo.rules ? { merchantRules: undo.rules } : {}),
         });
+        schedulePersist();
+      },
+      confirmAuto: (ids) => {
+        const before = get()
+          .transactions.filter((row) => ids.includes(row.id))
+          .map(captureRow);
+        const applied = applyConfirmAuto(get().transactions, ids, get().profile);
+        set({ transactions: applied.transactions, profile: applied.profile });
+        schedulePersist();
+        return { rows: before, rules: null };
+      },
+      adoptIncomeStreams: (suggestions) => {
+        const next = applyAdoptedIncome({
+          profile: get().profile,
+          categories: get().categories,
+          transactions: get().transactions,
+          suggestions,
+          createCategoryId: () => newId("cat"),
+          createStreamId: () => newId("income"),
+        });
+        set({ profile: next.profile, categories: next.categories, transactions: next.transactions });
         schedulePersist();
       },
       applyRecommendedPlans: (year) => {
@@ -925,6 +964,7 @@ export const useBudgetStore = create<State>()(
           categories: get().categories,
           rules: get().merchantRules,
           incomeStreams: get().profile.incomeStreams ?? [],
+          bankLabelMap: get().profile.bankLabelMap,
           accountId: chosen,
           createId: () => newId("tx"),
         });
@@ -939,6 +979,16 @@ export const useBudgetStore = create<State>()(
               : storedFileBalance(account.kind, rawEnd.amount);
           ending = { amount, asOf: rawEnd.asOf };
           balances = upsertFileBalance(balances, { accountId: account.id, date: rawEnd.asOf, amount });
+        }
+        if (account) {
+          for (const point of monthEndBalances(rows)) {
+            if (point.date === rawEnd?.asOf) continue;
+            balances = upsertFileBalance(balances, {
+              accountId: account.id,
+              date: point.date,
+              amount: storedFileBalance(account.kind, point.amount),
+            });
+          }
         }
         const batch: ImportBatch = {
           id: newId("imp"),

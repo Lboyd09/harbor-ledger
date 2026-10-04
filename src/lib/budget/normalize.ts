@@ -119,6 +119,7 @@ export function normalizeProfile(raw: unknown): Profile {
     detailChosen: asBool(p.detailChosen, false),
     budgetStyle: p.budgetStyle === "buckets" ? "buckets" : ("monthly" as BudgetStyle),
     carryStartMonth: /^\d{4}-\d{2}$/.test(asString(p.carryStartMonth)) ? asString(p.carryStartMonth) : null,
+    bankLabelMap: normalizeBankMap(p.bankLabelMap),
   };
 }
 
@@ -145,7 +146,19 @@ export function normalizeTransaction(raw: unknown, index = 0): Transaction | nul
     accountId: typeof raw.accountId === "string" && raw.accountId ? raw.accountId : null,
     ...(auto ? { auto } : {}),
     ...(raw.pinned === "charge" || raw.pinned === "month" ? { pinned: raw.pinned } : {}),
+    ...(asString(raw.bankLabel).trim() ? { bankLabel: asString(raw.bankLabel).trim().slice(0, 80) } : {}),
   };
+}
+
+function normalizeBankMap(raw: unknown): Profile["bankLabelMap"] {
+  if (!isRecord(raw)) return null;
+  const map: Record<string, string> = {};
+  for (const [key, value] of Object.entries(raw)) {
+    const label = key.trim().toLowerCase();
+    if (!label || typeof value !== "string" || !value.trim()) continue;
+    map[label] = value.trim();
+  }
+  return Object.keys(map).length ? map : null;
 }
 
 function normalizeAuto(raw: unknown): Transaction["auto"] {
@@ -153,7 +166,19 @@ function normalizeAuto(raw: unknown): Transaction["auto"] {
   const confidence =
     raw.confidence === "sure" || raw.confidence === "likely" || raw.confidence === "unsure" ? raw.confidence : null;
   if (!confidence) return undefined;
-  const sources: AutoSource[] = ["rule", "history", "income", "keyword", "repeat", "transfer", "bank", "none"];
+  const sources: AutoSource[] = [
+    "rule",
+    "history",
+    "family",
+    "income",
+    "keyword",
+    "repeat",
+    "transfer",
+    "bank",
+    "near",
+    "cash",
+    "none",
+  ];
   const source = sources.includes(raw.source as AutoSource) ? (raw.source as AutoSource) : "none";
   const suggested =
     typeof raw.suggestedCategoryId === "string" && raw.suggestedCategoryId ? raw.suggestedCategoryId : null;
@@ -163,6 +188,7 @@ function normalizeAuto(raw: unknown): Transaction["auto"] {
     confidence,
     suggestedCategoryId: suggested,
     ...(reason ? { reason: reason.slice(0, 240) } : {}),
+    ...(raw.provisional === true ? { provisional: true } : {}),
   };
 }
 

@@ -54,6 +54,8 @@ export type Profile = {
   budgetStyle?: BudgetStyle;
   /** First month carry-over counts. Kept when the style switches back to monthly. */
   carryStartMonth?: string | null;
+  /** Bank category labels the person already confirmed, normalized label to category id. Missing on older ledgers. */
+  bankLabelMap?: Record<string, string> | null;
 };
 
 export type Category = {
@@ -100,6 +102,8 @@ export type Transaction = {
   accountId?: string | null;
   /** How this row was sorted on import. Cleared when the person picks a category. Missing on older rows. */
   auto?: TransactionAuto | null;
+  /** The Category cell from the bank file. Missing on older rows. */
+  bankLabel?: string | null;
   /** Set by hand for one charge or one month. A later default change leaves these alone. Missing on older rows. */
   pinned?: "charge" | "month" | null;
 };
@@ -111,7 +115,18 @@ export type TxSplit = {
 
 export type AutoConfidence = "sure" | "likely" | "unsure";
 
-export type AutoSource = "rule" | "history" | "income" | "keyword" | "repeat" | "transfer" | "bank" | "none";
+export type AutoSource =
+  | "rule"
+  | "history"
+  | "family"
+  | "income"
+  | "keyword"
+  | "repeat"
+  | "transfer"
+  | "bank"
+  | "near"
+  | "cash"
+  | "none";
 
 /** Why an imported charge was sorted, and how sure that was. */
 export type TransactionAuto = {
@@ -120,6 +135,8 @@ export type TransactionAuto = {
   suggestedCategoryId: string | null;
   /** Plain sentence, when the bank or a rule named the reason. Missing on older rows. */
   reason?: string | null;
+  /** True when the category is a fair guess the person has not confirmed. Missing means no. */
+  provisional?: boolean;
 };
 
 /** Money set aside for a specific purchase, separate from the monthly envelopes. */
@@ -290,6 +307,8 @@ export type ParsePreviewRow = {
   bankCategory?: string | null;
   /** Extra words. Not a replacement for the description. */
   memo?: string | null;
+  /** Balance cell on this row, when the file had one. */
+  balance?: number | null;
 };
 
 export type CsvPreview = {

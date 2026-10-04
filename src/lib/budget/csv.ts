@@ -406,6 +406,8 @@ function buildRows(records: string[][], columns: DetectedColumn[]): ParsePreview
       .filter(Boolean)
       .join(" · ");
     const { amount } = amountFromRecord(raw, columns);
+    const balanceRaw = firstCell(raw, columns, "balance", (v) => parseAmountToken(v) != null);
+    const balance = balanceRaw ? parseAmountToken(balanceRaw) : null;
     return {
       date: dateRaw ? parseDateToken(dateRaw) : null,
       description,
@@ -413,6 +415,7 @@ function buildRows(records: string[][], columns: DetectedColumn[]): ParsePreview
       raw,
       bankCategory: bankCategory || null,
       memo: memo || null,
+      balance,
     };
   });
 }
