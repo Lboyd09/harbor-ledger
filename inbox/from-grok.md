@@ -1,97 +1,74 @@
-# Age, retirement, and the last screens
+# One calculation, Budget is the month
 
 ## Commit
 
-5b329d75a80f64efa15e5bfc51809596810679e5
+014a0d208e8818bf65d79d947f2fed4f5f048fbd
 
 ## Signatures
 
-- figureById(id: string): ReferenceFigure | undefined
-- figuresNeedingCheck(): ReferenceFigure[]
-- figureLine(figure: ReferenceFigure): string
-- assumptionLines(ids: string[]): string[]
-- ageInYear(birthYear: number | null | undefined, year: number): number | null
-- birthYearFromAge(age: number, year: number): number | null
-- plannerFacts(input: { profile: Profile; accounts: Account[]; balances: BalancePoint[]; transactions: Transaction[]; categories: Category[]; year: number }): PlannerFacts
-- cleanRetirementInput(raw: RetirementInput): RetirementInput
-- nominalBalance(saved: number, monthly: number, annualRate: number, years: number): number
-- projectRetirement(raw: RetirementInput): RetirementResult
-- retirementWithExtra(raw: RetirementInput, extraPerMonth: number): RetirementResult
-- retirementWithYears(raw: RetirementInput, extraYears: number): RetirementResult
-- retirementSensitivity(raw: RetirementInput): SensitivityRow[]
-- retirementMonteCarlo(raw: RetirementInput, options?: { mean?: number; spread?: number; seed?: number; runs?: number; endAge?: number }): MonteCarloResult
-- defaultRetirementInput(): RetirementInput
-- yearRows(input: { principal: number; monthly: number; years: number; rate: number; inflation: number; today: boolean }): YearRow[]
-- sensitivityOf(project: (rate: number, monthly: number) => number, rate: number, monthly: number): SensitivityRow[]
-- amortizationSchedule(input: { balance: number; aprPercent: number; years: number; extra?: number }): AmortizationRow[]
-- debtTimeline(debts: DebtItem[], extra: number): { minimums: DebtMonth[]; withExtra: DebtMonth[] }
-- debtMatchesPayoff(debts: DebtItem[], extra: number): boolean
-- netWorthSeries(accounts: Account[], balances: BalancePoint[]): WorthPoint[]
-- fiNumbers(input: { yearlySpend: number; withdrawal: number; savingsRate: number; realReturn: number; yearsLeft: number | null }): { fi: number | null; years: number | null; coast: number | null }
+- earliestDataMonth(transactions: Transaction[]): string | null
+- monthLedger(source: LedgerSource, ym: string, cache?: Map<string, MonthLayout>): MonthLedger
+- yearLedger(source: LedgerSource, year: string): YearLedger
+- safeFromLedger(source: LedgerSource, ym: string): { amount: number; funding: number; moved: number; spent: number; plans: number; income: number }
+- IncomeLine, SpendingLine, MonthTotals, MonthFlags, MonthLedger, LedgerSource, YearLedger
+- Category.carryFrom?: string | null
 
-grow-math.ts and ira.ts results are unchanged. IRA_LIMITS still equal the 2026 DEFAULT_IRA amounts.
+## Deleted files and exports
+
+- src/components/month-board.tsx — MonthBoard
+- src/components/overview.tsx — DesktopOverview, MobileOverview
+- src/components/guide-card.tsx — GuideCard
+- src/components/payback-control.tsx — PaybackControl
+- src/components/recurring-view.tsx — RecurringView
+- src/components/refund-guide.tsx — RefundGuide
+- src/components/transaction-views.tsx — TransactionDesktop, TransactionMobile
+- src/components/home-switch.tsx — HomeSwitch
+- src/components/ledger-tabs.tsx — LedgerTabs
+- src/components/month-page.tsx — MonthPage
+- src/components/plan-view.tsx — PlanView
+- src/routes/month.tsx, src/routes/payees.tsx, src/routes/recurring.tsx, src/routes/activity.tsx, src/routes/account.tsx, src/routes/plan.tsx, src/routes/categories.tsx
+
+No redirects. /budget and /rules and /imports are the new routes. PlanView’s editing lives in budget-amounts.tsx as AmountsPage. MonthPage’s list lives in budget-transactions.tsx as TransactionsPage.
 
 ## Conflicts and later prompts
 
 - bank-label corpus: 48/48 (100%). merchant corpus: 180/180 (100%), sure-wrong 0%, likely-wrong 0%. analytics corpus: 24/24 (100%).
 - Person-to-person payments (Venmo, Zelle, Cash App) are checked before a strong keyword, not after cash as the written ladder lists them. Left this way on purpose.
-- setKeepsLeftovers still links a category to a fund and can clear the monthly amount. The Budget carry switch does not call it.
-- yearCash still lives in totals.ts and was not copied anywhere else.
+- setKeepsLeftovers still links a category to a fund and can clear the monthly amount. The Budget carry switch does not call it. Turning one category to carry, when no start is saved yet, sets the start to the first month of the file, not this month.
+- monthCash and yearCash still live in totals.ts. They are wrappers on monthLedger and yearLedger. They are not a second formula, and they were not copied into screens.
 - Confirming a Check remembers the bank label. Undo puts the charge back and does not forget that label. CategoryUndo has no profile field.
 - A strong keyword still beats a bank label. The bank-label reason is used when the description is not already a keyword.
 - Cash taken out goes to Other. The preset categories do not include one named Cash.
 - A repeating amount with no keyword family lands on Subscriptions, then Other, not a category named Bills.
-- The built preview still dies on a missing pglite data file (`pglite.data`). The dev app was walked. Typecheck passed. Lint had 0 errors and 5 existing warnings. The production build succeeded.
-- Return ranges (savings 3 / 4.2 / 5 percent, market 4 / 7 / 10 percent) are marked needs checking. They are the existing Harbor planning range, not a published series. Values are imported from grow-math so they cannot drift.
-- 401(k) deferral 24500, catch-up 8000, and ages 60–63 catch-up 11250 are stored from IRS Notice 2025-67. No calculator reads them yet.
-- Employer match is a percent of what the person saves, not of pay. 50 means the employer adds half again. That is stated on the card.
-- Full Social Security age 67 is for a birth year of 1960 or later. Earlier birth years have a lower full age. The card says so.
-- The 4 percent withdrawal is Bengen, Journal of Financial Planning, October 1994. It is a historical rule, not a current IRS figure. The card says so.
-- Monte Carlo is one draw per year, not per month, so it will not match the monthly compounding path exactly. Same seed, same result.
-
-## Figures marked needs checking
-
-- Savings return, low / middle / high (0.03 / 0.042 / 0.05). Harbor planning range.
-- Market return, low / middle / high (0.04 / 0.07 / 0.10). Harbor planning range.
-
-Checked, and shown with date and source where a screen uses them: IRA limits and Roth phase-outs (IRS Notice 2025-67, as of 2026-01-01), 401(k) limits (same notice), Social Security ages 62 / 67 / 70 (SSA; 67 is birth year 1960 or later), inflation 2 percent (Federal Reserve longer-run goal, as of 2025-08-22), withdrawal 4 percent (Bengen, October 1994).
+- The built preview still dies on a missing pglite data file (`pglite.data`). The dev app was walked. Typecheck passed. Lint had 0 errors and 5 existing warnings.
+- Moves from one fund to another are stored as fundMoves and are not added into savedToFunds. Adding them would break left = received − spent − saved. The month strip uses savedToFunds.
+- safeToSpend is still the old “after plans” number. It is computed from monthLedger. The Budget strip shows leftOver, not that number.
+- A later file that reaches further back does not move a start that is already saved. The choice then says the new first month. The person can pick it. Undo puts the old start back.
+- Home’s saved number is money assigned to funds across the twelve months. A fund screen still shows that fund’s balance, including what was already there. Same funding rule, different question.
+- Decisions 23 and 28 are marked superseded by 49. Decision 27 still describes the old Month page’s carry sentences. Those sentences now live on Budget.
 
 ## Checklist
 
-- Reference file with value, date, source, and status: done.
-- IRA figures moved unchanged: done.
-- 401(k), Social Security ages, inflation, return ranges, 4 percent withdrawal: done. Return ranges need checking.
-- Retirement inputs prefilled and tagged: done.
-- Three paths, income supported, percent covered, gap, extra per month, extra years: done. Both close paths reach the target in tests.
-- Balance-by-age chart, ring, one sentence, year table under Show as numbers: done.
-- Advanced sensitivity and seeded Monte Carlo to age 95: done.
-- Tests for zero savings, already past retire age, huge gap, negative inputs, seed, and gap closing: done.
-- grow-tables year rows, sensitivity, amortization, debt timeline, net worth, FI: done. grow-math and ira results not changed.
-- Every calculator prefilled, tagged, with a picture and a sentence: done. Advanced adds six metrics, a table, assumptions, and sensitivity where a rate or a monthly amount moves.
-- When work is optional uses real spending, FI number, years, and coast: done.
-- Emergency fund uses a typical month and steady bills: done.
-- Net worth from account balances, with a one-snapshot note: done.
-- Debt payoff date, interest, and timeline against minimums: done.
-- Loan amortization and extra-payment savings: done. Balance comes from a credit account when one exists. A typed debt stays on the debt calculator so it is not counted twice.
-- Roth uses age for the catch-up and warns on the income band: done.
-- Grow order Plan ahead, See it grow, Protect yourself, Pay it down: done.
-- Age on setup step 1, optional, Skip, summary with Change, stored as birthYear: done.
-- Account Your numbers, with defaults and reset: done. Old ledgers without the fields still load.
-- Simple Home is the headline, Needs you when it applies, the year chart, and one next action. The rest is under More: done.
-- Under three months, the plan-percent line stays hidden. The cushion sentence needs three months, otherwise it says waiting on more history: done.
-- Sorting card for names that still have no category, and a Check tag on fair guesses: done. The card stays hidden when every charge already has a category.
-- Funds sentence and Grow link: done.
-- Visible wording: no bucket, envelope, rollover, allocate, reconcile, or Nerd. The stored value stays nerd. Simple and Advanced are the labels: done.
+- monthLedger and yearLedger, with income, spending, saved to funds, left over, flags, rolling-12, and since-start: done.
+- Tests: left equals received minus spent minus saved; a carrying category’s left equals its carry-out; switching one category changes only that left; refunds, splits, transfers, hidden deposits, provisional charges, an empty month, and a year boundary stay finite and identical: done.
+- Home’s year in, out, and saved are yearLedger totals. August’s strip was $3,840.00 received, $1,387.13 spent, $370.00 saved, $2,082.87 left. The 2026 line was $14,310.00 in, $5,559.36 out, $2,590.00 saved, which is seven funded months of $370: done.
+- incomeRows, spendingRows, monthCash, yearCash, yearOverview, spanOverview, monthGlance, needsALook, carrySummary, and safeToSpend read the ledger: done. safeToSpend keeps its old meaning.
+- Default leftover start is the earliest transaction month, set on first import and the first time carry-over is turned on: done. Two plain choices, plus Undo, on Budget and Account. Setup says the same thing: done. Per-category carryFrom is optional and old ledgers still load: done.
+- PageMenu on Home and Budget. No Home | Month switch and no second tab row. Five tabs unchanged: done.
+- Budget at /budget: month switcher, strip, forecast when the month has one, money in and money out, fixed and everyday with over first, still coming, charges that need a category, one-month amounts, carry choice, splits, payback, hidden deposits, and the line-by-line list: done. Set amounts and All transactions are in the menu: done. Category row visuals were not redesigned: done.
+- Home at /: accounts first, year in/out/saved, Needs you, insights and coming up under More in Simple: done. Year review, Import, Sorting rules, and Past imports are in the menu: done.
+- /plan is /budget. /categories is /rules. Links and the shell follow that. Old routes deleted, no shims: done.
+- Funds, Grow, and Account screens were not redesigned. Links that pointed at the old pages were updated: done.
+- Typecheck passed. Lint: 0 errors, 5 existing warnings. Walked at 375px (no sideways scroll) and on a wide screen. Imported a January–March file into a new account. The first-month choice then said January 2026. Switched Groceries from fresh to carry: only that row’s left changed. Menu reached This month, Set amounts, All transactions, Year review, Import, Sorting rules, and Past imports: done.
 
 ## Objections
 
-- A match typed as 50 is half of saving, not half of pay. Someone who means a salary match will overstate the employer add. The sentence on the card is the guard.
-- The thousand tries use one return per year. They answer "does it last," not "what is the monthly balance."
-- Four percent is a 1994 study. Treating it as checked does not make it a current safe rate.
-- Age 67 is not everyone's full Social Security age. The screen says that, and it does not look up the person's birth year against the SSA table.
+- Moves between funds are not inside savedToFunds. The prompt said “plus moves between funds.” They are reported beside the total so the four month numbers still add up.
+- safeToSpend is not what the strip calls Left. The strip is cash left after spending and fund assignments. safeToSpend is still “after the plan.”
+- The year saved figure will not match a fund’s balance. The balance includes the opening and every month. The year figure is only what was assigned in that year.
 
 ## Proposals
 
-- A 401(k) picture that uses the deferral and catch-up figures already stored.
-- If there is a typed debt and no credit account, offer that balance and rate on the loan screen instead of a blank balance.
-- A Social Security guess from claiming age, using 62, 67, and 70, instead of a blank monthly field.
+- When a new file starts before the saved leftover month, ask once whether to move the start. Do not move it silently.
+- When fundMoves is not zero, say so under the strip in one sentence.
+- The next prompt can restyle the category rows. The amounts and the carry choice are already on the row.
