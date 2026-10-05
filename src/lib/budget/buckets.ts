@@ -1,5 +1,5 @@
+import { safeFromLedger } from "./ledger-month.ts";
 import { roundMoney } from "./money.ts";
-import { groupMonth } from "./month-view.ts";
 import { monthKeyFromDate, shiftMonth } from "./parse-date.ts";
 import { piecesOf } from "./splits.ts";
 import type { BucketMove, Category, MoneyBucket, MonthBudget, SavingsGoal, Transaction } from "./types.ts";
@@ -223,35 +223,17 @@ export function safeToSpend(input: {
   buckets: MoneyBucket[];
   moves: BucketMove[];
 }): { amount: number; funding: number; moved: number; spent: number; plans: number; income: number } {
-  const layout = groupMonth(input.transactions, input.categories, input.ym, input.budgets ?? []);
-  const linked = new Set(input.buckets.flatMap((b) => b.categoryIds));
-  let plans = 0;
-  let spent = 0;
-  for (const group of layout.expenses) {
-    if (group.id === "money-back" || linked.has(group.id)) continue;
-    if (group.open || group.plan <= 0) {
-      spent += group.total;
-      continue;
-    }
-    plans += group.plan;
-    if (group.total > group.plan) spent += group.total - group.plan;
-  }
-  const funding = roundMoney(
-    input.buckets.filter((b) => b.startMonth <= input.ym).reduce((s, b) => s + fundingForMonth(b, input.ym), 0),
+  return safeFromLedger(
+    {
+      transactions: input.transactions,
+      categories: input.categories,
+      budgets: input.budgets,
+      buckets: input.buckets,
+      moves: input.moves,
+      style: "monthly",
+    },
+    input.ym,
   );
-  const moved = roundMoney(
-    input.moves.filter((m) => m.ym === input.ym && m.fromId == null).reduce((s, m) => s + Math.abs(m.amount), 0),
-  );
-  plans = roundMoney(plans);
-  spent = roundMoney(Math.max(0, spent));
-  return {
-    income: layout.incomeTotal,
-    funding,
-    moved,
-    plans,
-    spent,
-    amount: roundMoney(layout.incomeTotal - plans - spent - funding - moved),
-  };
 }
 
 export function bucketFunding(buckets: MoneyBucket[], ym: string) {

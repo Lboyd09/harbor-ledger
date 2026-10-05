@@ -83,6 +83,11 @@ export type Category = {
    * Income never carries, even if this is set. Missing on older ledgers.
    */
   carry?: boolean | null;
+  /**
+   * First month this category carries from, when it should not use the ledger start.
+   * Missing means the ledger's carry start. Income never carries.
+   */
+  carryFrom?: string | null;
 };
 
 /** A budget that applies to one month only. The usual plan stays on the category. */

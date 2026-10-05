@@ -193,7 +193,7 @@ function MonthAmount({ category, ym }: { category: Category; ym: string }) {
         <Button size="sm" variant="outline" onClick={() => setMonthPlan(category.id, ym, null)} disabled={!custom}>
           Back to usual
         </Button>
-        <Link to="/plan" className="text-sm font-medium text-primary">
+        <Link to="/budget" search={{ page: "amounts" }} className="text-sm font-medium text-primary">
           Change the usual amount
         </Link>
       </div>

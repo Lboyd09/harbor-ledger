@@ -29,6 +29,7 @@ import {
   upsertFileBalance,
 } from "@/lib/budget/accounts";
 import { applyCompleteSetup, type SetupExtras } from "@/lib/budget/onboarding-plan";
+import { earliestDataMonth } from "@/lib/budget/ledger-month";
 import { withBudgetStyle } from "@/lib/budget/style";
 import { currentMonthKey, currentWeekKey } from "@/lib/budget/parse-date";
 import { clearLedger, loadLedger, saveLedger } from "@/lib/budget/persist";
@@ -357,7 +358,17 @@ export const useBudgetStore = create<State>()(
         schedulePersist();
       },
       setBudgetStyle: (style, options) => {
-        set({ profile: withBudgetStyle(get().profile, style, options) });
+        const profile = get().profile;
+        let carryStartMonth = options?.carryStartMonth;
+        if (style === "buckets" && !carryStartMonth && !profile.carryStartMonth) {
+          carryStartMonth = earliestDataMonth(get().transactions) ?? undefined;
+        }
+        set({
+          profile: withBudgetStyle(profile, style, {
+            ...options,
+            ...(carryStartMonth ? { carryStartMonth } : {}),
+          }),
+        });
         schedulePersist();
       },
       addAccount: (input) => {
@@ -1005,7 +1016,10 @@ export const useBudgetStore = create<State>()(
           endingBalance: ending,
         };
         const next = [...transactions].sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+        const firstMonth = earliestDataMonth(next);
+        const profile = get().profile.carryStartMonth || !firstMonth ? get().profile : { ...get().profile, carryStartMonth: firstMonth };
         set({
+          profile,
           transactions: next,
           balances,
           imports: [batch, ...(get().imports ?? [])].slice(0, 40),
@@ -1067,10 +1081,12 @@ export const useBudgetStore = create<State>()(
           friend.auto = null;
         }
         const goalId = "goal_demo_car";
+        const ordered = dressed.sort((a, b) => b.date.localeCompare(a.date));
+        const profileWithStart = { ...profile, carryStartMonth: earliestDataMonth(ordered) };
         set({
-          profile,
+          profile: profileWithStart,
           categories,
-          transactions: dressed.sort((a, b) => b.date.localeCompare(a.date)),
+          transactions: ordered,
           merchantRules: [],
           monthBudgets: [],
           savingsGoals: [{ id: goalId, name: "Used car", target: 6000, saved: 900, by: "2027-06" }],

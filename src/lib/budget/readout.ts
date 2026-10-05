@@ -1,12 +1,11 @@
-import { carryMonth, carryStatus, categorySpent, nextMonthAllowance, type CarryContext } from "./carry.ts";
+import { carryStatus, nextMonthAllowance, type CarryContext } from "./carry.ts";
+import { monthLedger } from "./ledger-month.ts";
 import { weekdaySpend } from "./habits.ts";
 import { displayMerchant } from "./merchant.ts";
 import { formatMoney, roundMoney } from "./money.ts";
 import { groupMonth } from "./month-view.ts";
-import { monthLabel, shiftMonth } from "./parse-date.ts";
-import { orderedCategories, planAmount } from "./plans.ts";
+import { monthLabel } from "./parse-date.ts";
 import { findRecurringAll } from "./recurring.ts";
-import { categoryCarries } from "./style.ts";
 import { monthCash, monthsInData } from "./totals.ts";
 import type { BudgetStyle, Category, MonthBudget, RecurringInterval, Transaction } from "./types.ts";
 
@@ -23,6 +22,8 @@ export type SideRow = {
   amount: number;
   /** What it is compared with: usual income, or the plan. */
   mark: number;
+  /** What is left in a spending category. A carrying category’s left is its carry-out. */
+  left?: number;
   /** Bar fill. Over 100 means past the mark. */
   fill: number;
 };
@@ -49,45 +50,20 @@ function everyLabel(interval: RecurringInterval): string {
   return "now and then";
 }
 
-function receivedIn(
-  category: Category,
-  ym: string,
-  transactions: Transaction[],
-  categories: Category[],
-  budgets: MonthBudget[],
-): number {
-  const group = groupMonth(transactions, categories, ym, budgets).income.find((row) => row.id === category.id);
-  return roundMoney(group?.total ?? 0);
-}
-
-/** What usually comes in. Past months win over a typed plan. Income never carries a balance. */
-function usualIncome(
-  category: Category,
-  ym: string,
-  transactions: Transaction[],
-  categories: Category[],
-  budgets: MonthBudget[],
-): number {
-  const past: number[] = [];
-  for (let i = 1; i <= 6; i++) {
-    const amount = receivedIn(category, shiftMonth(ym, -i), transactions, categories, budgets);
-    if (amount > 0.004) past.push(amount);
-  }
-  if (past.length) return roundMoney(median(past));
-  return planAmount(category, ym, budgets);
-}
-
 export function incomeRows(input: {
   transactions: Transaction[];
   categories: Category[];
   ym: string;
   budgets?: MonthBudget[];
 }): SideRow[] {
-  const budgets = input.budgets ?? [];
-  return orderedCategories(input.categories, "income").map((category) => {
-    const amount = receivedIn(category, input.ym, input.transactions, input.categories, budgets);
-    const mark = usualIncome(category, input.ym, input.transactions, input.categories, budgets);
-    const delta = roundMoney(amount - mark);
+  const ledger = monthLedger(
+    { transactions: input.transactions, categories: input.categories, budgets: input.budgets, style: "monthly" },
+    input.ym,
+  );
+  return ledger.income.map((line) => {
+    const amount = line.received;
+    const mark = line.expected;
+    const delta = line.variance;
     let primary = `${formatMoney(amount)} in`;
     let tone: SideTone = "neutral";
     if (mark > 0.004) {
@@ -105,7 +81,7 @@ export function incomeRows(input: {
         ? `Received ${formatMoney(amount)}. Usual is ${formatMoney(mark)}. Income is not carried over.`
         : `Received ${formatMoney(amount)}. No usual amount yet. Income is not carried over.`;
     const fill = mark > 0.004 ? (amount / mark) * 100 : amount > 0 ? 100 : 0;
-    return { id: category.id, name: category.name, primary, detail, tone, amount, mark, fill };
+    return { id: line.id, name: line.name, primary, detail, tone, amount, mark, fill };
   });
 }
 
@@ -118,18 +94,28 @@ export function spendingRows(input: {
   carryStartMonth?: string | null;
 }): SideRow[] {
   const budgets = input.budgets ?? [];
+  const ledger = monthLedger(
+    {
+      transactions: input.transactions,
+      categories: input.categories,
+      budgets,
+      style: input.style,
+      carryStartMonth: input.carryStartMonth,
+    },
+    input.ym,
+  );
   const ctx: CarryContext = {
     transactions: input.transactions,
     categories: input.categories,
     budgets,
     carryStartMonth: input.carryStartMonth || input.ym,
   };
-  return orderedCategories(input.categories, "expense").map((category) => {
-    if (categoryCarries(category, input.style)) {
-      const carried = carryMonth(category, input.ym, ctx);
-      const left = carried?.carryOut ?? 0;
-      const spent = carried?.spent ?? categorySpent(input.transactions, input.categories, category.id, input.ym);
-      const plan = carried?.planned ?? planAmount(category, input.ym, budgets);
+  return ledger.spending.map((line) => {
+    const category = input.categories.find((row) => row.id === line.id);
+    if (line.carries && category) {
+      const left = line.left;
+      const spent = line.spent;
+      const plan = line.planned;
       const status = carryStatus(category, input.ym, ctx);
       const allowance = nextMonthAllowance(category, input.ym, ctx);
       const primary = left < -0.004 ? `${formatMoney(Math.abs(left))} over` : `${formatMoney(left)} left`;
@@ -141,21 +127,12 @@ export function spendingRows(input: {
       } else if (plan > 0 || spent > 0) {
         detail = `Even. Next month starts at ${formatMoney(allowance.amount)}.`;
       }
-      const available = roundMoney((carried?.carryIn ?? 0) + plan);
+      const available = roundMoney(line.carryIn + plan);
       const fill = left < -0.004 ? 100 : available > 0.004 ? (Math.max(0, left) / available) * 100 : 0;
-      return {
-        id: category.id,
-        name: category.name,
-        primary,
-        detail,
-        tone: left < -0.004 ? "danger" : "neutral",
-        amount: spent,
-        mark: plan,
-        fill,
-      };
+      return { id: line.id, name: line.name, primary, detail, tone: left < -0.004 ? "danger" as const : "neutral" as const, amount: spent, mark: plan, left, fill };
     }
-    const spent = Math.max(0, categorySpent(input.transactions, input.categories, category.id, input.ym));
-    const plan = planAmount(category, input.ym, budgets);
+    const spent = Math.max(0, line.spent);
+    const plan = line.planned;
     const left = roundMoney(plan - spent);
     const primary =
       plan <= 0.004 ? `${formatMoney(spent)} spent` : left < -0.004 ? `${formatMoney(Math.abs(left))} over` : `${formatMoney(left)} left`;
@@ -164,13 +141,14 @@ export function spendingRows(input: {
         ? `Spent ${formatMoney(spent)} of ${formatMoney(plan)}. Next month starts over.`
         : `Spent ${formatMoney(spent)}. No monthly amount yet.`;
     return {
-      id: category.id,
-      name: category.name,
+      id: line.id,
+      name: line.name,
       primary,
       detail,
-      tone: left < -0.004 && plan > 0.004 ? "danger" : "neutral",
+      tone: left < -0.004 && plan > 0.004 ? "danger" as const : "neutral" as const,
       amount: spent,
       mark: plan,
+      left,
       fill: plan > 0.004 ? (spent / plan) * 100 : spent > 0 ? 100 : 0,
     };
   });

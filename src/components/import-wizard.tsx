@@ -12,7 +12,7 @@ import { formatMoney } from "@/lib/budget/money";
 import type { Account, AccountKind, Category, ColumnRole, CsvPreview, ImportBatch, IncomeCadence, Profile } from "@/lib/budget/types";
 import { useBudgetStore } from "@/store/budget-store";
 import { ImportReview } from "./import-review";
-import { LedgerTabs } from "./ledger-tabs";
+import { HomeMenu } from "./page-menu";
 import { Button } from "./ui/button";
 import { Field, Input, Select } from "./ui/field";
 
@@ -180,7 +180,7 @@ export function ImportWizard() {
 
   return (
     <div className="space-y-6">
-      <LedgerTabs page="import" />
+      <HomeMenu current="import" />
       <div>
         <h1 className="font-display text-2xl font-semibold md:text-3xl">Import a bank file</h1>
         <p className="mt-2 max-w-2xl text-sm text-muted">

@@ -1,10 +1,8 @@
 import { latestBalance, totalBalance } from "./accounts.ts";
-import { carryMonth, carrySummary, type CarryContext } from "./carry.ts";
+import { monthLedger, yearLedger } from "./ledger-month.ts";
 import { expectedIncomeForMonth } from "./income.ts";
 import { roundMoney } from "./money.ts";
-import { monthCash, sumByCategory, yearCash } from "./totals.ts";
-import { groupMonth } from "./month-view.ts";
-import { countsTowardPlan } from "./plans.ts";
+import { sumByCategory } from "./totals.ts";
 import { monthsOfYear } from "./year.ts";
 import type { Account, AccountKind, BalancePoint, BudgetStyle, Category, MonthBudget, Profile, Transaction } from "./types.ts";
 
@@ -12,45 +10,48 @@ export type YearOverview = {
   year: string;
   moneyIn: number;
   moneyOut: number;
+  saved: number;
   left: number;
   savingsRate: number;
 };
 
-/** Full calendar year, same cash rules as yearCash. */
-export function yearOverview(transactions: Transaction[], categories: Category[], year: string): YearOverview {
-  const cash = yearCash(transactions, `${year}-01`, categories);
-  const moneyIn = roundMoney(cash.income);
-  const moneyOut = roundMoney(cash.expenses);
-  const left = roundMoney(cash.net);
-  return {
+/** Full calendar year from the twelve month ledgers. */
+export function yearOverview(
+  transactions: Transaction[],
+  categories: Category[],
+  year: string,
+  extra?: { buckets?: import("./types.ts").MoneyBucket[]; moves?: import("./types.ts").BucketMove[]; style?: BudgetStyle; carryStartMonth?: string | null },
+): YearOverview {
+  const book = yearLedger(
+    { transactions, categories, buckets: extra?.buckets, moves: extra?.moves, style: extra?.style, carryStartMonth: extra?.carryStartMonth },
     year,
-    moneyIn,
-    moneyOut,
-    left,
-    savingsRate: moneyIn > 0 ? left / moneyIn : 0,
-  };
+  );
+  const moneyIn = book.totals.received;
+  const moneyOut = book.totals.spent;
+  const saved = book.totals.savedToFunds;
+  const left = book.totals.leftOver;
+  return { year, moneyIn, moneyOut, saved, left, savingsRate: moneyIn > 0 ? left / moneyIn : 0 };
 }
 
-/** January through `throughMonth` (1–12), still using monthCash so a partial year does not borrow later months. */
+/** January through `throughMonth` (1–12). */
 export function spanOverview(
   transactions: Transaction[],
   categories: Category[],
   year: string,
   throughMonth: number,
+  extra?: { buckets?: import("./types.ts").MoneyBucket[]; moves?: import("./types.ts").BucketMove[]; style?: BudgetStyle; carryStartMonth?: string | null },
 ): YearOverview {
+  const book = yearLedger(
+    { transactions, categories, buckets: extra?.buckets, moves: extra?.moves, style: extra?.style, carryStartMonth: extra?.carryStartMonth },
+    year,
+  );
   const last = Math.min(12, Math.max(1, Math.floor(throughMonth)));
-  let moneyIn = 0;
-  let moneyOut = 0;
-  for (let month = 1; month <= last; month++) {
-    const ym = `${year}-${String(month).padStart(2, "0")}`;
-    const cash = monthCash(transactions, ym, categories);
-    moneyIn += cash.income;
-    moneyOut += cash.expenses;
-  }
-  moneyIn = roundMoney(moneyIn);
-  moneyOut = roundMoney(moneyOut);
-  const left = roundMoney(moneyIn - moneyOut);
-  return { year, moneyIn, moneyOut, left, savingsRate: moneyIn > 0 ? left / moneyIn : 0 };
+  const slice = book.months.slice(0, last);
+  const moneyIn = roundMoney(slice.reduce((sum, row) => sum + row.totals.received, 0));
+  const moneyOut = roundMoney(slice.reduce((sum, row) => sum + row.totals.spent, 0));
+  const saved = roundMoney(slice.reduce((sum, row) => sum + row.totals.savedToFunds, 0));
+  const left = roundMoney(slice.reduce((sum, row) => sum + row.totals.leftOver, 0));
+  return { year, moneyIn, moneyOut, saved, left, savingsRate: moneyIn > 0 ? left / moneyIn : 0 };
 }
 
 export type SpendingSlice = { id: string; label: string; value: number };
@@ -131,22 +132,27 @@ export function monthGlance(input: {
   safeToSpend: number;
 }): MonthGlance {
   const style = input.style === "buckets" ? "buckets" : "monthly";
-  if (style === "buckets" && input.carryStartMonth) {
-    const ctx: CarryContext = {
+  const ledger = monthLedger(
+    {
       transactions: input.transactions,
       categories: input.categories,
       budgets: input.budgets,
+      style,
       carryStartMonth: input.carryStartMonth,
-    };
-    const summary = carrySummary(input.ym, ctx);
-    let counted = 0;
-    for (const category of input.categories) {
-      if (category.kind !== "expense" || !countsTowardPlan(category, input.categories)) continue;
-      if (carryMonth(category, input.ym, ctx)) counted += 1;
+    },
+    input.ym,
+  );
+  if (style === "buckets" && input.carryStartMonth) {
+    let over = 0;
+    let even = 0;
+    let extra = 0;
+    for (const line of ledger.spending) {
+      if (!line.carries) continue;
+      if (!input.carryStartMonth || input.ym < input.carryStartMonth) continue;
+      if (line.left < -0.5) over += 1;
+      else if (line.left > 0.5) extra += 1;
+      else even += 1;
     }
-    const over = summary.countOver;
-    const extra = summary.countExtra;
-    const even = Math.max(0, counted - over - extra);
     return {
       style,
       safeToSpend: input.safeToSpend,
@@ -157,12 +163,11 @@ export function monthGlance(input: {
       sentence: `${over} over, ${even} even, ${extra} with extra.`,
     };
   }
-  const layout = groupMonth(input.transactions, input.categories, input.ym, input.budgets ?? []);
   let over = 0;
   let onTrack = 0;
-  for (const group of layout.expenses) {
-    if (group.id === "money-back" || group.plan <= 0) continue;
-    if (group.total > group.plan + 0.004) over += 1;
+  for (const line of ledger.spending) {
+    if (line.planned <= 0) continue;
+    if (line.spent > line.planned + 0.004) over += 1;
     else onTrack += 1;
   }
   return {
@@ -190,9 +195,12 @@ export function needsALook(input: {
   budgets?: MonthBudget[];
 }): NeedsALook {
   const year = input.ym.slice(0, 4);
-  const uncategorized = yearCash(input.transactions, `${year}-01`, input.categories).uncategorized;
+  const uncategorized = yearLedger({ transactions: input.transactions, categories: input.categories }, year).months.reduce(
+    (sum, row) => sum + row.flags.uncategorized,
+    0,
+  );
   const expected = expectedIncomeForMonth(input.profile, input.ym, input.budgets ?? []);
-  const seen = monthCash(input.transactions, input.ym, input.categories).income;
+  const seen = monthLedger({ transactions: input.transactions, categories: input.categories }, input.ym).totals.received;
   const incomeLine = expected > 0 && seen <= 0 ? "Expected income has not shown up yet this month." : null;
   return { uncategorized, incomeLine };
 }

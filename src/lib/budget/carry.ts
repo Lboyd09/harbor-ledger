@@ -1,7 +1,8 @@
 import { groupMonth } from "./month-view.ts";
+import { monthLedger } from "./ledger-month.ts";
 import { roundMoney } from "./money.ts";
 import { shiftMonth } from "./parse-date.ts";
-import { countsTowardPlan, planAmount } from "./plans.ts";
+import { planAmount } from "./plans.ts";
 import type { Category, MonthBudget, Transaction } from "./types.ts";
 
 /** A surplus bigger than this many months of the plan is worth putting to work. */
@@ -111,20 +112,30 @@ export function carryYear(category: Category, ym: string, ctx: CarryContext): Ca
 }
 
 export function carrySummary(ym: string, ctx: CarryContext): CarrySummary {
+  const ledger = monthLedger(
+    {
+      transactions: ctx.transactions,
+      categories: ctx.categories,
+      budgets: ctx.budgets,
+      style: "buckets",
+      carryStartMonth: ctx.carryStartMonth,
+      opening: ctx.opening,
+    },
+    ym,
+  );
   let extra = 0;
   let overspent = 0;
   let countOver = 0;
   let countExtra = 0;
-  for (const category of ctx.categories) {
-    if (category.kind !== "expense" || !countsTowardPlan(category, ctx.categories)) continue;
-    const row = carryMonth(category, ym, ctx);
-    if (!row) continue;
-    const status = statusFrom(row.carryOut);
-    if (status === "extra") {
-      extra += row.carryOut;
+  for (const line of ledger.spending) {
+    if (!line.carries || line.carryOut === 0 && line.carryIn === 0 && ym < ctx.carryStartMonth) continue;
+    if (!line.carries) continue;
+    if (Math.abs(line.carryOut) <= EVEN_BAND) continue;
+    if (line.carryOut > 0) {
+      extra += line.carryOut;
       countExtra += 1;
-    } else if (status === "over") {
-      overspent += Math.abs(row.carryOut);
+    } else {
+      overspent += Math.abs(line.carryOut);
       countOver += 1;
     }
   }

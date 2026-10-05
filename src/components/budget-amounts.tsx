@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { monthEndForecast } from "@/lib/budget/analytics";
 import { categoryTrends, incomeStability, recurringBills, typicalMonth } from "@/lib/budget/analytics-depth";
-import { bucketFunding } from "@/lib/budget/buckets";
+import { earliestDataMonth, monthLedger } from "@/lib/budget/ledger-month";
 import { TERMS } from "@/lib/copy/terms";
 import { formatMoney } from "@/lib/budget/money";
 import { newId } from "@/lib/budget/ids";
@@ -15,7 +15,6 @@ import { budgetLead, carryConsequence, dueLabel, forecastChip, orderSpending, sp
 import { monthSeries } from "@/lib/budget/visual-data";
 import type { BudgetStyle, Category, MonthBudget, Transaction } from "@/lib/budget/types";
 import { useBudgetStore } from "@/store/budget-store";
-import { MonthSwitcher } from "./month-switcher";
 import { EmptyArt } from "./visuals/empty-art";
 import { MiniBars } from "./visuals/mini-bars";
 import { FillJar } from "./money-visual";
@@ -23,43 +22,41 @@ import { SideSwitch, useMoneySide } from "./side-switch";
 import { Button } from "./ui/button";
 import { Input } from "./ui/field";
 
-export function PlanView() {
+export function AmountsPage({ showStyle = true }: { showStyle?: boolean }) {
   const style: BudgetStyle = useBudgetStore((s) => (s.profile.budgetStyle === "buckets" ? "buckets" : "monthly"));
   const setBudgetStyle = useBudgetStore((s) => s.setBudgetStyle);
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="font-display text-2xl font-semibold md:text-3xl">Budget</h1>
-          <p className="mt-2 max-w-xl text-sm text-muted">
+      {showStyle ? (
+        <>
+          <p className="max-w-xl text-sm text-muted">
             Rent, groceries, insurance, and eating out live here. A savings fund is separate and is not this budget.
           </p>
-        </div>
-        <MonthSwitcher compact />
-      </div>
-      <div className="grid gap-2 sm:grid-cols-2" role="group" aria-label="How leftover spending works">
-        <button
-          type="button"
-          aria-pressed={style === "monthly"}
-          className={`min-h-11 rounded-md border px-3 py-2 text-left text-sm ${style === "monthly" ? "border-primary bg-chip" : "border-border bg-surface"}`}
-          onClick={() => setBudgetStyle("monthly")}
-        >
-          <span className="font-medium">{TERMS.monthlyReset}</span>
-          <span className="mt-1 block text-muted">Each spending category starts over.</span>
-        </button>
-        <button
-          type="button"
-          aria-pressed={style === "buckets"}
-          className={`min-h-11 rounded-md border px-3 py-2 text-left text-sm ${style === "buckets" ? "border-primary bg-chip" : "border-border bg-surface"}`}
-          onClick={() => setBudgetStyle("buckets")}
-        >
-          <span className="font-medium">{TERMS.carryOver}</span>
-          <span className="mt-1 block text-muted">Leftover spending stays in that category.</span>
-        </button>
-      </div>
-      <p className="text-sm text-muted">
-        Income is not part of this choice. Pay changes, so it is compared with what usually comes in. One category can do the other. Open it and switch. Nothing already saved is deleted.
-      </p>
+          <div className="grid gap-2 sm:grid-cols-2" role="group" aria-label="How leftover spending works">
+            <button
+              type="button"
+              aria-pressed={style === "monthly"}
+              className={`min-h-11 rounded-md border px-3 py-2 text-left text-sm ${style === "monthly" ? "border-primary bg-chip" : "border-border bg-surface"}`}
+              onClick={() => setBudgetStyle("monthly")}
+            >
+              <span className="font-medium">{TERMS.monthlyReset}</span>
+              <span className="mt-1 block text-muted">Each spending category starts over.</span>
+            </button>
+            <button
+              type="button"
+              aria-pressed={style === "buckets"}
+              className={`min-h-11 rounded-md border px-3 py-2 text-left text-sm ${style === "buckets" ? "border-primary bg-chip" : "border-border bg-surface"}`}
+              onClick={() => setBudgetStyle("buckets")}
+            >
+              <span className="font-medium">{TERMS.carryOver}</span>
+              <span className="mt-1 block text-muted">Leftover spending stays in that category.</span>
+            </button>
+          </div>
+          <p className="text-sm text-muted">
+            Income is not part of this choice. Pay changes, so it is compared with what usually comes in. One category can do the other. Open it and switch. Nothing already saved is deleted.
+          </p>
+        </>
+      ) : null}
       <BudgetSides style={style} />
     </div>
   );
@@ -77,6 +74,11 @@ function BudgetSides({ style }: { style: BudgetStyle }) {
   const moneyBuckets = useBudgetStore((s) => s.moneyBuckets) ?? [];
   const carryStart = useBudgetStore((s) => s.profile.carryStartMonth);
   const patchProfile = useBudgetStore((s) => s.patchProfile);
+  const moves = useBudgetStore((s) => s.bucketMoves) ?? [];
+  const savedToFunds = monthLedger(
+    { transactions, categories, budgets: monthBudgets, buckets: moneyBuckets, moves, style, carryStartMonth: carryStart },
+    ym,
+  ).totals.savedToFunds;
   const [openId, setOpenId] = useState<string | null>(null);
   const income = incomeRows({ transactions, categories, ym, budgets: monthBudgets });
   const spending = spendingRows({
@@ -87,7 +89,7 @@ function BudgetSides({ style }: { style: BudgetStyle }) {
     style,
     carryStartMonth: carryStart,
   });
-  const funding = bucketFunding(moneyBuckets, ym);
+  const funding = savedToFunds;
   const expenses = orderedCategories(categories, "expense");
   const detail = useBudgetStore((s) => s.profile.detail);
   const streams = useBudgetStore((s) => s.profile.incomeStreams ?? []);
@@ -214,7 +216,10 @@ function BudgetSides({ style }: { style: BudgetStyle }) {
                 className={`min-h-11 rounded-md border px-3 py-2 text-left text-sm ${category.carry === true ? "border-primary bg-chip" : "border-border"}`}
                 onClick={() => {
                   updateCategory(category.id, { carry: true });
-                  if (!carryStart) patchProfile({ carryStartMonth: ym });
+                  if (!carryStart) {
+                    const first = earliestDataMonth(transactions);
+                    if (first) patchProfile({ carryStartMonth: first });
+                  }
                 }}
               >
                 This one carries over
@@ -252,7 +257,7 @@ function BudgetSides({ style }: { style: BudgetStyle }) {
                 <tbody>
                   <tr><th className="py-1 pr-3 font-medium">This month</th><td className="tabular">{formatMoney(row.amount)}</td></tr>
                   <tr><th className="py-1 pr-3 font-medium">Plan</th><td className="tabular">{formatMoney(row.mark)}</td></tr>
-                  <tr><th className="py-1 pr-3 font-medium">Left</th><td className="tabular">{formatMoney(row.mark - row.amount, { signed: true })}</td></tr>
+                  <tr><th className="py-1 pr-3 font-medium">Left</th><td className="tabular">{formatMoney(row.left ?? row.mark - row.amount, { signed: true })}</td></tr>
                   {usual ? <tr><th className="py-1 pr-3 font-medium">Typical</th><td className="tabular">{formatMoney(usual.typical)}</td></tr> : null}
                   {groupLabel ? <tr><th className="py-1 pr-3 font-medium">Kind</th><td>{groupLabel}</td></tr> : null}
                   {trend ? <tr><th className="py-1 pr-3 font-medium">Trend</th><td>{trend.percent}%</td></tr> : null}
@@ -402,7 +407,7 @@ function BudgetSides({ style }: { style: BudgetStyle }) {
         </Button>
         {funding > 0 ? (
           <p className="text-sm text-muted">
-            {formatMoney(funding)} is set aside in funds this month. That is extra savings, not these categories.{" "}
+            {formatMoney(funding)} is set aside in funds this month. That is part of this month, not these categories.{" "}
             <Link to="/funds" className="font-medium text-primary">
               Funds
             </Link>

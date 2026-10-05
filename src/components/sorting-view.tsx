@@ -8,7 +8,7 @@ import { previewChange, ruleFor, sideOf, type CategoryUndo, type Side } from "@/
 import type { Transaction } from "@/lib/budget/types";
 import { useBudgetStore } from "@/store/budget-store";
 import { CategorySelect } from "./category-select";
-import { LedgerTabs } from "./ledger-tabs";
+import { HomeMenu } from "./page-menu";
 import { SortQueue } from "./sort-queue";
 import { Button } from "./ui/button";
 import { Input } from "./ui/field";
@@ -126,7 +126,7 @@ export function SortingView() {
           Each name has one default category. Those categories are the budget: rent, groceries, insurance, eating out. Changing a name here changes every month, except charges you set by hand.
         </p>
       </div>
-      <LedgerTabs page="merchants" />
+      <HomeMenu current="rules" />
       {openNames > 0 ? (
         <button type="button" className="w-full rounded-lg border border-primary/40 bg-surface p-4 text-left" onClick={() => setQueueOpen(true)}>
           <div className="font-display text-xl font-semibold">{openNames} {openNames === 1 ? "name" : "names"} still to sort</div>

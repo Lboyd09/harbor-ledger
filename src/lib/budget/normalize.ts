@@ -246,6 +246,7 @@ export function normalizeSnapshot(raw: unknown): LedgerSnapshot | null {
     plannedMonthly: Math.max(0, asNumber(c.plannedMonthly, 0)),
     parentId: typeof c.parentId === "string" && c.parentId ? c.parentId : null,
     ...(c.carry === true ? { carry: true } : c.carry === false ? { carry: false } : {}),
+    ...(/^\d{4}-\d{2}$/.test(asString(c.carryFrom)) ? { carryFrom: asString(c.carryFrom) } : {}),
   }));
   const transactions = transactionsRaw
     .map((t, i) => normalizeTransaction(t, i))

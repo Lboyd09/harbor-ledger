@@ -14,8 +14,8 @@ import { deleteAccount, issueRecoveryCode } from "@/lib/budget/persist";
 import { HOUSEHOLD_LABELS, HOUSING_LABELS, STAGE_LABELS } from "@/lib/budget/presets";
 import { formatMoney } from "@/lib/budget/money";
 import { DEFAULT_INFLATION, DEFAULT_RETIRE_AGE, DEFAULT_WITHDRAWAL, PLANNING_MARKET } from "@/lib/budget/reference";
-import { monthLabel } from "@/lib/budget/parse-date";
 import { TERMS } from "@/lib/copy/terms";
+import { CarryStartControl } from "./carry-start";
 import type { AccountKind, DetailMode, HarborLook, HarborMotion } from "@/lib/budget/types";
 import { useBudgetStore } from "@/store/budget-store";
 import { ExportBar } from "./export-bar";
@@ -54,9 +54,9 @@ export function SettingsView() {
           <div className="flex flex-col gap-2 text-sm">
             <Link to="/import" className="font-medium text-primary">Import a bank CSV</Link>
             <Link to="/" className="font-medium text-primary">Home — this month, merchants, and a bank file</Link>
-            <Link to="/plan" className="font-medium text-primary">Budget — amounts that start over each month</Link>
+            <Link to="/budget" className="font-medium text-primary">Budget — this month</Link>
             <Link to="/funds" className="font-medium text-primary">Funds — money that keeps what’s left</Link>
-            <Link to="/categories" className="font-medium text-primary">Merchants — one category for a store</Link>
+            <Link to="/rules" className="font-medium text-primary">Sorting rules — one category for a store</Link>
             <Link to="/grow" className="font-medium text-primary">Grow — debt, net worth, and calculators</Link>
           </div>
         </section>
@@ -133,7 +133,7 @@ export function SettingsView() {
           </Select>
         </Field>
         <div className="flex flex-wrap gap-3 text-sm">
-          <Link to="/categories" className="font-medium text-primary">
+          <Link to="/rules" className="font-medium text-primary">
             Merchants
           </Link>
           <Link to="/import" className="font-medium text-primary">
@@ -170,7 +170,7 @@ export function SettingsView() {
           Edit household answers
         </Button>
         <p className="text-xs text-muted">Opens the setup questions. Your transactions stay.</p>
-        <Link to="/plan" className="inline-flex text-sm font-medium text-primary">
+        <Link to="/budget" className="inline-flex text-sm font-medium text-primary">
           Edit the monthly budget
         </Link>
       </section>
@@ -474,9 +474,7 @@ function LeftoverStyle() {
       <p className="text-sm text-muted">
         This is only for spending categories, such as rent, groceries, and eating out. Income is compared with what usually comes in and is not carried over. A fund is extra savings, not this choice. One category can do the opposite on the Budget page. Switching never deletes the amount, a one-month amount, or a charge.
       </p>
-      {style === "buckets" && profile.carryStartMonth ? (
-        <p className="text-sm">This started in {monthLabel(profile.carryStartMonth)}.</p>
-      ) : null}
+      <CarryStartControl />
     </section>
   );
 }

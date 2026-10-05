@@ -1,3 +1,5 @@
+import { monthLedger, yearLedger } from "./ledger-month.ts";
+import { roundMoney } from "./money.ts";
 import { monthKeyFromDate, weekKeyFromDate } from "./parse-date.ts";
 import { countsTowardPlan } from "./plans.ts";
 import { plannedForPeriod } from "./period.ts";
@@ -128,7 +130,18 @@ function foldCash(transactions: Transaction[], categories: Category[], keep: (t:
 }
 
 export function monthCash(transactions: Transaction[], ym: string, categories: Category[] = []) {
-  return foldCash(transactions, categories, (t) => inMonth(t, ym));
+  const ledger = monthLedger({ transactions, categories, style: "monthly" }, ym);
+  const folded = foldCash(transactions, categories, (t) => inMonth(t, ym));
+  return {
+    income: ledger.totals.received,
+    expenses: ledger.totals.spent,
+    net: roundMoney(ledger.totals.received - ledger.totals.spent),
+    uncategorized: folded.uncategorized,
+    count: folded.count,
+    excluded: folded.excluded,
+    transfers: folded.transfers,
+    refunds: folded.refunds,
+  };
 }
 
 export function weekCash(transactions: Transaction[], wk: string, categories: Category[] = []) {
@@ -146,7 +159,19 @@ export function periodCash(
 
 export function yearCash(transactions: Transaction[], ym: string, categories: Category[] = []) {
   const year = ym.slice(0, 4);
-  return { ...foldCash(transactions, categories, (t) => t.date.startsWith(year)), year };
+  const book = yearLedger({ transactions, categories, style: "monthly" }, year);
+  const folded = foldCash(transactions, categories, (t) => t.date.startsWith(year));
+  return {
+    income: book.totals.received,
+    expenses: book.totals.spent,
+    net: book.totals.leftOver,
+    uncategorized: folded.uncategorized,
+    count: folded.count,
+    excluded: folded.excluded,
+    transfers: folded.transfers,
+    refunds: folded.refunds,
+    year,
+  };
 }
 
 export function monthlySeries(transactions: Transaction[], categories: Category[] = []) {

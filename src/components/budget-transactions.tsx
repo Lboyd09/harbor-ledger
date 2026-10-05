@@ -1,21 +1,16 @@
 import { Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { displayMerchant } from "@/lib/budget/merchant";
-import { monthEndForecast } from "@/lib/budget/analytics";
-import { recurringBills, typicalMonth } from "@/lib/budget/analytics-depth";
+import { recurringBills } from "@/lib/budget/analytics-depth";
 import { formatMoney } from "@/lib/budget/money";
-import { comingUp, dueLabel, monthStrip, paceSentence } from "@/lib/budget/screen-plan";
+import { monthLedger } from "@/lib/budget/ledger-month";
+import { comingUp } from "@/lib/budget/screen-plan";
 import { groupMonth } from "@/lib/budget/month-view";
-import { incomeRows, spendingRows } from "@/lib/budget/readout";
 import { monthKeyFromDate, monthLabel } from "@/lib/budget/parse-date";
 import type { CategoryUndo } from "@/lib/budget/sorting";
 import { useBudgetStore } from "@/store/budget-store";
 import { CategorizeCoach } from "./categorize-coach";
 import { CategorySelect } from "./category-select";
-import { HomeSwitch } from "./home-switch";
-import { LedgerTabs } from "./ledger-tabs";
-import { MonthSwitcher } from "./month-switcher";
-import { SideSwitch, useMoneySide } from "./side-switch";
 import { EmptyMonth, MonthSheet, RowTools, Section, TxRow } from "./month-parts";
 import { Button } from "./ui/button";
 
@@ -32,7 +27,7 @@ function dayLabel(iso: string) {
   return `${months[Number(iso.slice(5, 7)) - 1] ?? ""} ${Number(iso.slice(8, 10))}`;
 }
 
-export function MonthPage({ titleAs = "h1" }: { titleAs?: "h1" | "h2" }) {
+export function TransactionsPage() {
   const transactions = useBudgetStore((s) => s.transactions);
   const categories = useBudgetStore((s) => s.categories);
   const ym = useBudgetStore((s) => s.activeMonth);
@@ -51,9 +46,7 @@ export function MonthPage({ titleAs = "h1" }: { titleAs?: "h1" | "h2" }) {
   const [divideKey, setDivideKey] = useState<string | null>(null);
   const [paybackId, onPayback] = useState<string | null>(null);
   const [coach, setCoach] = useState(false);
-  const [moneySide, setMoneySide] = useMoneySide();
   const today = todayIso();
-  const forecast = monthEndForecast({ transactions, categories, ym, today, budgets });
   const upcoming = comingUp(recurringBills(transactions, categories, today), today, 45);
   const stillComing = upcoming?.filter((item) => item.status !== "active" || item.nextDate.startsWith(ym)) ?? null;
 
@@ -73,39 +66,17 @@ export function MonthPage({ titleAs = "h1" }: { titleAs?: "h1" | "h2" }) {
     () => groupMonth(transactions, categories, ym, budgets),
     [transactions, categories, ym, budgets],
   );
+  const buckets = useBudgetStore((s) => s.moneyBuckets);
+  const moves = useBudgetStore((s) => s.bucketMoves);
   const style = useBudgetStore((s) => (s.profile.budgetStyle === "buckets" ? "buckets" : "monthly"));
   const carryStart = useBudgetStore((s) => s.profile.carryStartMonth);
-  const streams = useBudgetStore((s) => s.profile.incomeStreams ?? []);
-  const incomeSide = useMemo(
-    () => incomeRows({ transactions, categories, ym, budgets }).filter((row) => row.amount > 0.004 || row.mark > 0.004).slice(0, 4),
-    [transactions, categories, ym, budgets],
+  const ledger = useMemo(
+    () => monthLedger({ transactions, categories, budgets, buckets: buckets ?? [], moves: moves ?? [], style, carryStartMonth: carryStart }, ym),
+    [transactions, categories, budgets, buckets, moves, style, carryStart, ym],
   );
-  const spendSide = useMemo(
-    () =>
-      spendingRows({ transactions, categories, ym, budgets, style, carryStartMonth: carryStart })
-        .filter((row) => row.amount > 0.004 || row.mark > 0.004)
-        .slice(0, 4),
-    [transactions, categories, ym, budgets, style, carryStart],
-  );
-  const typical = useMemo(() => typicalMonth(transactions, categories), [transactions, categories]);
-  const usualById = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const row of [...(typical?.fixed ?? []), ...(typical?.flexible ?? [])]) map.set(row.id, row.typical);
-    return map;
-  }, [typical]);
-  const incomeSoFar = incomeSide.reduce((sum, row) => sum + row.amount, 0);
-  const incomeStill = streams.length
-    ? streams.reduce((sum, stream) => {
-        const received = incomeSide.find((row) => row.id === stream.categoryId)?.amount ?? 0;
-        return dueLabel(stream.matchHints ?? [], stream.cadence, transactions, ym, received) ? sum + stream.amount : sum;
-      }, 0)
-    : null;
-  const strip = monthStrip({ forecast, incomeSoFar, incomeStill });
   const inMonth = transactions.filter((t) => monthKeyFromDate(t.date) === ym);
   const hiddenDeposits = layout.aside.filter((t) => t.amount > 0);
   const hiddenOut = layout.aside.filter((t) => t.amount <= 0);
-  const left = layout.incomeTotal - layout.expenseTotal;
-  const Title = titleAs;
 
   function onChanged(sentence: string, next: CategoryUndo) {
     setNotice(null);
@@ -115,14 +86,13 @@ export function MonthPage({ titleAs = "h1" }: { titleAs?: "h1" | "h2" }) {
   if (!transactions.length) {
     return (
       <div className="mx-auto max-w-lg space-y-4">
-        <HomeSwitch />
         <h2 className="font-display text-2xl font-semibold">Start with one month</h2>
         <p className="text-sm text-muted">
           Import a bank file, then categorize each charge. That is the whole start. Tap a row later to split it or mark it paid back.
         </p>
         <div className="flex flex-wrap gap-2">
           <Link to="/import"><Button>Import a CSV</Button></Link>
-          <Link to="/categories"><Button variant="outline">Sorting</Button></Link>
+          <Link to="/rules"><Button variant="outline">Sorting</Button></Link>
           <Button variant="ghost" onClick={() => loadSample()}>Try the demo</Button>
         </div>
       </div>
@@ -131,32 +101,9 @@ export function MonthPage({ titleAs = "h1" }: { titleAs?: "h1" | "h2" }) {
 
   return (
     <div className="space-y-6">
-      <HomeSwitch />
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <Title className="font-display text-2xl font-semibold md:text-3xl">{monthLabel(ym)}</Title>
-          <p className="mt-1 text-sm text-muted">
-            {formatMoney(layout.incomeTotal)} in · {formatMoney(layout.expenseTotal)} out · {formatMoney(left, { signed: true })} left
-          </p>
-        </div>
-        <MonthSwitcher />
-      </div>
-      <section className="rounded-lg border border-border bg-surface p-4">
-        <h2 className="font-display text-lg font-semibold">Month so far</h2>
-        {strip.ready ? (
-          <div className="mt-2 space-y-1 text-sm">
-            <p>{paceSentence(forecast)}</p>
-            <p>{strip.daysLeft} {strip.daysLeft === 1 ? "day" : "days"} left. Spent {formatMoney(strip.spent ?? 0)} so far.</p>
-            <p>
-              The month ends around {formatMoney(strip.expected ?? 0)}, between {formatMoney(strip.low ?? 0)} and {formatMoney(strip.high ?? 0)}.
-            </p>
-            {strip.incomeStill != null ? <p>Income still expected: {formatMoney(strip.incomeStill)}.</p> : null}
-            {strip.projectedLeft != null ? <p>Projected left: {formatMoney(strip.projectedLeft, { signed: true })}.</p> : null}
-          </div>
-        ) : (
-          <p className="mt-1 text-sm text-muted">{strip.reason}</p>
-        )}
-      </section>
+      <p className="text-sm text-muted">
+        {formatMoney(ledger.totals.received)} received · {formatMoney(ledger.totals.spent)} spent · {formatMoney(ledger.totals.savedToFunds)} saved to funds · {formatMoney(ledger.totals.leftOver, { signed: true })} left
+      </p>
       {stillComing && stillComing.length ? (
         <section className="rounded-lg border border-border bg-surface p-4">
           <h2 className="font-display text-lg font-semibold">Still coming this month</h2>
@@ -174,52 +121,6 @@ export function MonthPage({ titleAs = "h1" }: { titleAs?: "h1" | "h2" }) {
           </p>
         </section>
       ) : null}
-      <SideSwitch side={moneySide} onChange={setMoneySide} />
-      <div className="grid gap-3 lg:grid-cols-2">
-        <section className={`rounded-lg border border-border bg-surface p-4 ${moneySide === "in" ? "block" : "hidden"} lg:block`}>
-          <h2 className="font-display text-lg font-semibold">Money in</h2>
-          <ul className="mt-2 space-y-2 text-sm">
-            {incomeSide.map((row) => (
-              <li key={row.id} className="flex flex-wrap items-baseline justify-between gap-3">
-                <span>{row.name}</span>
-                <span className="tabular text-muted">{row.primary}</span>
-              </li>
-            ))}
-            {incomeSide.length === 0 ? <li className="text-muted">No income in this month yet.</li> : null}
-          </ul>
-        </section>
-        <section className={`rounded-lg border border-border bg-surface p-4 ${moneySide === "out" ? "block" : "hidden"} lg:block`}>
-          <h2 className="font-display text-lg font-semibold">Money out</h2>
-          <ul className="mt-2 space-y-2 text-sm">
-            {spendSide.map((row) => {
-              const usual = usualById.get(row.id);
-              const delta = usual != null ? row.amount - usual : null;
-              const compared =
-                delta == null
-                  ? null
-                  : Math.abs(delta) < 0.5
-                    ? "About the usual amount"
-                    : delta > 0
-                      ? `${formatMoney(delta)} more than usual`
-                      : `${formatMoney(Math.abs(delta))} less than usual`;
-              return (
-                <li key={row.id} className="flex flex-wrap items-baseline justify-between gap-3">
-                  <span>{row.name}</span>
-                  <span className="text-right">
-                    <span className={`tabular ${row.tone === "danger" ? "text-danger" : "text-muted"}`}>{row.primary}</span>
-                    {compared ? <span className="mt-0.5 block text-xs text-muted">{compared}</span> : null}
-                  </span>
-                </li>
-              );
-            })}
-            {spendSide.length === 0 ? <li className="text-muted">No spending categories with an amount yet.</li> : null}
-          </ul>
-          <Link to="/plan" className="mt-3 inline-flex text-sm font-medium text-primary">
-            Open the budget
-          </Link>
-        </section>
-      </div>
-      <LedgerTabs page="month" />
       {coach ? (
         <CategorizeCoach onClose={() => setCoach(false)} />
       ) : layout.openCount > 0 ? (

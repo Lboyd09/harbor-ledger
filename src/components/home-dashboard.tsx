@@ -18,18 +18,18 @@ import { fileReadout } from "@/lib/budget/readout";
 import { coverSentence, queueStats, reviewQueue } from "@/lib/budget/review-queue";
 import { comingUp } from "@/lib/budget/screen-plan";
 import { bucketBalance, safeToSpend } from "@/lib/budget/buckets";
-import { accountRows, monthGlance, needsALook, spanOverview, spendingSlices, staleLabel } from "@/lib/budget/dashboard";
+import { accountRows, monthGlance, needsALook, spendingSlices, staleLabel, yearOverview } from "@/lib/budget/dashboard";
+import { yearLedger } from "@/lib/budget/ledger-month";
 import { downloadText } from "@/lib/budget/download";
 import { formatMoney } from "@/lib/budget/money";
 import { monthShort } from "@/lib/budget/parse-date";
-import { monthCash } from "@/lib/budget/totals";
 import { buildYearWorkbook, yearSheetCsv } from "@/lib/budget/year";
 import type { Account, AccountKind, BalancePoint, Category, Transaction } from "@/lib/budget/types";
 import { useBudgetStore } from "@/store/budget-store";
 import { CategorizeCoach } from "./categorize-coach";
 import { EmptyArt } from "./visuals/empty-art";
 import { queueFundWizard } from "./fund-wizard";
-import { HomeSwitch } from "./home-switch";
+import { HomeMenu } from "./page-menu";
 import { CountUp } from "./visuals/count-up";
 import { Delta } from "./visuals/delta";
 import { Donut } from "./visuals/donut";
@@ -70,9 +70,9 @@ export function HomeDashboard() {
   const accounts = useBudgetStore((s) => s.accounts ?? []);
   const balances = useBudgetStore((s) => s.balances ?? []);
   const ym = useBudgetStore((s) => s.activeMonth);
-  const monthBudgets = useBudgetStore((s) => s.monthBudgets) ?? [];
-  const buckets = useBudgetStore((s) => s.moneyBuckets) ?? [];
-  const moves = useBudgetStore((s) => s.bucketMoves) ?? [];
+  const monthBudgets = useBudgetStore((s) => s.monthBudgets);
+  const buckets = useBudgetStore((s) => s.moneyBuckets);
+  const moves = useBudgetStore((s) => s.bucketMoves);
   const profile = useBudgetStore((s) => s.profile);
   const addBalance = useBudgetStore((s) => s.addBalance);
   const [coach, setCoach] = useState(false);
@@ -82,33 +82,35 @@ export function HomeDashboard() {
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState(todayIso);
   const year = ym.slice(0, 4);
-  const through = Number(ym.slice(5, 7)) || 1;
   const style = profile.budgetStyle === "buckets" ? "buckets" : "monthly";
 
-  const now = useMemo(() => spanOverview(transactions, categories, year, through), [transactions, categories, year, through]);
-  const prior = useMemo(() => spanOverview(transactions, categories, String(Number(year) - 1), through), [transactions, categories, year, through]);
-  const bars = useMemo(
+  const yearBook = useMemo(
     () =>
-      Array.from({ length: 12 }, (_, index) => {
-        const key = `${year}-${String(index + 1).padStart(2, "0")}`;
-        const cash = monthCash(transactions, key, categories);
-        return { label: monthShort(key), a: cash.income, b: cash.expenses };
-      }),
-    [transactions, categories, year],
+      yearLedger(
+        { transactions, categories, budgets: monthBudgets ?? [], buckets: buckets ?? [], moves: moves ?? [], style, carryStartMonth: profile.carryStartMonth },
+        year,
+      ),
+    [transactions, categories, monthBudgets, buckets, moves, style, profile.carryStartMonth, year],
+  );
+  const now = yearOverview(transactions, categories, year, { buckets: buckets ?? [], moves: moves ?? [], style, carryStartMonth: profile.carryStartMonth });
+  const prior = yearOverview(transactions, categories, String(Number(year) - 1), { buckets: buckets ?? [], moves: moves ?? [], style, carryStartMonth: profile.carryStartMonth });
+  const bars = useMemo(
+    () => yearBook.months.map((month) => ({ label: monthShort(month.ym), a: month.totals.received, b: month.totals.spent })),
+    [yearBook],
   );
   const slices = useMemo(() => spendingSlices(transactions, categories, year), [transactions, categories, year]);
   const accountsView = useMemo(() => accountRows(accounts, balances, todayIso()), [accounts, balances]);
-  const safe = safeToSpend({ ym, transactions, categories, budgets: monthBudgets, buckets, moves });
+  const safe = safeToSpend({ ym, transactions, categories, budgets: monthBudgets ?? [], buckets: buckets ?? [], moves: moves ?? [] });
   const glance = monthGlance({
     style,
     ym,
     transactions,
     categories,
-    budgets: monthBudgets,
+    budgets: monthBudgets ?? [],
     carryStartMonth: profile.carryStartMonth,
     safeToSpend: safe.amount,
   });
-  const look = needsALook({ transactions, categories, profile, ym, budgets: monthBudgets });
+  const look = needsALook({ transactions, categories, profile, ym, budgets: monthBudgets ?? [] });
   const insights = useMemo(() => fileInsights(transactions, categories, todayIso()), [transactions, categories]);
   const read = useMemo(() => fileReadout(transactions, categories), [transactions, categories]);
   const typical = useMemo(() => typicalMonth(transactions, categories), [transactions, categories]);
@@ -118,7 +120,7 @@ export function HomeDashboard() {
     );
   }, [transactions, categories]);
   const stats = queueStats(queue);
-  const forecast = monthEndForecast({ transactions, categories, ym, today: todayIso(), budgets: monthBudgets });
+  const forecast = monthEndForecast({ transactions, categories, ym, today: todayIso(), budgets: monthBudgets ?? [] });
   const soon = comingUp(recurringBills(transactions, categories, todayIso()), todayIso(), 30);
   const cushion = runway(accounts, balances, transactions, categories);
   const nerd = profile.detail === "nerd";
@@ -128,7 +130,7 @@ export function HomeDashboard() {
   if (!transactions.length) {
     return (
       <div className="mx-auto max-w-lg space-y-4">
-        <HomeSwitch />
+        <HomeMenu current="overview" />
         <EmptyArt kind="home" />
         <h1 className="font-display text-3xl font-semibold">Nothing here yet</h1>
         <p className="text-sm text-muted">Add a bank file. Harbor reads a typical month, what repeats, and where the money went.</p>
@@ -147,122 +149,9 @@ export function HomeDashboard() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <HomeSwitch />
+        <HomeMenu current="overview" />
         <YearSwitcher />
       </div>
-
-      <section className="rounded-lg border border-border bg-surface p-4">
-        <h1 className="font-display text-2xl font-semibold md:text-3xl">
-          {forecast?.sentence ?? typical?.sentence ?? read.headline ?? "Not enough history yet."}
-        </h1>
-        <p className="mt-2 text-sm text-muted">
-          {forecast ? (typical?.sentence ?? "Based on this month so far.") : "Add another month before a month-end guess."}
-        </p>
-        {queue.length ? null : (
-          <div className="mt-3">
-            <Link to="/month"><Button variant="outline">Open this month</Button></Link>
-          </div>
-        )}
-      </section>
-
-      {queue.length ? (
-        <section className="rounded-lg border border-primary/40 bg-surface p-4">
-          <h2 className="font-display text-xl font-semibold">Needs you</h2>
-          <p className="mt-1 text-sm">{coverSentence(stats)}</p>
-          <Button className="mt-3" onClick={() => setCoach(true)}>Sort them</Button>
-        </section>
-      ) : null}
-
-      {coach ? <CategorizeCoach onClose={() => setCoach(false)} /> : null}
-
-      {!nerd ? (
-        <section className="rounded-lg border border-border bg-surface p-4">
-          <h2 className="font-display text-xl font-semibold">Money in and money out</h2>
-          <p className="mt-1 text-sm text-muted">Each month of {year}. A quiet month is a short pair of bars.</p>
-          <div className="mt-3">
-            <MiniBars months={bars} aLabel="Money in" bLabel="Money out" />
-          </div>
-        </section>
-      ) : null}
-
-      <Fold simple={!nerd}>
-      <section className="rise panel rounded-lg border border-border bg-surface p-4">
-        <h1 className="font-display text-2xl font-semibold md:text-3xl">So far in {year}</h1>
-        <p className="mt-1 text-sm text-muted">January through {monthName(through)}. The year page has the full spreadsheet.</p>
-        <div className="mt-4 grid gap-4 sm:grid-cols-3">
-          <NumberBlock label="Money in" value={now.moneyIn} delta={priorHas ? now.moneyIn - prior.moneyIn : null} goodWhen="up" />
-          <NumberBlock label="Money out" value={now.moneyOut} delta={priorHas ? now.moneyOut - prior.moneyOut : null} goodWhen="down" />
-          <NumberBlock label="Left" value={now.left} delta={priorHas ? now.left - prior.left : null} goodWhen="up" signed />
-        </div>
-        {priorHas ? <p className="mt-2 text-xs text-muted">The change is the same months in {Number(year) - 1}.</p> : null}
-        <div className="mt-4">
-          <ProgressRing
-            pct={Math.max(0, Math.min(100, ratePct))}
-            tone={ratePct < 0 ? "danger" : "good"}
-            label={now.moneyIn > 0 ? `Savings rate ${ratePct}%` : "No income yet, so no savings rate"}
-          />
-        </div>
-      </section>
-
-      {nerd ? (
-      <section className="rise panel rounded-lg border border-border bg-surface p-4" style={{ animationDelay: "40ms" }}>
-        <h2 className="font-display text-xl font-semibold">Money in and money out</h2>
-        <p className="mt-1 text-sm text-muted">Each month of {year}. A quiet month is a short pair of bars.</p>
-        <div className="mt-3">
-          <MiniBars months={bars} aLabel="Money in" bLabel="Money out" />
-        </div>
-      </section>
-      ) : null}
-
-      {insights && insights.items.length ? (
-        <section className="rounded-lg border border-border bg-surface p-4">
-          <h2 className="font-display text-xl font-semibold">What the charges say</h2>
-          <ul className="mt-3 space-y-3">
-            {insights.items.slice(0, 3).map((item) => (
-              <li key={item.id}>
-                <p className="text-sm"><span className="font-medium">{item.title}.</span> {item.detail}</p>
-                {item.basis ? <p className="text-xs text-muted">{item.basis}</p> : null}
-                {item.chart?.length ? (
-                  <div className="mt-2">
-                    <MiniBars months={item.chart.map((point) => ({ label: point.label, a: point.value, b: 0 }))} aLabel={item.title} bLabel="Hidden" />
-                  </div>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-          {insights.items.length > 3 ? (
-            <details className="mt-3">
-              <summary className="cursor-pointer text-sm text-muted">More</summary>
-              <ul className="mt-2 space-y-2">
-                {insights.items.slice(3).map((item) => (
-                  <li key={item.id} className="text-sm"><span className="font-medium">{item.title}.</span> {item.detail}{item.basis ? ` ${item.basis}` : ""}</li>
-                ))}
-              </ul>
-            </details>
-          ) : null}
-          {insights.waiting.length ? (
-            <details className="mt-3">
-              <summary className="cursor-pointer text-sm text-muted">Still waiting on more history ({insights.waiting.length})</summary>
-              <ul className="mt-2 space-y-1">
-                {insights.waiting.map((item) => (
-                  <li key={item.id} className="text-sm text-muted">{item.title}. {item.detail}</li>
-                ))}
-              </ul>
-            </details>
-          ) : null}
-        </section>
-      ) : null}
-
-      {soon ? (
-        <section className="rounded-lg border border-border bg-surface p-4">
-          <h2 className="font-display text-xl font-semibold">Coming up</h2>
-          <ul className="mt-2 space-y-1 text-sm">
-            {soon.slice(0, 5).map((item) => (
-              <li key={item.merchantKey}>{item.description} · {formatMoney(item.usual)} · {item.nextDate}</li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
 
       <section className="rise panel rounded-lg border border-border bg-surface p-4" style={{ animationDelay: "80ms" }}>
         <h2 className="font-display text-xl font-semibold">Your accounts</h2>
@@ -360,6 +249,123 @@ export function HomeDashboard() {
         ) : null}
       </section>
 
+      <section className="rounded-lg border border-border bg-surface p-4">
+        <h1 className="font-display text-2xl font-semibold md:text-3xl">
+          {forecast?.sentence ?? typical?.sentence ?? read.headline ?? "Not enough history yet."}
+        </h1>
+        <p className="mt-2 text-sm text-muted">
+          {forecast ? (typical?.sentence ?? "Based on this month so far.") : "Add another month before a month-end guess."}
+        </p>
+        {queue.length ? null : (
+          <div className="mt-3">
+            <Link to="/budget"><Button variant="outline">Open this month</Button></Link>
+          </div>
+        )}
+      </section>
+
+      {queue.length ? (
+        <section className="rounded-lg border border-primary/40 bg-surface p-4">
+          <h2 className="font-display text-xl font-semibold">Needs you</h2>
+          <p className="mt-1 text-sm">{coverSentence(stats)}</p>
+          <Button className="mt-3" onClick={() => setCoach(true)}>Sort them</Button>
+        </section>
+      ) : null}
+
+      {coach ? <CategorizeCoach onClose={() => setCoach(false)} /> : null}
+
+      {!nerd ? (
+        <section className="rounded-lg border border-border bg-surface p-4">
+          <h2 className="font-display text-xl font-semibold">{year} in, out, and saved</h2>
+          <p className="mt-1 text-sm text-muted">
+            Each month of {year}. {formatMoney(now.moneyIn)} in, {formatMoney(now.moneyOut)} out, {formatMoney(now.saved)} saved to funds.
+          </p>
+          <div className="mt-3">
+            <MiniBars months={bars} aLabel="Money in" bLabel="Money out" />
+          </div>
+        </section>
+      ) : null}
+
+      <Fold simple={!nerd}>
+      <section className="rise panel rounded-lg border border-border bg-surface p-4">
+        <h1 className="font-display text-2xl font-semibold md:text-3xl">{year}</h1>
+        <p className="mt-1 text-sm text-muted">The twelve months added together. Year review has the spreadsheet.</p>
+        <div className="mt-4 grid gap-4 sm:grid-cols-3">
+          <NumberBlock label="In" value={now.moneyIn} delta={priorHas ? now.moneyIn - prior.moneyIn : null} goodWhen="up" />
+          <NumberBlock label="Out" value={now.moneyOut} delta={priorHas ? now.moneyOut - prior.moneyOut : null} goodWhen="down" />
+          <NumberBlock label="Saved" value={now.saved} delta={priorHas ? now.saved - prior.saved : null} goodWhen="up" />
+        </div>
+        {priorHas ? <p className="mt-2 text-xs text-muted">The change is the same months in {Number(year) - 1}.</p> : null}
+        <div className="mt-4">
+          <ProgressRing
+            pct={Math.max(0, Math.min(100, ratePct))}
+            tone={ratePct < 0 ? "danger" : "good"}
+            label={now.moneyIn > 0 ? `Savings rate ${ratePct}%` : "No income yet, so no savings rate"}
+          />
+        </div>
+      </section>
+
+      {nerd ? (
+      <section className="rise panel rounded-lg border border-border bg-surface p-4" style={{ animationDelay: "40ms" }}>
+        <h2 className="font-display text-xl font-semibold">Money in and money out</h2>
+        <p className="mt-1 text-sm text-muted">
+          The same twelve months. {formatMoney(yearBook.totals.savedToFunds)} saved to funds.
+        </p>
+        <div className="mt-3">
+          <MiniBars months={bars} aLabel="Money in" bLabel="Money out" />
+        </div>
+      </section>
+      ) : null}
+
+      {insights && insights.items.length ? (
+        <section className="rounded-lg border border-border bg-surface p-4">
+          <h2 className="font-display text-xl font-semibold">What the charges say</h2>
+          <ul className="mt-3 space-y-3">
+            {insights.items.slice(0, 3).map((item) => (
+              <li key={item.id}>
+                <p className="text-sm"><span className="font-medium">{item.title}.</span> {item.detail}</p>
+                {item.basis ? <p className="text-xs text-muted">{item.basis}</p> : null}
+                {item.chart?.length ? (
+                  <div className="mt-2">
+                    <MiniBars months={item.chart.map((point) => ({ label: point.label, a: point.value, b: 0 }))} aLabel={item.title} bLabel="Hidden" />
+                  </div>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+          {insights.items.length > 3 ? (
+            <details className="mt-3">
+              <summary className="cursor-pointer text-sm text-muted">More</summary>
+              <ul className="mt-2 space-y-2">
+                {insights.items.slice(3).map((item) => (
+                  <li key={item.id} className="text-sm"><span className="font-medium">{item.title}.</span> {item.detail}{item.basis ? ` ${item.basis}` : ""}</li>
+                ))}
+              </ul>
+            </details>
+          ) : null}
+          {insights.waiting.length ? (
+            <details className="mt-3">
+              <summary className="cursor-pointer text-sm text-muted">Still waiting on more history ({insights.waiting.length})</summary>
+              <ul className="mt-2 space-y-1">
+                {insights.waiting.map((item) => (
+                  <li key={item.id} className="text-sm text-muted">{item.title}. {item.detail}</li>
+                ))}
+              </ul>
+            </details>
+          ) : null}
+        </section>
+      ) : null}
+
+      {soon ? (
+        <section className="rounded-lg border border-border bg-surface p-4">
+          <h2 className="font-display text-xl font-semibold">Coming up</h2>
+          <ul className="mt-2 space-y-1 text-sm">
+            {soon.slice(0, 5).map((item) => (
+              <li key={item.merchantKey}>{item.description} · {formatMoney(item.usual)} · {item.nextDate}</li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
       <section className="rise panel rounded-lg border border-border bg-surface p-4" style={{ animationDelay: "120ms" }}>
         <h2 className="font-display text-xl font-semibold">Where it went</h2>
         <p className="mt-1 text-sm text-muted">Spending in {year}, by category. Tap a slice to see the amount.</p>
@@ -385,7 +391,7 @@ export function HomeDashboard() {
         {why ? (
           <p className="mt-2 text-sm text-muted">Income so far, minus this month’s amounts, minus what goes into funds, minus spending that is not already counted.</p>
         ) : null}
-        <Link to="/month" className="mt-3 inline-flex">
+        <Link to="/budget" className="mt-3 inline-flex">
           <Button>Open this month</Button>
         </Link>
       </section>
@@ -402,10 +408,10 @@ export function HomeDashboard() {
           </Link>
         </div>
         <div className="flex max-w-full gap-2 overflow-x-auto pb-1">
-          {buckets.map((fund) => (
+          {(buckets ?? []).map((fund) => (
             <Link key={fund.id} to="/funds" className="min-w-36 rounded-lg border border-border bg-surface p-3">
               <div className="text-sm text-muted">{fund.name}</div>
-              <div className="font-display text-xl tabular">{formatMoney(bucketBalance(fund, ym, transactions, categories, moves))}</div>
+              <div className="font-display text-xl tabular">{formatMoney(bucketBalance(fund, ym, transactions, categories, moves ?? []))}</div>
             </Link>
           ))}
           <Link to="/funds" className="flex min-w-36 items-center rounded-lg border border-dashed border-line p-3 text-sm" onClick={() => queueFundWizard()}>
@@ -585,8 +591,4 @@ function NumberBlock({
       {delta != null ? <Delta amount={delta} goodWhen={goodWhen} format={(n) => formatMoney(n)} /> : null}
     </div>
   );
-}
-
-function monthName(month: number) {
-  return ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"][month - 1] ?? "";
 }

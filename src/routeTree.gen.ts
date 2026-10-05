@@ -10,19 +10,15 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AccountRouteImport } from './routes/account'
-import { Route as ActivityRouteImport } from './routes/activity'
-import { Route as CategoriesRouteImport } from './routes/categories'
+import { Route as BudgetRouteImport } from './routes/budget'
 import { Route as ConfirmRouteImport } from './routes/confirm'
 import { Route as FundsRouteImport } from './routes/funds'
 import { Route as GrowRouteImport } from './routes/grow'
 import { Route as ImportRouteImport } from './routes/import'
+import { Route as ImportsRouteImport } from './routes/imports'
 import { Route as LoginRouteImport } from './routes/login'
-import { Route as MonthRouteImport } from './routes/month'
-import { Route as PayeesRouteImport } from './routes/payees'
-import { Route as PlanRouteImport } from './routes/plan'
-import { Route as RecurringRouteImport } from './routes/recurring'
 import { Route as ResetRouteImport } from './routes/reset'
+import { Route as RulesRouteImport } from './routes/rules'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as YearRouteImport } from './routes/year'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
@@ -32,19 +28,9 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AccountRoute = AccountRouteImport.update({
-  id: '/account',
-  path: '/account',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ActivityRoute = ActivityRouteImport.update({
-  id: '/activity',
-  path: '/activity',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CategoriesRoute = CategoriesRouteImport.update({
-  id: '/categories',
-  path: '/categories',
+const BudgetRoute = BudgetRouteImport.update({
+  id: '/budget',
+  path: '/budget',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ConfirmRoute = ConfirmRouteImport.update({
@@ -67,34 +53,24 @@ const ImportRoute = ImportRouteImport.update({
   path: '/import',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ImportsRoute = ImportsRouteImport.update({
+  id: '/imports',
+  path: '/imports',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const MonthRoute = MonthRouteImport.update({
-  id: '/month',
-  path: '/month',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PayeesRoute = PayeesRouteImport.update({
-  id: '/payees',
-  path: '/payees',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PlanRoute = PlanRouteImport.update({
-  id: '/plan',
-  path: '/plan',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const RecurringRoute = RecurringRouteImport.update({
-  id: '/recurring',
-  path: '/recurring',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ResetRoute = ResetRouteImport.update({
   id: '/reset',
   path: '/reset',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RulesRoute = RulesRouteImport.update({
+  id: '/rules',
+  path: '/rules',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SettingsRoute = SettingsRouteImport.update({
@@ -115,38 +91,30 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/account': typeof AccountRoute
-  '/activity': typeof ActivityRoute
-  '/categories': typeof CategoriesRoute
+  '/budget': typeof BudgetRoute
   '/confirm': typeof ConfirmRoute
   '/funds': typeof FundsRoute
   '/grow': typeof GrowRoute
   '/import': typeof ImportRoute
+  '/imports': typeof ImportsRoute
   '/login': typeof LoginRoute
-  '/month': typeof MonthRoute
-  '/payees': typeof PayeesRoute
-  '/plan': typeof PlanRoute
-  '/recurring': typeof RecurringRoute
   '/reset': typeof ResetRoute
+  '/rules': typeof RulesRoute
   '/settings': typeof SettingsRoute
   '/year': typeof YearRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/account': typeof AccountRoute
-  '/activity': typeof ActivityRoute
-  '/categories': typeof CategoriesRoute
+  '/budget': typeof BudgetRoute
   '/confirm': typeof ConfirmRoute
   '/funds': typeof FundsRoute
   '/grow': typeof GrowRoute
   '/import': typeof ImportRoute
+  '/imports': typeof ImportsRoute
   '/login': typeof LoginRoute
-  '/month': typeof MonthRoute
-  '/payees': typeof PayeesRoute
-  '/plan': typeof PlanRoute
-  '/recurring': typeof RecurringRoute
   '/reset': typeof ResetRoute
+  '/rules': typeof RulesRoute
   '/settings': typeof SettingsRoute
   '/year': typeof YearRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -154,19 +122,15 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/account': typeof AccountRoute
-  '/activity': typeof ActivityRoute
-  '/categories': typeof CategoriesRoute
+  '/budget': typeof BudgetRoute
   '/confirm': typeof ConfirmRoute
   '/funds': typeof FundsRoute
   '/grow': typeof GrowRoute
   '/import': typeof ImportRoute
+  '/imports': typeof ImportsRoute
   '/login': typeof LoginRoute
-  '/month': typeof MonthRoute
-  '/payees': typeof PayeesRoute
-  '/plan': typeof PlanRoute
-  '/recurring': typeof RecurringRoute
   '/reset': typeof ResetRoute
+  '/rules': typeof RulesRoute
   '/settings': typeof SettingsRoute
   '/year': typeof YearRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -175,57 +139,45 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/account'
-    | '/activity'
-    | '/categories'
+    | '/budget'
     | '/confirm'
     | '/funds'
     | '/grow'
     | '/import'
+    | '/imports'
     | '/login'
-    | '/month'
-    | '/payees'
-    | '/plan'
-    | '/recurring'
     | '/reset'
+    | '/rules'
     | '/settings'
     | '/year'
     | '/api/auth/$'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/account'
-    | '/activity'
-    | '/categories'
+    | '/budget'
     | '/confirm'
     | '/funds'
     | '/grow'
     | '/import'
+    | '/imports'
     | '/login'
-    | '/month'
-    | '/payees'
-    | '/plan'
-    | '/recurring'
     | '/reset'
+    | '/rules'
     | '/settings'
     | '/year'
     | '/api/auth/$'
   id:
     | '__root__'
     | '/'
-    | '/account'
-    | '/activity'
-    | '/categories'
+    | '/budget'
     | '/confirm'
     | '/funds'
     | '/grow'
     | '/import'
+    | '/imports'
     | '/login'
-    | '/month'
-    | '/payees'
-    | '/plan'
-    | '/recurring'
     | '/reset'
+    | '/rules'
     | '/settings'
     | '/year'
     | '/api/auth/$'
@@ -233,19 +185,15 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AccountRoute: typeof AccountRoute
-  ActivityRoute: typeof ActivityRoute
-  CategoriesRoute: typeof CategoriesRoute
+  BudgetRoute: typeof BudgetRoute
   ConfirmRoute: typeof ConfirmRoute
   FundsRoute: typeof FundsRoute
   GrowRoute: typeof GrowRoute
   ImportRoute: typeof ImportRoute
+  ImportsRoute: typeof ImportsRoute
   LoginRoute: typeof LoginRoute
-  MonthRoute: typeof MonthRoute
-  PayeesRoute: typeof PayeesRoute
-  PlanRoute: typeof PlanRoute
-  RecurringRoute: typeof RecurringRoute
   ResetRoute: typeof ResetRoute
+  RulesRoute: typeof RulesRoute
   SettingsRoute: typeof SettingsRoute
   YearRoute: typeof YearRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
@@ -260,25 +208,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/account': {
-      id: '/account'
-      path: '/account'
-      fullPath: '/account'
-      preLoaderRoute: typeof AccountRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/activity': {
-      id: '/activity'
-      path: '/activity'
-      fullPath: '/activity'
-      preLoaderRoute: typeof ActivityRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/categories': {
-      id: '/categories'
-      path: '/categories'
-      fullPath: '/categories'
-      preLoaderRoute: typeof CategoriesRouteImport
+    '/budget': {
+      id: '/budget'
+      path: '/budget'
+      fullPath: '/budget'
+      preLoaderRoute: typeof BudgetRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/confirm': {
@@ -309,6 +243,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ImportRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/imports': {
+      id: '/imports'
+      path: '/imports'
+      fullPath: '/imports'
+      preLoaderRoute: typeof ImportsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -316,39 +257,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/month': {
-      id: '/month'
-      path: '/month'
-      fullPath: '/month'
-      preLoaderRoute: typeof MonthRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/payees': {
-      id: '/payees'
-      path: '/payees'
-      fullPath: '/payees'
-      preLoaderRoute: typeof PayeesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/plan': {
-      id: '/plan'
-      path: '/plan'
-      fullPath: '/plan'
-      preLoaderRoute: typeof PlanRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/recurring': {
-      id: '/recurring'
-      path: '/recurring'
-      fullPath: '/recurring'
-      preLoaderRoute: typeof RecurringRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/reset': {
       id: '/reset'
       path: '/reset'
       fullPath: '/reset'
       preLoaderRoute: typeof ResetRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/rules': {
+      id: '/rules'
+      path: '/rules'
+      fullPath: '/rules'
+      preLoaderRoute: typeof RulesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/settings': {
@@ -377,19 +297,15 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AccountRoute: AccountRoute,
-  ActivityRoute: ActivityRoute,
-  CategoriesRoute: CategoriesRoute,
+  BudgetRoute: BudgetRoute,
   ConfirmRoute: ConfirmRoute,
   FundsRoute: FundsRoute,
   GrowRoute: GrowRoute,
   ImportRoute: ImportRoute,
+  ImportsRoute: ImportsRoute,
   LoginRoute: LoginRoute,
-  MonthRoute: MonthRoute,
-  PayeesRoute: PayeesRoute,
-  PlanRoute: PlanRoute,
-  RecurringRoute: RecurringRoute,
   ResetRoute: ResetRoute,
+  RulesRoute: RulesRoute,
   SettingsRoute: SettingsRoute,
   YearRoute: YearRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,

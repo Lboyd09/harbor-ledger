@@ -11,7 +11,7 @@ import { WelcomeGate } from "./welcome-gate";
 
 const NAV = [
   { to: "/", label: "Home", icon: Home },
-  { to: "/plan", label: "Budget", icon: Wallet },
+  { to: "/budget", label: "Budget", icon: Wallet },
   { to: "/funds", label: "Funds", icon: PiggyBank },
   { to: "/grow", label: "Grow", icon: Sprout },
   { to: "/settings", label: "Account", icon: Settings },
@@ -58,13 +58,14 @@ export function AppShell() {
   const hydrateLocal = useBudgetStore((s) => s.hydrateLocal);
   const done = useBudgetStore((s) => s.profile.completedOnboarding);
   const path = useRouterState({ select: (s) => s.location.pathname });
-  const homeOn = path === "/" || path === "/month" || path === "/categories" || path === "/import";
+  const homeOn = path === "/" || path === "/year" || path === "/import" || path === "/rules" || path === "/imports";
+  const budgetOn = path === "/budget";
   const current = homeOn
     ? "Home"
-    : path === "/funds"
-      ? "Funds"
-      : path === "/year"
-        ? "Year"
+    : budgetOn
+      ? "Budget"
+      : path === "/funds"
+        ? "Funds"
         : (NAV.find((n) => n.to === path)?.label ?? "Harbor");
   const ledgerName = useBudgetStore((s) => s.profile.ledgerName);
   const accent = useBudgetStore((s) => s.profile.accent ?? "harbor");
@@ -118,7 +119,7 @@ export function AppShell() {
         <nav className="flex flex-1 flex-col gap-1 px-3">
           {NAV.map((item) => {
             const Icon = item.icon;
-            const on = item.to === "/" ? homeOn : path === item.to;
+            const on = item.to === "/" ? homeOn : item.to === "/budget" ? budgetOn : path === item.to;
             return (
               <Link
                 key={item.to}
@@ -171,7 +172,7 @@ export function AppShell() {
       <nav className="safe-nav fixed inset-x-0 bottom-0 z-10 grid grid-cols-5 border-t border-border bg-surface md:hidden">
         {NAV.map((item) => {
           const Icon = item.icon;
-          const on = item.to === "/" ? homeOn : path === item.to;
+          const on = item.to === "/" ? homeOn : item.to === "/budget" ? budgetOn : path === item.to;
           return (
             <Link
               key={item.to}

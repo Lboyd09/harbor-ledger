@@ -629,7 +629,7 @@ function StyleStep({
             <div>
               <div className="text-base font-medium">{TERMS.carryOver}</div>
               <p className="mt-1 text-sm text-muted">
-                Leftover in a spending category stays for next month. Going over means next month has less. Income is not carried, because pay changes.
+                Leftover in a spending category stays for next month. Going over means next month has less. Income is not carried, because pay changes. Leftovers start at the first month of your file. You can start from this month instead. Past months will show what you would have carried. Changing it does not delete anything.
               </p>
             </div>
             <Jar mode="carry" lively={lively} />

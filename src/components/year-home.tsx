@@ -16,6 +16,7 @@ import { useLivelyMotion } from "./use-lively-motion";
 import { Button } from "./ui/button";
 import { YearSheet } from "./year-sheet";
 import { YearSwitcher } from "./year-switcher";
+import { HomeMenu } from "./page-menu";
 
 function CategoryYear({
   id,
@@ -103,13 +104,13 @@ export function YearHome() {
 
   function openMonth(ym: string) {
     setActiveMonth(ym);
-    void navigate({ to: "/month" });
+    void navigate({ to: "/budget" });
   }
 
   if (!transactions.length) {
     return (
       <div className="mx-auto max-w-lg space-y-4 py-8">
-        <h1 className="font-display text-3xl font-semibold">The year, once you have a file</h1>
+        <HomeMenu current="year" />
         <p className="text-sm text-muted">Import a CSV, then pick any month from here to edit it.</p>
         <div className="flex flex-wrap gap-2">
           <Link to="/import">
@@ -133,9 +134,10 @@ export function YearHome() {
 
   return (
     <div className="space-y-8">
+      <HomeMenu current="year" />
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="font-display text-3xl font-semibold md:text-4xl">{year}</h1>
+          <h1 className="sr-only">{year}</h1>
           <p className="mt-1 max-w-xl text-sm text-muted">
             Open a month, or tap a category. The budget for those categories is on Budget.
           </p>

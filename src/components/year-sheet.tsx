@@ -163,7 +163,7 @@ export function YearSheet({ embedded = false }: { embedded?: boolean }) {
         >
           {applied ? "Plan filled from typical months" : "Save typical amounts as my plan"}
         </Button>
-        <Link to="/plan">
+        <Link to="/budget" search={{ page: "amounts" }}>
           <Button variant="ghost">Edit plan amounts</Button>
         </Link>
         <Button variant="ghost" onClick={downloadCsv}>
