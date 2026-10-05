@@ -2,6 +2,14 @@
 
 Newest first. If this file conflicts with earlier chat, this file wins.
 
+## 2026-10-05
+
+57. An investment or retirement account estimates its own growth once the person gives a return and a monthly amount. A typed balance always wins over an estimate.
+56. Home leads with bank and cash balances, then savings, then investments and retirement, then cards and loans. Cash and investments are quick to add.
+55. Funds and the budget agree: money put into funds shows in the month, and linked categories show their fund.
+54. Unused money is suggested for a fund or the growth calculators in one place only.
+53. Tapping a category opens one panel: its picture, a plain sentence about this month and next, and every charge in it, editable in place.
+
 ## 2026-10-04
 
 52. Leftovers start at the first month of the first imported file by default, with a choice to start from the present month.

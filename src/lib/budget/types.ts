@@ -54,6 +54,8 @@ export type Profile = {
   budgetStyle?: BudgetStyle;
   /** First month carry-over counts. Kept when the style switches back to monthly. */
   carryStartMonth?: string | null;
+  /** Earliest file month the person was already asked about. Missing means not asked. */
+  carryAskSeen?: string | null;
   /** Bank category labels the person already confirmed, normalized label to category id. Missing on older ledgers. */
   bankLabelMap?: Record<string, string> | null;
   /** Calendar year of birth. Missing on older ledgers. Age is the year you pass in, minus this. */
@@ -261,7 +263,30 @@ export type ImportBatch = {
   endingBalance?: { amount: number; asOf: string } | null;
 };
 
-export type AccountKind = "checking" | "savings" | "credit" | "investment" | "retirement" | "other";
+/** Money taken out of a category leftover. A fund id saves it. Null only releases it. */
+export type SetAside = {
+  id: string;
+  ym: string;
+  categoryId: string;
+  fundId: string | null;
+  amount: number;
+};
+
+export type AccountKind = "checking" | "savings" | "credit" | "cash" | "investment" | "retirement" | "other";
+
+export type GrowthBand = "cautious" | "typical" | "bold";
+
+/** Optional growth guess. Missing on older accounts. A typed balance is never replaced by this. */
+export type AccountGrowth = {
+  band?: GrowthBand | null;
+  /** Yearly return as a percent, such as 7. When set, it is the likely path. */
+  returnPercent?: number | null;
+  monthlyAdd?: number | null;
+  /** Yearly fee as a percent of the balance. */
+  yearlyFeePercent?: number | null;
+  /** When true, Home may show the estimate between typed updates. Missing means no. */
+  useEstimates?: boolean | null;
+};
 
 export type Account = {
   id: string;
@@ -269,6 +294,7 @@ export type Account = {
   kind: AccountKind;
   institution?: string | null;
   createdAt: string;
+  growth?: AccountGrowth | null;
 };
 
 /** A balance for one account. Investment and retirement accounts can live on these alone. */
@@ -355,6 +381,8 @@ export type LedgerSnapshot = {
   ira: IraRules;
   accounts: Account[];
   balances: BalancePoint[];
+  /** Missing on older ledgers. */
+  setAsides?: SetAside[];
   activeMonth: string;
   activeWeek: string;
 };

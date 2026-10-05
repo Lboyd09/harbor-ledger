@@ -8,6 +8,7 @@ import { Button } from "./ui/button";
 export function CarryStartControl() {
   const transactions = useBudgetStore((s) => s.transactions);
   const current = useBudgetStore((s) => s.profile.carryStartMonth);
+  const asked = useBudgetStore((s) => s.profile.carryAskSeen);
   const ym = useBudgetStore((s) => s.activeMonth);
   const patchProfile = useBudgetStore((s) => s.patchProfile);
   const first = earliestDataMonth(transactions);
@@ -25,6 +26,19 @@ export function CarryStartControl() {
       <h2 className="font-display text-lg font-semibold">When leftovers start</h2>
       <p className="mt-1 text-sm text-muted">Past months will show what you would have carried. This does not delete anything.</p>
       {current ? <p className="mt-1 text-sm">Leftovers start in {monthLabel(current)}.</p> : null}
+      {first && current && first < current && asked !== first ? (
+        <div className="mt-3 rounded-md border border-border bg-bg p-3 text-sm">
+          <p>A file reaches back to {monthLabel(first)}, before leftovers start. Move the start?</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <Button size="sm" onClick={() => { setPrevious(current); patchProfile({ carryStartMonth: first, carryAskSeen: first }); }}>
+              Move it
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => patchProfile({ carryAskSeen: first })}>
+              Leave it
+            </Button>
+          </div>
+        </div>
+      ) : null}
       <div className="mt-3 grid gap-2 sm:grid-cols-2">
         <button
           type="button"

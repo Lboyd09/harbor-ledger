@@ -1,11 +1,14 @@
+import { nominalBalance } from "./retirement.ts";
+import { PLANNING_MARKET } from "./reference.ts";
 import { roundMoney } from "./money.ts";
-import type { Account, AccountKind, BalancePoint, ImportBatch, Transaction } from "./types.ts";
+import type { Account, AccountGrowth, AccountKind, BalancePoint, GrowthBand, ImportBatch, Transaction } from "./types.ts";
 
-const KINDS: AccountKind[] = ["checking", "savings", "credit", "investment", "retirement", "other"];
+const KINDS: AccountKind[] = ["checking", "savings", "credit", "cash", "investment", "retirement", "other"];
 
 export const ACCOUNT_KIND_OPTIONS: { id: AccountKind; label: string }[] = [
   { id: "checking", label: "Checking" },
   { id: "savings", label: "Savings" },
+  { id: "cash", label: "Cash" },
   { id: "credit", label: "Credit card" },
   { id: "retirement", label: "Roth IRA or other retirement" },
   { id: "investment", label: "Investments" },
@@ -20,9 +23,9 @@ export function accountKindLabel(kind: AccountKind): string {
   return ACCOUNT_KIND_OPTIONS.find((item) => item.id === kind)?.label ?? kind;
 }
 
-/** Retirement and investment balances are typed in. They do not take a bank file. */
+/** Cash, retirement, and investment balances are typed in. They do not take a bank file. */
 export function accountAcceptsFile(kind: AccountKind): boolean {
-  return kind !== "retirement" && kind !== "investment";
+  return kind !== "retirement" && kind !== "investment" && kind !== "cash";
 }
 
 export function accountSlug(label: string): string {
@@ -115,6 +118,183 @@ export function totalBalance(accounts: Account[], balances: BalancePoint[], kind
   let sum = 0;
   for (const account of list) sum += latestBalance(account.id, balances)?.amount ?? 0;
   return Math.round(sum * 100) / 100;
+}
+
+export type AccountGroupId = "bank" | "savings" | "investing" | "owed";
+
+const ACCOUNT_GROUP_ORDER: AccountGroupId[] = ["bank", "savings", "investing", "owed"];
+
+const ACCOUNT_GROUP_LABEL: Record<AccountGroupId, string> = {
+  bank: "Bank and cash",
+  savings: "Savings",
+  investing: "Investments and retirement",
+  owed: "Cards and loans",
+};
+
+function accountGroup(kind: AccountKind): AccountGroupId {
+  if (kind === "savings") return "savings";
+  if (kind === "investment" || kind === "retirement") return "investing";
+  if (kind === "credit") return "owed";
+  return "bank";
+}
+
+/** Home order: bank and cash, savings, investments, then what is owed. Empty groups are left out. */
+export function groupAccounts<T extends { kind: AccountKind; amount?: number }>(rows: T[]): { id: AccountGroupId; label: string; rows: T[] }[] {
+  const buckets = new Map<AccountGroupId, T[]>(ACCOUNT_GROUP_ORDER.map((id) => [id, []]));
+  for (const row of rows) buckets.get(accountGroup(row.kind))?.push(row);
+  return ACCOUNT_GROUP_ORDER.map((id) => ({
+    id,
+    label: ACCOUNT_GROUP_LABEL[id],
+    rows: (buckets.get(id) ?? []).slice().sort((a, b) => Math.abs(b.amount ?? 0) - Math.abs(a.amount ?? 0) || 0),
+  })).filter((group) => group.rows.length > 0);
+}
+
+export type InvestmentPick = "brokerage" | "roth" | "traditional" | "401k" | "other";
+
+const INVESTMENT_PICKS: Record<InvestmentPick, { name: string; kind: AccountKind }> = {
+  brokerage: { name: "Brokerage", kind: "investment" },
+  roth: { name: "Roth IRA", kind: "retirement" },
+  traditional: { name: "Traditional IRA", kind: "retirement" },
+  "401k": { name: "401(k)", kind: "retirement" },
+  other: { name: "Investment", kind: "investment" },
+};
+
+function balanceId(accountId: string, date: string, balances: BalancePoint[]): string {
+  let id = `bal_${accountId}_${date}`;
+  let n = 2;
+  while (balances.some((row) => row.id === id)) {
+    id = `bal_${accountId}_${date}_${n}`;
+    n += 1;
+  }
+  return id;
+}
+
+/** One tap. Adds to the cash account when one already exists. */
+export function quickCash(
+  accounts: Account[],
+  balances: BalancePoint[],
+  amount: number,
+  today: string,
+): { accounts: Account[]; balances: BalancePoint[] } | null {
+  if (!Number.isFinite(amount) || !/^\d{4}-\d{2}-\d{2}$/.test(today)) return null;
+  const existing = accounts.find((account) => account.kind === "cash");
+  const account = existing ?? createAccount(accounts, { name: "Cash", kind: "cash" }, `${today}T00:00:00.000Z`);
+  if (!account) return null;
+  const nextAccounts = existing ? accounts : [...accounts, account];
+  const point: BalancePoint = {
+    id: balanceId(account.id, today, balances),
+    accountId: account.id,
+    date: today,
+    amount: roundMoney(amount),
+    source: "entered",
+  };
+  return { accounts: nextAccounts, balances: [...balances, point] };
+}
+
+export function quickInvestment(
+  accounts: Account[],
+  balances: BalancePoint[],
+  input: { name?: string | null; pick: InvestmentPick; amount: number },
+  today: string,
+): { accounts: Account[]; balances: BalancePoint[] } | null {
+  if (!Number.isFinite(input.amount) || !/^\d{4}-\d{2}-\d{2}$/.test(today)) return null;
+  const preset = INVESTMENT_PICKS[input.pick];
+  if (!preset) return null;
+  const name = input.name?.trim() || preset.name;
+  const account = createAccount(accounts, { name, kind: preset.kind }, `${today}T00:00:00.000Z`);
+  if (!account) return null;
+  const point: BalancePoint = {
+    id: balanceId(account.id, today, balances),
+    accountId: account.id,
+    date: today,
+    amount: roundMoney(input.amount),
+    source: "entered",
+  };
+  return { accounts: [...accounts, account], balances: [...balances, point] };
+}
+
+export type GrowthPoint = { years: number; label: string; low: number; likely: number; high: number };
+
+export type AccountGrowthResult = {
+  estimateNow: number | null;
+  lastTyped: number | null;
+  lastTypedDate: string | null;
+  expectedThisYear: number | null;
+  path: GrowthPoint[] | null;
+  ready: boolean;
+};
+
+function yearsBetween(from: string, to: string): number {
+  const start = Date.parse(`${from}T00:00:00Z`);
+  const end = Date.parse(`${to}T00:00:00Z`);
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return 0;
+  return (end - start) / (365.25 * 86_400_000);
+}
+
+function chosenRate(growth: AccountGrowth): number | null {
+  if (growth.returnPercent != null && Number.isFinite(growth.returnPercent)) return growth.returnPercent / 100;
+  const band: GrowthBand | null | undefined = growth.band;
+  if (band === "cautious") return PLANNING_MARKET.conservative;
+  if (band === "bold") return PLANNING_MARKET.optimistic;
+  if (band === "typical") return PLANNING_MARKET.expected;
+  return null;
+}
+
+/**
+ * A guess from the last typed balance. It does not write a balance.
+ * Ready only when a return and a monthly amount are both set.
+ */
+export function accountGrowth(
+  account: Account,
+  balances: BalancePoint[],
+  today: string,
+  options?: { yearsToRetire?: number | null },
+): AccountGrowthResult {
+  const latest = latestBalance(account.id, balances);
+  const lastTyped = latest ? latest.amount : null;
+  const lastTypedDate = latest?.date ?? null;
+  const growth = account.growth;
+  const rate = growth ? chosenRate(growth) : null;
+  const ready = Boolean(growth && rate != null && growth.monthlyAdd != null && Number.isFinite(growth.monthlyAdd));
+  if (!ready || rate == null || !growth) {
+    return { estimateNow: null, lastTyped, lastTypedDate, expectedThisYear: null, path: null, ready: false };
+  }
+  const fee = Math.max(0, Number.isFinite(growth.yearlyFeePercent ?? 0) ? (growth.yearlyFeePercent ?? 0) / 100 : 0);
+  const lowRate = Math.min(PLANNING_MARKET.conservative, rate) - fee;
+  const highRate = Math.max(PLANNING_MARKET.optimistic, rate) - fee;
+  const midRate = rate - fee;
+  const monthly = Math.max(0, growth.monthlyAdd ?? 0);
+  const start = Math.max(0, lastTyped ?? 0);
+  const from = lastTypedDate && lastTypedDate < today ? lastTypedDate : today;
+  const elapsed = yearsBetween(from, today);
+  const estimateNow = roundMoney(nominalBalance(start, monthly, midRate, elapsed));
+  const expectedThisYear = roundMoney(nominalBalance(estimateNow, monthly, midRate, 1));
+  const marks = new Map<number, string>([
+    [10, "10 years"],
+    [20, "20 years"],
+    [30, "30 years"],
+  ]);
+  const retire = options?.yearsToRetire;
+  if (retire != null && retire > 0) marks.set(Math.round(retire * 100) / 100, "Retire age");
+  const path = [...marks.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([years, label]) => ({
+      years,
+      label,
+      low: roundMoney(nominalBalance(estimateNow, monthly, lowRate, years)),
+      likely: roundMoney(nominalBalance(estimateNow, monthly, midRate, years)),
+      high: roundMoney(nominalBalance(estimateNow, monthly, highRate, years)),
+    }));
+  return { estimateNow, lastTyped, lastTypedDate, expectedThisYear, path, ready: true };
+}
+
+/** Typed balance, unless this investment is allowed to show its estimate. */
+export function shownBalance(account: Account, balances: BalancePoint[], today: string): number {
+  const typed = latestBalance(account.id, balances)?.amount ?? 0;
+  if (!account.growth?.useEstimates) return roundMoney(typed);
+  if (account.kind !== "investment" && account.kind !== "retirement") return roundMoney(typed);
+  const grown = accountGrowth(account, balances, today);
+  return grown.estimateNow == null ? roundMoney(typed) : grown.estimateNow;
 }
 
 /** Replace a file balance for the same account and date. Entered balances stay. */

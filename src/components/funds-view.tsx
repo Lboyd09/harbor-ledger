@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { bucketBalance, categorySpend, DEFAULT_FUND_VIEW, fundWindow, fullLineOf, fundingForMonth, goalPace, monthName } from "@/lib/budget/buckets";
+import { monthLedger } from "@/lib/budget/ledger-month";
 import { displayMerchant } from "@/lib/budget/merchant";
 import { formatMoney } from "@/lib/budget/money";
 import { monthKeyFromDate, monthLabel, monthShort, shiftMonth } from "@/lib/budget/parse-date";
@@ -8,6 +9,7 @@ import { piecesOf } from "@/lib/budget/splits";
 import type { MoneyBucket, Transaction } from "@/lib/budget/types";
 import { useBudgetStore } from "@/store/budget-store";
 import { FUND_LINK_KEY, FundWizard } from "./fund-wizard";
+import { openCategoryPanel } from "./category-panel";
 import { FillJar } from "./money-visual";
 import { useLivelyMotion } from "./use-lively-motion";
 import { EmptyArt } from "./visuals/empty-art";
@@ -22,6 +24,10 @@ export function FundsView() {
   const transactions = useBudgetStore((s) => s.transactions);
   const categories = useBudgetStore((s) => s.categories);
   const moves = useBudgetStore((s) => s.bucketMoves) ?? [];
+  const budgets = useBudgetStore((s) => s.monthBudgets) ?? [];
+  const setAsides = useBudgetStore((s) => s.setAsides) ?? [];
+  const style = useBudgetStore((s) => (s.profile.budgetStyle === "buckets" ? "buckets" : "monthly"));
+  const carryStartMonth = useBudgetStore((s) => s.profile.carryStartMonth);
   const [wizard, setWizard] = useState(false);
   const [linked, setLinked] = useState<string | null>(null);
 
@@ -44,6 +50,11 @@ export function FundsView() {
   }
 
   const total = funds.reduce((sum, fund) => sum + bucketBalance(fund, ym, transactions, categories, moves), 0);
+  const ledger = monthLedger(
+    { transactions, categories, budgets, buckets: funds, moves, setAsides, style, carryStartMonth },
+    ym,
+  );
+  const used = ledger.funds.reduce((sum, fund) => sum + fund.spent, 0);
 
   return (
     <div className="space-y-4">
@@ -57,7 +68,12 @@ export function FundsView() {
         </Link>
       </div>
       {funds.length ? (
-        <p className="font-display text-xl">Across all funds: {formatMoney(total)}</p>
+        <div>
+          <p className="font-display text-xl">Across all funds: {formatMoney(total)}</p>
+          <p className="mt-1 text-sm text-muted">
+            This month put in {formatMoney(ledger.totals.savedToFunds)}. Used {formatMoney(used)}.
+          </p>
+        </div>
       ) : (
         <section className="rounded-lg border border-dashed border-line px-4 py-6 text-center">
           <EmptyArt kind="funds" />
@@ -95,6 +111,10 @@ function FundCard({ fund }: { fund: MoneyBucket }) {
   const transactions = useBudgetStore((s) => s.transactions);
   const categories = useBudgetStore((s) => s.categories);
   const moves = useBudgetStore((s) => s.bucketMoves) ?? [];
+  const budgets = useBudgetStore((s) => s.monthBudgets) ?? [];
+  const setAsides = useBudgetStore((s) => s.setAsides) ?? [];
+  const style = useBudgetStore((s) => (s.profile.budgetStyle === "buckets" ? "buckets" : "monthly"));
+  const carryStart = useBudgetStore((s) => s.profile.carryStartMonth);
   const funds = useBudgetStore((s) => s.moneyBuckets) ?? [];
   const updateBucket = useBudgetStore((s) => s.updateBucket);
   const removeBucket = useBudgetStore((s) => s.removeBucket);
@@ -113,6 +133,11 @@ function FundCard({ fund }: { fund: MoneyBucket }) {
   const overflow = balance > line + 0.004;
   const pace = goalPace(fund, balance, ym);
   const putIn = fundingForMonth(fund, month);
+  const monthBook = monthLedger(
+    { transactions, categories, budgets, buckets: funds, moves, setAsides, style, carryStartMonth: carryStart },
+    month,
+  );
+  const fromBudget = monthBook.funds.find((row) => row.id === fund.id);
   const used = fund.categoryIds.reduce((sum, id) => sum + categorySpend(transactions, categories, id, month, month), 0);
   const endBalance = bucketBalance(fund, month, transactions, categories, moves);
   const rows = chargesIn(fund, month, transactions);
@@ -125,7 +150,7 @@ function FundCard({ fund }: { fund: MoneyBucket }) {
     range.status === "on" ? "Right on budget" : range.status === "ahead" ? `Ahead by ${formatMoney(range.delta)}` : `Over by ${formatMoney(Math.abs(range.delta))}`;
 
   return (
-    <li className="rounded-lg border border-border bg-surface p-4">
+    <li id={`fund-${fund.id}`} className="rounded-lg border border-border bg-surface p-4">
       <div className="flex items-start gap-3">
         <FillJar pct={pct} negative={negative} overflow={overflow} celebrate={lively && goalHit} />
         <div className="min-w-0 flex-1">
@@ -215,6 +240,11 @@ function FundCard({ fund }: { fund: MoneyBucket }) {
             </Button>
           </div>
           <p className="text-sm">Put in {formatMoney(putIn)}. Used {formatMoney(used)}. At month end: {formatMoney(endBalance)}.</p>
+          {fromBudget ? (
+            <p className="text-sm text-muted">
+              From this month’s budget: {formatMoney(fromBudget.funding)} funding, {formatMoney(fromBudget.setAsides)} set aside, {formatMoney(fromBudget.spent)} spent by linked categories.
+            </p>
+          ) : null}
           <ul className="divide-y divide-border rounded-md border border-border">
             {rows.map((t) => (
               <li key={t.id} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
@@ -251,7 +281,9 @@ function FundCard({ fund }: { fund: MoneyBucket }) {
             <ul className="mt-1 space-y-1 text-sm">
               {linked.map((c) => (
                 <li key={c.id} className="flex items-center justify-between gap-2">
-                  <span>{c.name}</span>
+                  <button type="button" className="font-medium text-primary" onClick={() => openCategoryPanel(c.id, month)}>
+                    {c.name}
+                  </button>
                   <button type="button" className="text-xs text-muted" onClick={() => unlinkBucketCategory(fund.id, c.id)}>
                     Start over every month instead
                   </button>

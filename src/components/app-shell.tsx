@@ -6,6 +6,8 @@ import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { cn } from "@/lib/cn";
 import { useBudgetStore } from "@/store/budget-store";
 import { HarborMark } from "./harbor-mark";
+import { CategoryPanelHost } from "./category-panel";
+import { QuickAddHost } from "./account-board";
 import { Onboarding } from "./onboarding";
 import { WelcomeGate } from "./welcome-gate";
 
@@ -188,6 +190,8 @@ export function AppShell() {
           );
         })}
       </nav>
+      <CategoryPanelHost />
+      <QuickAddHost />
     </div>
   );
 }

@@ -4,7 +4,7 @@ import { roundMoney } from "./money.ts";
 import { monthKeyFromDate, shiftMonth } from "./parse-date.ts";
 import { countsTowardPlan, orderedCategories, planAmount } from "./plans.ts";
 import { categoryCarries } from "./style.ts";
-import type { BudgetStyle, Category, MoneyBucket, MonthBudget, Profile, Transaction, BucketMove } from "./types.ts";
+import type { BudgetStyle, Category, MoneyBucket, MonthBudget, Profile, SetAside, Transaction, BucketMove } from "./types.ts";
 
 export type IncomeLine = {
   id: string;
@@ -44,6 +44,14 @@ export type MonthFlags = {
   provisional: number;
 };
 
+export type FundMonth = {
+  id: string;
+  name: string;
+  funding: number;
+  setAsides: number;
+  spent: number;
+};
+
 export type MonthLedger = {
   ym: string;
   income: IncomeLine[];
@@ -53,6 +61,9 @@ export type MonthLedger = {
   fundFunding: number;
   /** Moves from one fund to another. They cancel out of savedToFunds. */
   fundMoves: number;
+  /** Set-asides with no fund. They lower a carry-out and are not new savings. */
+  released: number;
+  funds: FundMonth[];
   totals: MonthTotals;
   flags: MonthFlags;
 };
@@ -68,6 +79,8 @@ export type LedgerSource = {
   /** Same opening applied while walking a carrying category. Rarely set. */
   opening?: number;
   profile?: Pick<Profile, "incomeStreams" | "monthlyIncome"> | null;
+  /** Optional. Missing on older ledgers. Lowers carry-out. A fund id also counts as saved. */
+  setAsides?: SetAside[];
 };
 
 export function earliestDataMonth(transactions: Transaction[]): string | null {
@@ -121,6 +134,15 @@ function carryStartFor(category: Category, ledgerStart: string | null): string |
   return ledgerStart && /^\d{4}-\d{2}$/.test(ledgerStart) ? ledgerStart : null;
 }
 
+function asideFor(source: LedgerSource, categoryId: string, ym: string): number {
+  let total = 0;
+  for (const row of source.setAsides ?? []) {
+    if (row.ym !== ym || row.categoryId !== categoryId || !(row.amount > 0)) continue;
+    total += row.amount;
+  }
+  return roundMoney(total);
+}
+
 function walked(
   source: LedgerSource,
   category: Category,
@@ -136,7 +158,8 @@ function walked(
     const layout = layoutOf(source, cursor, cache);
     const planned = planAmount(category, cursor, source.budgets ?? []);
     const spent = spentOf(layout, category.id).spent;
-    const carryOut = roundMoney(carryIn + planned - spent);
+    const aside = asideFor(source, category.id, cursor);
+    const carryOut = roundMoney(carryIn + planned - spent - aside);
     if (cursor === ym) return { carryIn, carryOut, planned, spent };
     carryIn = carryOut;
     cursor = shiftMonth(cursor, 1);
@@ -210,7 +233,10 @@ export function monthLedger(source: LedgerSource, ym: string, cache?: Map<string
   const fundMoves = roundMoney(
     (source.moves ?? []).filter((move) => move.ym === ym && move.fromId != null).reduce((sum, move) => sum + move.amount, 0),
   );
-  const savedToFunds = roundMoney(fundFunding + fromCash);
+  const asideRows = (source.setAsides ?? []).filter((row) => row.ym === ym && row.amount > 0);
+  const asideToFunds = roundMoney(asideRows.filter((row) => row.fundId).reduce((sum, row) => sum + row.amount, 0));
+  const released = roundMoney(asideRows.filter((row) => !row.fundId).reduce((sum, row) => sum + row.amount, 0));
+  const savedToFunds = roundMoney(fundFunding + fromCash + asideToFunds);
   const received = roundMoney(layout.incomeTotal);
   const spent = roundMoney(layout.expenseTotal);
   const leftOver = roundMoney(received - spent - savedToFunds);
@@ -221,6 +247,24 @@ export function monthLedger(source: LedgerSource, ym: string, cache?: Map<string
     (row) => monthKeyFromDate(row.date) === ym && row.auto?.provisional && !row.excluded && row.status !== "transfer" && row.status !== "reimbursement",
   ).length;
 
+  const known = new Map((source.buckets ?? []).map((bucket) => [bucket.id, bucket.name]));
+  const fundIds = new Set<string>();
+  for (const bucket of source.buckets ?? []) {
+    if (bucket.startMonth <= ym) fundIds.add(bucket.id);
+  }
+  for (const row of asideRows) {
+    if (row.fundId) fundIds.add(row.fundId);
+  }
+  const funds: FundMonth[] = [...fundIds].map((id) => {
+    const bucket = (source.buckets ?? []).find((item) => item.id === id);
+    const funding = bucket && bucket.startMonth <= ym ? fundingForMonth(bucket, ym) : 0;
+    const setAsides = roundMoney(asideRows.filter((row) => row.fundId === id).reduce((sum, row) => sum + row.amount, 0));
+    const spent = roundMoney(
+      spending.filter((line) => bucket?.categoryIds.includes(line.id)).reduce((sum, line) => sum + line.spent, 0),
+    );
+    return { id, name: known.get(id) ?? "Fund", funding: roundMoney(funding), setAsides, spent };
+  });
+
   return {
     ym,
     income,
@@ -228,6 +272,8 @@ export function monthLedger(source: LedgerSource, ym: string, cache?: Map<string
     savedToFunds,
     fundFunding,
     fundMoves,
+    released,
+    funds,
     totals: { received, spent, savedToFunds, leftOver, plannedTotal, unassigned },
     flags: {
       uncategorized: layout.openCount,
@@ -243,6 +289,7 @@ export type YearLedger = {
   totals: MonthTotals;
   rolling12: MonthTotals;
   sinceStart: MonthTotals;
+  funds: FundMonth[];
 };
 
 /** Twelve months of one year, plus a rolling year ending in December and everything since the first charge. */
@@ -277,7 +324,29 @@ export function yearLedger(source: LedgerSource, year: string): YearLedger {
     totals: addTotals(months.map((row) => row.totals)),
     rolling12: addTotals(rolling.map((row) => row.totals)),
     sinceStart: addTotals(since.map((row) => row.totals)),
+    funds: sumFunds(months),
   };
+}
+
+function sumFunds(months: MonthLedger[]): FundMonth[] {
+  const map = new Map<string, FundMonth>();
+  for (const month of months) {
+    for (const line of month.funds) {
+      const current = map.get(line.id) ?? { id: line.id, name: line.name, funding: 0, setAsides: 0, spent: 0 };
+      current.funding += line.funding;
+      current.setAsides += line.setAsides;
+      current.spent += line.spent;
+      current.name = line.name;
+      map.set(line.id, current);
+    }
+  }
+  return [...map.values()].map((line) => ({
+    id: line.id,
+    name: line.name,
+    funding: roundMoney(line.funding),
+    setAsides: roundMoney(line.setAsides),
+    spent: roundMoney(line.spent),
+  }));
 }
 
 /** What is left to assign after plans and fund funding. Built only from monthLedger. */
@@ -313,6 +382,6 @@ export function safeFromLedger(source: LedgerSource, ym: string): {
     moved,
     plans,
     spent,
-    amount: roundMoney(ledger.totals.received - plans - spent - ledger.fundFunding - moved),
+    amount: roundMoney(ledger.totals.received - plans - spent - ledger.totals.savedToFunds),
   };
 }

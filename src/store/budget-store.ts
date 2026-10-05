@@ -25,6 +25,8 @@ import {
   createAccount,
   enteredBalanceAmount,
   migrateLedgerAccounts,
+  quickCash,
+  quickInvestment,
   storedFileBalance,
   upsertFileBalance,
 } from "@/lib/budget/accounts";
@@ -55,6 +57,7 @@ import type {
   NetWorthPoint,
   Profile,
   SavingsGoal,
+  SetAside,
   Transaction,
   TxSplit,
 } from "@/lib/budget/types";
@@ -131,9 +134,14 @@ type State = LedgerSnapshot & {
   patchProfile: (patch: Partial<Profile>) => void;
   setBudgetStyle: (style: BudgetStyle, options?: { carryStartMonth?: string; today?: string }) => void;
   addAccount: (input: { name: string; kind: AccountKind; institution?: string | null }) => string;
-  updateAccount: (id: string, patch: Partial<Pick<Account, "name" | "kind" | "institution">>) => void;
+  updateAccount: (id: string, patch: Partial<Pick<Account, "name" | "kind" | "institution" | "growth">>) => void;
   removeAccount: (id: string) => boolean;
   addBalance: (accountId: string, amount: number, date?: string) => void;
+  addCash: (amount: number, date?: string) => string;
+  addInvestment: (input: { name?: string | null; pick: "brokerage" | "roth" | "traditional" | "401k" | "other"; amount: number; date?: string }) => string;
+  addSetAside: (input: { ym: string; categoryId: string; fundId: string | null; amount: number }) => string;
+  removeSetAside: (id: string) => void;
+  addCashCharge: (input: { categoryId: string; amount: number; date: string; description?: string }) => void;
   importPreview: (preview: CsvPreview, flipSign: boolean, accountId?: string | null, balanceAmount?: number | null) => ImportResult;
   loadSample: () => void;
   deleteTransaction: (id: string) => void;
@@ -166,6 +174,7 @@ function snapshotOf(s: LedgerSnapshot): LedgerSnapshot {
     ira: s.ira ?? DEFAULT_IRA,
     accounts: s.accounts ?? [],
     balances: s.balances ?? [],
+    setAsides: s.setAsides ?? [],
     activeMonth: s.activeMonth,
     activeWeek: s.activeWeek,
   };
@@ -275,6 +284,7 @@ export const useBudgetStore = create<State>()(
             imports: migrated.imports,
             accounts: migrated.accounts,
             balances: migrated.balances,
+            setAsides: s.setAsides ?? [],
             monthBudgets: s.monthBudgets ?? [],
             savingsGoals: s.savingsGoals ?? [],
             moneyBuckets: migrateGoals(s.savingsGoals ?? [], s.moneyBuckets ?? [], month),
@@ -386,6 +396,7 @@ export const useBudgetStore = create<State>()(
             if (patch.name != null && patch.name.trim()) next.name = patch.name.trim();
             if (patch.kind != null) next.kind = patch.kind;
             if (patch.institution !== undefined) next.institution = patch.institution?.trim() ? patch.institution.trim() : null;
+            if (patch.growth !== undefined) next.growth = patch.growth;
             return next;
           }),
         });
@@ -413,6 +424,65 @@ export const useBudgetStore = create<State>()(
           source: "entered",
         };
         set({ balances: [...(get().balances ?? []), point] });
+        schedulePersist();
+      },
+      addCash: (amount, date) => {
+        const day = date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : todayInput();
+        const next = quickCash(get().accounts ?? [], get().balances ?? [], amount, day);
+        if (!next) return "";
+        const id = next.accounts.find((account) => account.kind === "cash")?.id ?? "";
+        set({ accounts: next.accounts, balances: next.balances });
+        schedulePersist();
+        return id;
+      },
+      addInvestment: (input) => {
+        const day = input.date && /^\d{4}-\d{2}-\d{2}$/.test(input.date) ? input.date : todayInput();
+        const before = new Set((get().accounts ?? []).map((account) => account.id));
+        const next = quickInvestment(get().accounts ?? [], get().balances ?? [], input, day);
+        if (!next) return "";
+        const id = next.accounts.find((account) => !before.has(account.id))?.id ?? "";
+        set({ accounts: next.accounts, balances: next.balances });
+        schedulePersist();
+        return id;
+      },
+      addSetAside: (input) => {
+        if (!/^\d{4}-\d{2}$/.test(input.ym) || !input.categoryId || !(input.amount > 0)) return "";
+        const id = newId("aside");
+        const row: SetAside = {
+          id,
+          ym: input.ym,
+          categoryId: input.categoryId,
+          fundId: input.fundId,
+          amount: roundMoney(input.amount),
+        };
+        set({ setAsides: [...(get().setAsides ?? []), row] });
+        schedulePersist();
+        return id;
+      },
+      removeSetAside: (id) => {
+        set({ setAsides: (get().setAsides ?? []).filter((row) => row.id !== id) });
+        schedulePersist();
+      },
+      addCashCharge: (input) => {
+        if (!input.categoryId || !Number.isFinite(input.amount) || input.amount === 0) return;
+        const day = /^\d{4}-\d{2}-\d{2}$/.test(input.date) ? input.date : todayInput();
+        const description = input.description?.trim() || "Cash";
+        const row: Transaction = {
+          id: newId("tx"),
+          date: day,
+          description,
+          merchantKey: description.toUpperCase(),
+          amount: roundMoney(-Math.abs(input.amount)),
+          sourceLabel: "Cash",
+          fingerprint: newId("fp"),
+          categoryId: input.categoryId,
+          userSet: true,
+          notes: "",
+          excluded: false,
+          status: "posted",
+          pinned: "charge",
+        };
+        set({ transactions: [row, ...get().transactions] });
         schedulePersist();
       },
       resetAll: async () => {
@@ -1123,6 +1193,7 @@ export const useBudgetStore = create<State>()(
           ],
           debts: [{ id: "debt_demo_card", name: "Store card", balance: 640, apr: 19.9, minimum: 25 }],
           ira: { ...DEFAULT_IRA },
+          setAsides: [],
           imports: [
             {
               id: newId("imp"),
@@ -1158,6 +1229,7 @@ export const useBudgetStore = create<State>()(
           ira: parsed.data.ira,
           accounts: parsed.data.accounts ?? [],
           balances: parsed.data.balances ?? [],
+          setAsides: parsed.data.setAsides ?? [],
           imports: [
             {
               id: newId("imp"),
@@ -1207,6 +1279,7 @@ useBudgetStore.subscribe((state, prev) => {
     state.ira !== prev.ira ||
     state.accounts !== prev.accounts ||
     state.balances !== prev.balances ||
+    state.setAsides !== prev.setAsides ||
     state.activeMonth !== prev.activeMonth ||
     state.activeWeek !== prev.activeWeek
   ) {

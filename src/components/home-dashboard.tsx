@@ -1,7 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { CreditCard, Landmark, LineChart, PiggyBank, Wallet } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
-import { accountAcceptsFile, accountKindLabel } from "@/lib/budget/accounts";
 import { fileInsights, monthEndForecast } from "@/lib/budget/analytics";
 import {
   categoryTrends,
@@ -18,14 +16,16 @@ import { fileReadout } from "@/lib/budget/readout";
 import { coverSentence, queueStats, reviewQueue } from "@/lib/budget/review-queue";
 import { comingUp } from "@/lib/budget/screen-plan";
 import { bucketBalance, safeToSpend } from "@/lib/budget/buckets";
-import { accountRows, monthGlance, needsALook, spendingSlices, staleLabel, yearOverview } from "@/lib/budget/dashboard";
+import { monthGlance, needsALook, spendingSlices, yearOverview } from "@/lib/budget/dashboard";
 import { yearLedger } from "@/lib/budget/ledger-month";
 import { downloadText } from "@/lib/budget/download";
 import { formatMoney } from "@/lib/budget/money";
 import { monthShort } from "@/lib/budget/parse-date";
 import { buildYearWorkbook, yearSheetCsv } from "@/lib/budget/year";
-import type { Account, AccountKind, BalancePoint, Category, Transaction } from "@/lib/budget/types";
+import type { Account, BalancePoint, Category, Transaction } from "@/lib/budget/types";
 import { useBudgetStore } from "@/store/budget-store";
+import { AccountBoard, openQuickAdd } from "./account-board";
+import { openCategoryPanel } from "./category-panel";
 import { CategorizeCoach } from "./categorize-coach";
 import { EmptyArt } from "./visuals/empty-art";
 import { queueFundWizard } from "./fund-wizard";
@@ -36,17 +36,7 @@ import { Donut } from "./visuals/donut";
 import { MiniBars } from "./visuals/mini-bars";
 import { ProgressRing } from "./visuals/progress-ring";
 import { Button } from "./ui/button";
-import { Field, Input } from "./ui/field";
 import { YearSwitcher } from "./year-switcher";
-
-const ICONS: Record<AccountKind, typeof Landmark> = {
-  checking: Landmark,
-  savings: PiggyBank,
-  credit: CreditCard,
-  investment: LineChart,
-  retirement: Landmark,
-  other: Wallet,
-};
 
 function todayIso() {
   const now = new Date();
@@ -54,14 +44,18 @@ function todayIso() {
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 }
 
-function prettyDate(iso: string) {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
-  if (!match) return iso;
-  return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3])).toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+function SavedByFund({ funds }: { funds: { id: string; name: string; funding: number; setAsides: number }[] }) {
+  const rows = funds.filter((fund) => fund.funding > 0.004 || fund.setAsides > 0.004);
+  if (!rows.length) return null;
+  return (
+    <ul className="mt-3 space-y-1 text-sm">
+      {rows.map((fund) => (
+        <li key={fund.id}>
+          {fund.name}: {formatMoney(fund.funding)} put in, {formatMoney(fund.setAsides)} set aside
+        </li>
+      ))}
+    </ul>
+  );
 }
 
 export function HomeDashboard() {
@@ -74,33 +68,28 @@ export function HomeDashboard() {
   const buckets = useBudgetStore((s) => s.moneyBuckets);
   const moves = useBudgetStore((s) => s.bucketMoves);
   const profile = useBudgetStore((s) => s.profile);
-  const addBalance = useBudgetStore((s) => s.addBalance);
+  const setAsides = useBudgetStore((s) => s.setAsides);
   const [coach, setCoach] = useState(false);
   const [why, setWhy] = useState(false);
-  const [picked, setPicked] = useState<string | null>(null);
-  const [balanceId, setBalanceId] = useState<string | null>(null);
-  const [amount, setAmount] = useState("");
-  const [date, setDate] = useState(todayIso);
   const year = ym.slice(0, 4);
   const style = profile.budgetStyle === "buckets" ? "buckets" : "monthly";
 
   const yearBook = useMemo(
     () =>
       yearLedger(
-        { transactions, categories, budgets: monthBudgets ?? [], buckets: buckets ?? [], moves: moves ?? [], style, carryStartMonth: profile.carryStartMonth },
+        { transactions, categories, budgets: monthBudgets ?? [], buckets: buckets ?? [], moves: moves ?? [], setAsides: setAsides ?? [], style, carryStartMonth: profile.carryStartMonth },
         year,
       ),
-    [transactions, categories, monthBudgets, buckets, moves, style, profile.carryStartMonth, year],
+    [transactions, categories, monthBudgets, buckets, moves, setAsides, style, profile.carryStartMonth, year],
   );
-  const now = yearOverview(transactions, categories, year, { buckets: buckets ?? [], moves: moves ?? [], style, carryStartMonth: profile.carryStartMonth });
-  const prior = yearOverview(transactions, categories, String(Number(year) - 1), { buckets: buckets ?? [], moves: moves ?? [], style, carryStartMonth: profile.carryStartMonth });
+  const now = yearOverview(transactions, categories, year, { buckets: buckets ?? [], moves: moves ?? [], setAsides: setAsides ?? [], style, carryStartMonth: profile.carryStartMonth });
+  const prior = yearOverview(transactions, categories, String(Number(year) - 1), { buckets: buckets ?? [], moves: moves ?? [], setAsides: setAsides ?? [], style, carryStartMonth: profile.carryStartMonth });
   const bars = useMemo(
     () => yearBook.months.map((month) => ({ label: monthShort(month.ym), a: month.totals.received, b: month.totals.spent })),
     [yearBook],
   );
   const slices = useMemo(() => spendingSlices(transactions, categories, year), [transactions, categories, year]);
-  const accountsView = useMemo(() => accountRows(accounts, balances, todayIso()), [accounts, balances]);
-  const safe = safeToSpend({ ym, transactions, categories, budgets: monthBudgets ?? [], buckets: buckets ?? [], moves: moves ?? [] });
+  const safe = safeToSpend({ ym, transactions, categories, budgets: monthBudgets ?? [], buckets: buckets ?? [], moves: moves ?? [], setAsides: setAsides ?? [] });
   const glance = monthGlance({
     style,
     ym,
@@ -109,6 +98,7 @@ export function HomeDashboard() {
     budgets: monthBudgets ?? [],
     carryStartMonth: profile.carryStartMonth,
     safeToSpend: safe.amount,
+    setAsides: setAsides ?? [],
   });
   const look = needsALook({ transactions, categories, profile, ym, budgets: monthBudgets ?? [] });
   const insights = useMemo(() => fileInsights(transactions, categories, todayIso()), [transactions, categories]);
@@ -130,7 +120,8 @@ export function HomeDashboard() {
   if (!transactions.length) {
     return (
       <div className="mx-auto max-w-lg space-y-4">
-        <HomeMenu current="overview" />
+        <HomeMenu current="overview" onAccounts={() => openQuickAdd("choose")} />
+        <AccountBoard />
         <EmptyArt kind="home" />
         <h1 className="font-display text-3xl font-semibold">Nothing here yet</h1>
         <p className="text-sm text-muted">Add a bank file. Harbor reads a typical month, what repeats, and where the money went.</p>
@@ -149,105 +140,14 @@ export function HomeDashboard() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <HomeMenu current="overview" />
+        <HomeMenu current="overview" onAccounts={() => openQuickAdd("choose")} />
         <YearSwitcher />
       </div>
 
-      <section className="rise panel rounded-lg border border-border bg-surface p-4" style={{ animationDelay: "80ms" }}>
-        <h2 className="font-display text-xl font-semibold">Your accounts</h2>
-        {(dataDepth(transactions)?.months ?? 0) >= 3 && cushion ? (
-          <p className="mt-1 text-sm">{cushion.sentence} Based on checking and savings balances over a typical month of spending.</p>
-        ) : (
-          <p className="mt-1 text-sm">Waiting on more history.</p>
-        )}
-        {accountsView.rows.length === 0 ? (
-          <div className="mt-3">
-            <p className="text-sm">No accounts yet. Add one, then its balance can show here.</p>
-            <Link to="/settings" className="mt-3 inline-flex">
-              <Button>Add an account</Button>
-            </Link>
-          </div>
-        ) : (
-          <ul className="mt-3 space-y-3">
-            {accountsView.rows.map((row) => {
-              const Icon = ICONS[row.kind];
-              const account = accounts.find((item) => item.id === row.id);
-              const showOwed = row.owed;
-              return (
-                <li key={row.id} className="rounded-md border border-border px-3 py-3">
-                  <div className="flex items-start gap-3">
-                    <Icon className="mt-1 size-4 shrink-0 text-primary" aria-hidden />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-baseline justify-between gap-2">
-                        <p className="font-medium">
-                          {row.name} <span className="text-sm font-normal text-muted">· {accountKindLabel(row.kind)}</span>
-                        </p>
-                        <p className={`tabular ${showOwed && row.amount < 0 ? "text-danger" : ""}`}>
-                          {showOwed ? `Owe ${formatMoney(Math.abs(row.amount))}` : formatMoney(row.amount)}
-                        </p>
-                      </div>
-                      <p className="text-sm text-muted">
-                        {row.asOf ? `As of ${prettyDate(row.asOf)}` : "No balance yet"}
-                        {row.source ? ` · ${row.source}` : ""}
-                      </p>
-                      {row.stale && row.ageDays != null ? <p className="text-sm text-warn">{staleLabel(row.ageDays)}</p> : null}
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {account && accountAcceptsFile(account.kind) ? (
-                          <Link to="/import" className="inline-flex min-h-11 items-center text-sm font-medium text-primary">
-                            Add a file
-                          </Link>
-                        ) : null}
-                        <button
-                          type="button"
-                          className="min-h-11 text-sm font-medium text-primary"
-                          onClick={() => {
-                            setBalanceId(balanceId === row.id ? null : row.id);
-                            setAmount("");
-                            setDate(todayIso());
-                          }}
-                        >
-                          Update balance
-                        </button>
-                      </div>
-                      {balanceId === row.id ? (
-                        <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                          <Field label={row.owed ? "What you owe" : "Balance"}>
-                            <Input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
-                          </Field>
-                          <Field label="Date">
-                            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-                          </Field>
-                          <Button
-                            className="sm:col-span-2 sm:w-fit"
-                            onClick={() => {
-                              const next = Number(amount);
-                              if (!Number.isFinite(next) || amount.trim() === "") return;
-                              addBalance(row.id, next, date);
-                              setBalanceId(null);
-                              setAmount("");
-                            }}
-                          >
-                            Save balance
-                          </Button>
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-        {accountsView.rows.length ? (
-          <>
-            <p className="mt-3 font-medium">Net {formatMoney(accountsView.net, { signed: true })}</p>
-            <p className="text-xs text-muted">Every account is in this total. A card you owe lowers it.</p>
-            <Link to="/settings" className="mt-3 flex min-h-11 items-center rounded-md border border-dashed border-line px-3 text-sm">
-              Add an account
-            </Link>
-          </>
-        ) : null}
-      </section>
+      {(dataDepth(transactions)?.months ?? 0) >= 3 && cushion ? (
+        <p className="text-sm">{cushion.sentence} Based on checking and savings balances over a typical month of spending.</p>
+      ) : null}
+      <AccountBoard />
 
       <section className="rounded-lg border border-border bg-surface p-4">
         <h1 className="font-display text-2xl font-semibold md:text-3xl">
@@ -282,6 +182,7 @@ export function HomeDashboard() {
           <div className="mt-3">
             <MiniBars months={bars} aLabel="Money in" bLabel="Money out" />
           </div>
+          <SavedByFund funds={yearBook.funds} />
         </section>
       ) : null}
 
@@ -313,6 +214,7 @@ export function HomeDashboard() {
         <div className="mt-3">
           <MiniBars months={bars} aLabel="Money in" bLabel="Money out" />
         </div>
+        <SavedByFund funds={yearBook.funds} />
       </section>
       ) : null}
 
@@ -368,15 +270,16 @@ export function HomeDashboard() {
 
       <section className="rise panel rounded-lg border border-border bg-surface p-4" style={{ animationDelay: "120ms" }}>
         <h2 className="font-display text-xl font-semibold">Where it went</h2>
-        <p className="mt-1 text-sm text-muted">Spending in {year}, by category. Tap a slice to see the amount.</p>
+        <p className="mt-1 text-sm text-muted">Spending in {year}, by category. Tap a slice to open it.</p>
         <div className="mt-3">
           <Donut
             parts={slices.map((slice) => ({ id: slice.id, label: slice.label, value: slice.value }))}
             centerLabel={year}
-            onPick={(part) => setPicked(`${part.label}: ${formatMoney(part.value)}`)}
+            onPick={(part) => {
+              if (part.id) openCategoryPanel(part.id, `${year}-12`);
+            }}
           />
         </div>
-        {picked ? <p className="mt-2 text-sm">{picked}</p> : null}
       </section>
 
       <section className="rise panel rounded-lg border border-border bg-surface p-4" style={{ animationDelay: "160ms" }}>

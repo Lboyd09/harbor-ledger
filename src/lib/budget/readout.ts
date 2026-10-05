@@ -92,6 +92,7 @@ export function spendingRows(input: {
   budgets?: MonthBudget[];
   style: BudgetStyle;
   carryStartMonth?: string | null;
+  setAsides?: import("./types.ts").SetAside[];
 }): SideRow[] {
   const budgets = input.budgets ?? [];
   const ledger = monthLedger(
@@ -101,6 +102,7 @@ export function spendingRows(input: {
       budgets,
       style: input.style,
       carryStartMonth: input.carryStartMonth,
+      setAsides: input.setAsides,
     },
     input.ym,
   );

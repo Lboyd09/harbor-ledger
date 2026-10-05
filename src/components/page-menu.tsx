@@ -6,8 +6,9 @@ import { cn } from "@/lib/cn";
 export type PageMenuItem = {
   label: string;
   current: boolean;
-  to: "/" | "/year" | "/import" | "/rules" | "/imports" | "/budget";
+  to?: "/" | "/year" | "/import" | "/rules" | "/imports" | "/budget";
   search?: { page: "amounts" | "transactions" };
+  onSelect?: () => void;
 };
 
 /** A page title that opens the subpages. Not a second row of tabs. */
@@ -71,8 +72,21 @@ export function PageMenu({ title, items }: { title: string; items: PageMenuItem[
         <ul id={menuId} role="menu" aria-label={title} className="absolute z-20 mt-1 w-64 max-w-[calc(100vw-2rem)] rounded-lg border border-border bg-surface p-1 shadow-lg">
           {items.map((item) => (
             <li key={item.label} role="none">
+              {item.onSelect ? (
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="flex min-h-11 w-full items-center rounded-md px-3 text-left text-sm hover:bg-chip"
+                  onClick={() => {
+                    setOpen(false);
+                    item.onSelect?.();
+                  }}
+                >
+                  {item.label}
+                </button>
+              ) : (
               <Link
-                to={item.to}
+                to={item.to ?? "/"}
                 search={item.search}
                 role="menuitem"
                 aria-current={item.current ? "page" : undefined}
@@ -85,6 +99,7 @@ export function PageMenu({ title, items }: { title: string; items: PageMenuItem[
                 {item.label}
                 {item.current ? <span className="sr-only">, current page</span> : null}
               </Link>
+              )}
             </li>
           ))}
         </ul>
@@ -97,7 +112,7 @@ export function PageMenu({ title, items }: { title: string; items: PageMenuItem[
   );
 }
 
-export function HomeMenu({ current }: { current: "overview" | "year" | "import" | "rules" | "imports" }) {
+export function HomeMenu({ current, onAccounts }: { current: "overview" | "year" | "import" | "rules" | "imports"; onAccounts?: () => void }) {
   const titles = {
     overview: "Overview",
     year: "Year review",
@@ -114,6 +129,7 @@ export function HomeMenu({ current }: { current: "overview" | "year" | "import" 
         { to: "/import", label: "Import a file", current: current === "import" },
         { to: "/rules", label: "Sorting rules", current: current === "rules" },
         { to: "/imports", label: "Past imports", current: current === "imports" },
+        ...(onAccounts ? [{ label: "Accounts", current: false, onSelect: onAccounts }] : []),
       ]}
     />
   );

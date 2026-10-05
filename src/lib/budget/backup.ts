@@ -13,6 +13,7 @@ import type {
   NetWorthPoint,
   Profile,
   SavingsGoal,
+  SetAside,
   Transaction,
 } from "./types.ts";
 
@@ -34,6 +35,7 @@ export type LedgerBackup = {
   ira: IraRules;
   accounts: Account[];
   balances: BalancePoint[];
+  setAsides: SetAside[];
 };
 
 export function ledgerBackup(snap: LedgerSnapshot): LedgerBackup {
@@ -52,6 +54,7 @@ export function ledgerBackup(snap: LedgerSnapshot): LedgerBackup {
     ira: snap.ira,
     accounts: snap.accounts ?? [],
     balances: snap.balances ?? [],
+    setAsides: snap.setAsides ?? [],
   };
 }
 

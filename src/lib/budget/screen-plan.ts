@@ -1,8 +1,9 @@
 import type { MonthEndForecast } from "./analytics.ts";
 import type { RecurringBill } from "./analytics-depth.ts";
-import { categorySpent } from "./carry.ts";
+import { categorySpent, SURPLUS_PLAN_MONTHS } from "./carry.ts";
 import { formatMoney, roundMoney } from "./money.ts";
 import { shiftMonth } from "./parse-date.ts";
+import { monthLedger, type LedgerSource, type SpendingLine } from "./ledger-month.ts";
 import type { Category, Transaction } from "./types.ts";
 
 export type ForecastChip = "Likely over by month end" | "Close" | "Fine";
@@ -265,3 +266,68 @@ export function monthStrip(input: {
     projectedLeft,
   };
 }
+
+export type CategoryStory = {
+  headline: string;
+  detail: string;
+  nextMonth: string;
+  tone: "over" | "under" | "even" | "fresh";
+  icon: "over" | "under" | "even" | "fresh";
+};
+
+/** One sentence about this month, and one about next. Short enough to read on a row. */
+export function categoryStory(row: SpendingLine): CategoryStory {
+  const money = (value: number) => formatMoney(Math.abs(value));
+  if (!row.carries) {
+    const again = `Starts again at ${formatMoney(row.planned)}.`;
+    return { headline: "Fresh month.", detail: again, nextMonth: again, tone: "fresh", icon: "fresh" };
+  }
+  if (row.left < -0.004) {
+    const over = money(row.left);
+    const next = `Next month starts ${over} lower.`;
+    return { headline: `${over} over.`, detail: next, nextMonth: next, tone: "over", icon: "over" };
+  }
+  if (row.left > 0.004) {
+    const under = money(row.left);
+    const next = `${under} carries into next month.`;
+    return { headline: `${under} under.`, detail: next, nextMonth: next, tone: "under", icon: "under" };
+  }
+  return {
+    headline: "Even.",
+    detail: "Nothing extra to carry.",
+    nextMonth: "Next month starts at the amount.",
+    tone: "even",
+    icon: "even",
+  };
+}
+
+export type SurplusSuggestion = {
+  categoryId: string;
+  name: string;
+  amount: number;
+  fundLabel: string;
+  growLabel: string;
+};
+
+/** Leftovers worth moving, largest first. Same cutoff as surplusToPutToWork, read from the month ledger. */
+export function surplusSuggestions(source: LedgerSource, ym: string): SurplusSuggestion[] {
+  if (!/^\d{4}-\d{2}$/.test(ym)) return [];
+  const ledger = monthLedger(source, ym);
+  const out: SurplusSuggestion[] = [];
+  for (const line of ledger.spending) {
+    if (!line.carries) continue;
+    const amount = roundMoney(Math.max(0, line.carryOut - SURPLUS_PLAN_MONTHS * line.planned));
+    if (amount <= 0.5) continue;
+    const shown = formatMoney(amount);
+    out.push({
+      categoryId: line.id,
+      name: line.name,
+      amount,
+      fundLabel: `Add ${shown} to a fund`,
+      growLabel: "See what it could grow to",
+    });
+  }
+  return out.sort((a, b) => b.amount - a.amount || a.name.localeCompare(b.name));
+}
+
+export { SURPLUS_PLAN_MONTHS };

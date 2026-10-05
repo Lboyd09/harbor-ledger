@@ -68,11 +68,12 @@ export function TransactionsPage() {
   );
   const buckets = useBudgetStore((s) => s.moneyBuckets);
   const moves = useBudgetStore((s) => s.bucketMoves);
+  const setAsides = useBudgetStore((s) => s.setAsides);
   const style = useBudgetStore((s) => (s.profile.budgetStyle === "buckets" ? "buckets" : "monthly"));
   const carryStart = useBudgetStore((s) => s.profile.carryStartMonth);
   const ledger = useMemo(
-    () => monthLedger({ transactions, categories, budgets, buckets: buckets ?? [], moves: moves ?? [], style, carryStartMonth: carryStart }, ym),
-    [transactions, categories, budgets, buckets, moves, style, carryStart, ym],
+    () => monthLedger({ transactions, categories, budgets, buckets: buckets ?? [], moves: moves ?? [], setAsides: setAsides ?? [], style, carryStartMonth: carryStart }, ym),
+    [transactions, categories, budgets, buckets, moves, setAsides, style, carryStart, ym],
   );
   const inMonth = transactions.filter((t) => monthKeyFromDate(t.date) === ym);
   const hiddenDeposits = layout.aside.filter((t) => t.amount > 0);

@@ -27,6 +27,7 @@ import type {
   NetWorthPoint,
   Profile,
   SavingsGoal,
+  SetAside,
   Transaction,
   TxStatus,
 } from "./types.ts";
@@ -147,6 +148,7 @@ export function normalizeProfile(raw: unknown): Profile {
     detailChosen: asBool(p.detailChosen, false),
     budgetStyle: p.budgetStyle === "buckets" ? "buckets" : ("monthly" as BudgetStyle),
     carryStartMonth: /^\d{4}-\d{2}$/.test(asString(p.carryStartMonth)) ? asString(p.carryStartMonth) : null,
+    carryAskSeen: /^\d{4}-\d{2}$/.test(asString(p.carryAskSeen)) ? asString(p.carryAskSeen) : null,
     bankLabelMap: normalizeBankMap(p.bankLabelMap),
     ...optionalPlanner(p),
   };
@@ -326,6 +328,7 @@ export function normalizeSnapshot(raw: unknown): LedgerSnapshot | null {
     ira: normalizeIra(inner.ira),
     accounts: migrated.accounts,
     balances: migrated.balances,
+    setAsides: normalizeSetAsides(inner.setAsides),
     activeMonth,
     activeWeek,
   };
@@ -348,6 +351,7 @@ export function emptySnapshot(): LedgerSnapshot {
     ira: normalizeIra(undefined),
     accounts: [],
     balances: [],
+    setAsides: [],
     activeMonth,
     activeWeek: currentWeekKey(),
   };
@@ -358,6 +362,32 @@ function normalizeEnding(raw: unknown): ImportBatch["endingBalance"] {
   const asOf = asString(raw.asOf);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(asOf)) return null;
   return { amount: asNumber(raw.amount, 0), asOf };
+}
+
+function normalizeGrowth(raw: unknown): Account["growth"] {
+  if (!isRecord(raw)) return null;
+  const band = raw.band === "cautious" || raw.band === "typical" || raw.band === "bold" ? raw.band : null;
+  const growth: NonNullable<Account["growth"]> = {};
+  if (band) growth.band = band;
+  if (raw.returnPercent != null && Number.isFinite(asNumber(raw.returnPercent, NaN))) growth.returnPercent = asNumber(raw.returnPercent, 0);
+  if (raw.monthlyAdd != null && Number.isFinite(asNumber(raw.monthlyAdd, NaN))) growth.monthlyAdd = asNumber(raw.monthlyAdd, 0);
+  if (raw.yearlyFeePercent != null && Number.isFinite(asNumber(raw.yearlyFeePercent, NaN))) growth.yearlyFeePercent = asNumber(raw.yearlyFeePercent, 0);
+  if (typeof raw.useEstimates === "boolean") growth.useEstimates = raw.useEstimates;
+  return growth.band || growth.returnPercent != null || growth.monthlyAdd != null || growth.yearlyFeePercent != null || growth.useEstimates != null
+    ? growth
+    : null;
+}
+
+function normalizeSetAsides(raw: unknown): SetAside[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter(isRecord).flatMap((row, index) => {
+    const ym = asString(row.ym);
+    const categoryId = asString(row.categoryId);
+    const amount = asNumber(row.amount, 0);
+    if (!/^\d{4}-\d{2}$/.test(ym) || !categoryId || !(amount > 0)) return [];
+    const fundId = asString(row.fundId);
+    return [{ id: asString(row.id, `aside_${index}`), ym, categoryId, fundId: fundId || null, amount }];
+  });
 }
 
 function normalizeAccounts(raw: unknown): Account[] {
@@ -373,6 +403,7 @@ function normalizeAccounts(raw: unknown): Account[] {
         kind,
         institution: typeof a.institution === "string" && a.institution ? a.institution : null,
         createdAt: asString(a.createdAt, "2020-01-01T00:00:00.000Z"),
+        growth: normalizeGrowth(a.growth),
       },
     ];
   });

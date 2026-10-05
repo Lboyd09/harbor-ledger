@@ -1,23 +1,19 @@
-import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { monthEndForecast } from "@/lib/budget/analytics";
-import { categoryTrends, incomeStability, recurringBills, typicalMonth } from "@/lib/budget/analytics-depth";
-import { earliestDataMonth, monthLedger } from "@/lib/budget/ledger-month";
+import { incomeStability, typicalMonth } from "@/lib/budget/analytics-depth";
+import { monthLedger } from "@/lib/budget/ledger-month";
 import { TERMS } from "@/lib/copy/terms";
 import { formatMoney } from "@/lib/budget/money";
 import { newId } from "@/lib/budget/ids";
-import { orderedCategories, planAmount, hasMonthOverride } from "@/lib/budget/plans";
+import { orderedCategories, planAmount } from "@/lib/budget/plans";
 import { incomeRows, spendingRows, type SideRow } from "@/lib/budget/readout";
-import { categorySpent } from "@/lib/budget/carry";
+import { budgetLead, categoryStory, dueLabel, forecastChip, orderSpending, splitFixedFlexible, suggestAmounts } from "@/lib/budget/screen-plan";
 import { categoryCarries } from "@/lib/budget/style";
-import { shiftMonth } from "@/lib/budget/parse-date";
-import { budgetLead, carryConsequence, dueLabel, forecastChip, orderSpending, splitFixedFlexible, suggestAmounts } from "@/lib/budget/screen-plan";
-import { monthSeries } from "@/lib/budget/visual-data";
-import type { BudgetStyle, Category, MonthBudget, Transaction } from "@/lib/budget/types";
+import type { BudgetStyle } from "@/lib/budget/types";
 import { useBudgetStore } from "@/store/budget-store";
 import { EmptyArt } from "./visuals/empty-art";
-import { MiniBars } from "./visuals/mini-bars";
-import { FillJar } from "./money-visual";
+import { FillJar, SpendMeter } from "./money-visual";
+import { openCategoryPanel } from "./category-panel";
 import { SideSwitch, useMoneySide } from "./side-switch";
 import { Button } from "./ui/button";
 import { Input } from "./ui/field";
@@ -68,18 +64,15 @@ function BudgetSides({ style }: { style: BudgetStyle }) {
   const transactions = useBudgetStore((s) => s.transactions);
   const updateCategory = useBudgetStore((s) => s.updateCategory);
   const addCategory = useBudgetStore((s) => s.addCategory);
-  const removeCategory = useBudgetStore((s) => s.removeCategory);
-  const setMonthPlan = useBudgetStore((s) => s.setMonthPlan);
   const monthBudgets = useBudgetStore((s) => s.monthBudgets) ?? [];
   const moneyBuckets = useBudgetStore((s) => s.moneyBuckets) ?? [];
   const carryStart = useBudgetStore((s) => s.profile.carryStartMonth);
-  const patchProfile = useBudgetStore((s) => s.patchProfile);
   const moves = useBudgetStore((s) => s.bucketMoves) ?? [];
-  const savedToFunds = monthLedger(
-    { transactions, categories, budgets: monthBudgets, buckets: moneyBuckets, moves, style, carryStartMonth: carryStart },
+  const setAsides = useBudgetStore((s) => s.setAsides) ?? [];
+  const ledger = monthLedger(
+    { transactions, categories, budgets: monthBudgets, buckets: moneyBuckets, moves, setAsides, style, carryStartMonth: carryStart },
     ym,
-  ).totals.savedToFunds;
-  const [openId, setOpenId] = useState<string | null>(null);
+  );
   const income = incomeRows({ transactions, categories, ym, budgets: monthBudgets });
   const spending = spendingRows({
     transactions,
@@ -88,18 +81,16 @@ function BudgetSides({ style }: { style: BudgetStyle }) {
     budgets: monthBudgets,
     style,
     carryStartMonth: carryStart,
+    setAsides,
   });
-  const funding = savedToFunds;
+  const funding = ledger.totals.savedToFunds;
   const expenses = orderedCategories(categories, "expense");
-  const detail = useBudgetStore((s) => s.profile.detail);
   const streams = useBudgetStore((s) => s.profile.incomeStreams ?? []);
   const [side, setSide] = useMoneySide();
   const today = todayIso();
   const forecast = monthEndForecast({ transactions, categories, ym, today, budgets: monthBudgets });
   const typical = typicalMonth(transactions, categories);
   const steady = incomeStability(transactions, categories);
-  const bills = recurringBills(transactions, categories, today);
-  const trends = categoryTrends(transactions, categories, ym);
   const plannedSpend = expenses.reduce((sum, category) => sum + planAmount(category, ym, monthBudgets), 0);
   const usualIncome = income.reduce((sum, row) => sum + row.mark, 0);
   const lead = budgetLead({
@@ -143,157 +134,32 @@ function BudgetSides({ style }: { style: BudgetStyle }) {
 
   function spendRow(item: SpendItem) {
     const { category, row } = item;
-    const open = openId === category.id;
+    const line = ledger.spending.find((entry) => entry.id === category.id);
+    const story = line ? categoryStory(line) : null;
+    const carries = line?.carries ?? categoryCarries(category, style);
+    const linked = moneyBuckets.find((fund) => fund.categoryIds.includes(category.id));
+    const big = line ? formatMoney(line.left, { signed: true }) : row.primary;
     const child = Boolean(category.parentId);
-    const monthAmount = planAmount(category, ym, monthBudgets);
-    const custom = hasMonthOverride(category.id, ym, monthBudgets);
-    const history = monthSeries(ym, spendHistory(category, ym, transactions, categories, monthBudgets));
-    const carries = categoryCarries(category, style);
-    const rowChip = forecast ? (row.tone === "danger" ? "Likely over by month end" : row.tone === "warn" ? "Close" : "Fine") : null;
-    const groupLabel = typical?.fixed.some((entry) => entry.id === category.id)
-      ? "Fixed bill"
-      : typical?.flexible.some((entry) => entry.id === category.id)
-        ? "Everyday spending"
-        : null;
-    const trend = trends?.find((entry) => entry.id === category.id);
-    const usual = usualOf(category.id);
     return (
-      <li key={category.id} className={`rounded-lg border border-border bg-surface p-4 ${child ? "ml-4" : ""}`}>
-        <button type="button" className="flex w-full items-start gap-3 text-left" aria-expanded={open} onClick={() => setOpenId(open ? null : category.id)}>
-          {carries ? <FillJar pct={row.fill} negative={row.tone === "danger"} overflow={row.fill > 100} /> : null}
-          <div className="min-w-0 flex-1">
-            <SideHead row={row} showBar={!carries} />
-            <p className="mt-1 text-xs text-muted">
-              {carries ? "Carries over" : "Starts fresh"}
-              {category.carry == null ? " · following your default" : ""}
-              {groupLabel ? ` · ${groupLabel}` : ""}
-              {rowChip ? ` · ${rowChip}` : ""}
-            </p>
-          </div>
-        </button>
-        {open ? (
-          <div className="mt-3 space-y-3 border-t border-border pt-3">
-            <MiniBars months={history} aLabel="Amount" bLabel="Spent" />
-            <div className="grid grid-cols-2 gap-2">
-              <label className="text-xs text-muted">
-                Usual amount
-                <Input
-                  className="mt-1"
-                  inputMode="decimal"
-                  aria-label={`Monthly amount for ${category.name}`}
-                  value={category.plannedMonthly ? String(category.plannedMonthly) : ""}
-                  placeholder="0"
-                  onChange={(e) => updateCategory(category.id, { plannedMonthly: Number(e.target.value) || 0 })}
-                />
-              </label>
-              <label className="text-xs text-muted">
-                This month only
-                <Input
-                  className="mt-1"
-                  inputMode="decimal"
-                  aria-label={`This month for ${category.name}`}
-                  value={custom ? String(monthAmount) : ""}
-                  placeholder="Same"
-                  onChange={(e) => {
-                    const raw = e.target.value.trim();
-                    setMonthPlan(category.id, ym, raw ? Number(raw) || 0 : null);
-                  }}
-                />
-              </label>
-            </div>
-            <div className="grid grid-cols-2 gap-2" role="group" aria-label={`Carry over for ${category.name}`}>
-              <button
-                type="button"
-                aria-pressed={category.carry === false}
-                className={`min-h-11 rounded-md border px-3 py-2 text-left text-sm ${category.carry === false ? "border-primary bg-chip" : "border-border"}`}
-                onClick={() => updateCategory(category.id, { carry: false })}
-              >
-                This one starts fresh
-              </button>
-              <button
-                type="button"
-                aria-pressed={category.carry === true}
-                className={`min-h-11 rounded-md border px-3 py-2 text-left text-sm ${category.carry === true ? "border-primary bg-chip" : "border-border"}`}
-                onClick={() => {
-                  updateCategory(category.id, { carry: true });
-                  if (!carryStart) {
-                    const first = earliestDataMonth(transactions);
-                    if (first) patchProfile({ carryStartMonth: first });
-                  }
-                }}
-              >
-                This one carries over
-              </button>
-            </div>
-            {category.carry == null ? (
-              <p className="text-xs text-muted">
-                This one follows the choice at the top
-                {categoryCarries(category, style) ? " and keeps what is left" : " and starts over"}. Switching it keeps the amount and the charges.
-              </p>
+      <li key={category.id} className={`rounded-lg border border-border bg-surface p-3 ${child ? "ml-4" : ""}`}>
+        <button type="button" className="flex w-full min-w-0 items-center gap-3 text-left" onClick={() => openCategoryPanel(category.id, ym)}>
+          <span className="w-16 shrink-0">
+            {carries ? (
+              <FillJar pct={row.fill} negative={row.tone === "danger"} overflow={row.fill > 100} />
             ) : (
-              <button
-                type="button"
-                className="min-h-11 text-left text-sm text-muted underline-offset-2 hover:underline"
-                onClick={() => updateCategory(category.id, { carry: null })}
-              >
-                Use the budget’s choice instead. The amount and the charges stay.
-              </button>
+              <SpendMeter spent={line?.spent ?? row.amount} plan={line?.planned ?? row.mark} />
             )}
-            <p className="text-sm">{carryConsequence(row.mark - row.amount, carries)}</p>
-            {trend ? (
-              <p className="text-sm text-muted">
-                {trend.name} is {trend.direction} {Math.abs(trend.percent)} percent versus the earlier months. Based on the last 3 months against the earlier average.
-              </p>
-            ) : null}
-            {bills?.filter((bill) => bill.categoryId === category.id).slice(0, 3).map((bill) => (
-              <p key={bill.merchantKey} className="text-sm text-muted">
-                {bill.description} usually {formatMoney(bill.usual)}
-                {bill.nextDate ? `, next ${bill.nextDate}` : ""}. About {formatMoney(bill.yearly)} a year.
-              </p>
-            ))}
-            {detail === "nerd" ? (
-              <table className="w-full text-left text-sm">
-                <caption className="sr-only">Numbers behind {category.name}</caption>
-                <tbody>
-                  <tr><th className="py-1 pr-3 font-medium">This month</th><td className="tabular">{formatMoney(row.amount)}</td></tr>
-                  <tr><th className="py-1 pr-3 font-medium">Plan</th><td className="tabular">{formatMoney(row.mark)}</td></tr>
-                  <tr><th className="py-1 pr-3 font-medium">Left</th><td className="tabular">{formatMoney(row.left ?? row.mark - row.amount, { signed: true })}</td></tr>
-                  {usual ? <tr><th className="py-1 pr-3 font-medium">Typical</th><td className="tabular">{formatMoney(usual.typical)}</td></tr> : null}
-                  {groupLabel ? <tr><th className="py-1 pr-3 font-medium">Kind</th><td>{groupLabel}</td></tr> : null}
-                  {trend ? <tr><th className="py-1 pr-3 font-medium">Trend</th><td>{trend.percent}%</td></tr> : null}
-                </tbody>
-              </table>
-            ) : null}
-            <details>
-              <summary className="cursor-pointer text-sm text-muted">More</summary>
-              <label className="mt-2 block text-xs text-muted">
-                Name
-                <Input className="mt-1" aria-label={`Name for ${category.name}`} value={category.name} onChange={(e) => updateCategory(category.id, { name: e.target.value })} />
-              </label>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {!child ? (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() =>
-                      addCategory({
-                        slug: `split-${newId("s")}`,
-                        name: `${category.name} part`,
-                        kind: "expense",
-                        plannedMonthly: 0,
-                        parentId: category.id,
-                      })
-                    }
-                  >
-                    Add a part
-                  </Button>
-                ) : null}
-                <Button variant="ghost" size="sm" onClick={() => removeCategory(category.id)}>
-                  Remove
-                </Button>
-              </div>
-            </details>
-          </div>
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate font-medium">{category.name}</span>
+          </span>
+          <span className="font-display text-2xl tabular">{big}</span>
+          {story ? <span className="shrink-0 rounded-full bg-chip px-2 py-1 text-xs">{story.headline}</span> : null}
+        </button>
+        {linked ? (
+          <a href={`/funds#fund-${linked.id}`} className="mt-1 inline-flex min-h-11 items-center text-xs font-medium text-primary">
+            In {linked.name}
+          </a>
         ) : null}
       </li>
     );
@@ -347,8 +213,8 @@ function BudgetSides({ style }: { style: BudgetStyle }) {
         ))}
       </section>
       <SideSwitch side={side} onChange={setSide} />
-      <div className="grid gap-6 lg:grid-cols-2">
-      <section className={`space-y-3 ${side === "in" ? "block" : "hidden"} lg:block`}>
+      <div className="grid min-w-0 gap-6 lg:grid-cols-2">
+      <section className={`min-w-0 space-y-3 ${side === "in" ? "block" : "hidden"} lg:block`}>
         <h2 className="font-display text-lg font-semibold">Money in</h2>
         <p className="text-sm text-muted">What arrived, next to what usually arrives. Nothing rolls into next month.</p>
         {steady ? <p className="text-sm text-muted">Pay has ranged from {formatMoney(steady.low)} to {formatMoney(steady.high)}. {steady.sentence}</p> : null}
@@ -386,7 +252,7 @@ function BudgetSides({ style }: { style: BudgetStyle }) {
         </Button>
       </section>
 
-      <section className={`space-y-3 ${side === "out" ? "block" : "hidden"} lg:block`}>
+      <section className={`min-w-0 space-y-3 ${side === "out" ? "block" : "hidden"} lg:block`}>
         <h2 className="font-display text-lg font-semibold">Money out</h2>
         <p className="text-sm text-muted">
           {style === "buckets"
@@ -450,23 +316,4 @@ function SideHead({ row, showBar = true }: { row: SideRow; showBar?: boolean }) 
       <p className="mt-2 text-sm text-muted">{row.detail}</p>
     </div>
   );
-}
-
-function spendHistory(
-  category: Category,
-  ym: string,
-  transactions: Transaction[],
-  categories: Category[],
-  budgets: MonthBudget[],
-) {
-  const rows: { ym: string; a: number; b: number }[] = [];
-  for (let i = 11; i >= 0; i--) {
-    const month = shiftMonth(ym, -i);
-    rows.push({
-      ym: month,
-      a: planAmount(category, month, budgets),
-      b: categorySpent(transactions, categories, category.id, month),
-    });
-  }
-  return rows;
 }

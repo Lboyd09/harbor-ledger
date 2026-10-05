@@ -222,6 +222,7 @@ export function safeToSpend(input: {
   budgets?: MonthBudget[];
   buckets: MoneyBucket[];
   moves: BucketMove[];
+  setAsides?: import("./types.ts").SetAside[];
 }): { amount: number; funding: number; moved: number; spent: number; plans: number; income: number } {
   return safeFromLedger(
     {
@@ -230,6 +231,7 @@ export function safeToSpend(input: {
       budgets: input.budgets,
       buckets: input.buckets,
       moves: input.moves,
+      setAsides: input.setAsides,
       style: "monthly",
     },
     input.ym,

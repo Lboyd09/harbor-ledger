@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { formatMoney } from "@/lib/budget/money";
 import { displayMerchant } from "@/lib/budget/merchant";
+import { openCategoryPanel } from "./category-panel";
 import { currentMonthKey, monthShort, shiftMonth } from "@/lib/budget/parse-date";
 import { reviewQueue } from "@/lib/budget/review-queue";
 import { previewChange, ruleFor, sideOf, type CategoryUndo, type Side } from "@/lib/budget/sorting";
@@ -25,6 +26,7 @@ type SortRow = {
   open: number;
   likelyBill: boolean;
   defaultId: string | null;
+  shownId: string | null;
   check: boolean;
 };
 
@@ -46,6 +48,7 @@ function buildRows(transactions: Transaction[], side: Side, rules: { merchantKey
       open: 0,
       likelyBill: false,
       defaultId: ruleFor(rules, t.merchantKey, side)?.categoryId ?? null,
+      shownId: null as string | null,
       check: false,
       last: "",
     };
@@ -58,10 +61,17 @@ function buildRows(transactions: Transaction[], side: Side, rules: { merchantKey
     }
     if (t.pinned === "charge" || t.pinned === "month") cur.pinned.push(t);
     if (!t.categoryId) cur.open += 1;
+    else if (cur.shownId == null) cur.shownId = t.categoryId;
+    else if (cur.shownId !== t.categoryId) cur.shownId = "";
     map.set(t.merchantKey, cur);
   }
   return [...map.values()]
-    .map(({ last: _last, ...row }) => ({ ...row, likelyBill: row.count >= 3, total12: Math.round(row.total12 * 100) / 100 }))
+    .map(({ last: _last, ...row }) => ({
+      ...row,
+      shownId: row.shownId || null,
+      likelyBill: row.count >= 3,
+      total12: Math.round(row.total12 * 100) / 100,
+    }))
     .sort((a, b) => Number(Boolean(a.defaultId)) - Number(Boolean(b.defaultId)) || b.count - a.count || b.total12 - a.total12);
 }
 
@@ -221,6 +231,7 @@ function SortList({
             ? previewChange({ transactions, merchantKey: row.merchantKey, side, categoryId: pending.categoryId, scope: "default" })
             : null;
           const open = hands === `${side}:${row.merchantKey}`;
+          const openId = row.defaultId || row.shownId;
           return (
             <li key={`${side}-${row.merchantKey}`} className="grid gap-2 p-4">
               <div className="flex items-start justify-between gap-3">
@@ -229,6 +240,11 @@ function SortList({
                     {name}
                     {row.check ? <span className="ml-2 rounded bg-chip px-1.5 py-0.5 text-xs font-medium">Check</span> : null}
                   </div>
+                  {openId ? (
+                    <button type="button" className="mt-1 text-sm font-medium text-primary" onClick={() => openCategoryPanel(openId)}>
+                      Open {categories.find((item) => item.id === openId)?.name ?? "category"}
+                    </button>
+                  ) : null}
                   <p className="mt-1 text-sm text-muted">
                     {row.count} charge{row.count === 1 ? "" : "s"} · {formatMoney(row.total12)} in the last 12 months
                     {row.likelyBill ? " · Likely bill" : ""}

@@ -20,10 +20,10 @@ export function yearOverview(
   transactions: Transaction[],
   categories: Category[],
   year: string,
-  extra?: { buckets?: import("./types.ts").MoneyBucket[]; moves?: import("./types.ts").BucketMove[]; style?: BudgetStyle; carryStartMonth?: string | null },
+  extra?: { buckets?: import("./types.ts").MoneyBucket[]; moves?: import("./types.ts").BucketMove[]; setAsides?: import("./types.ts").SetAside[]; style?: BudgetStyle; carryStartMonth?: string | null },
 ): YearOverview {
   const book = yearLedger(
-    { transactions, categories, buckets: extra?.buckets, moves: extra?.moves, style: extra?.style, carryStartMonth: extra?.carryStartMonth },
+    { transactions, categories, buckets: extra?.buckets, moves: extra?.moves, setAsides: extra?.setAsides, style: extra?.style, carryStartMonth: extra?.carryStartMonth },
     year,
   );
   const moneyIn = book.totals.received;
@@ -39,10 +39,10 @@ export function spanOverview(
   categories: Category[],
   year: string,
   throughMonth: number,
-  extra?: { buckets?: import("./types.ts").MoneyBucket[]; moves?: import("./types.ts").BucketMove[]; style?: BudgetStyle; carryStartMonth?: string | null },
+  extra?: { buckets?: import("./types.ts").MoneyBucket[]; moves?: import("./types.ts").BucketMove[]; setAsides?: import("./types.ts").SetAside[]; style?: BudgetStyle; carryStartMonth?: string | null },
 ): YearOverview {
   const book = yearLedger(
-    { transactions, categories, buckets: extra?.buckets, moves: extra?.moves, style: extra?.style, carryStartMonth: extra?.carryStartMonth },
+    { transactions, categories, buckets: extra?.buckets, moves: extra?.moves, setAsides: extra?.setAsides, style: extra?.style, carryStartMonth: extra?.carryStartMonth },
     year,
   );
   const last = Math.min(12, Math.max(1, Math.floor(throughMonth)));
@@ -129,6 +129,7 @@ export function monthGlance(input: {
   categories: Category[];
   budgets?: MonthBudget[];
   carryStartMonth?: string | null;
+  setAsides?: import("./types.ts").SetAside[];
   safeToSpend: number;
 }): MonthGlance {
   const style = input.style === "buckets" ? "buckets" : "monthly";
@@ -139,6 +140,7 @@ export function monthGlance(input: {
       budgets: input.budgets,
       style,
       carryStartMonth: input.carryStartMonth,
+      setAsides: input.setAsides,
     },
     input.ym,
   );

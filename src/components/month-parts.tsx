@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";
-import { carryIn, carryOut, carryStatus, categorySpent, nextMonthAllowance, surplusToPutToWork } from "@/lib/budget/carry";
+import { carryIn, carryOut, carryStatus, categorySpent, nextMonthAllowance } from "@/lib/budget/carry";
 import { displayMerchant } from "@/lib/budget/merchant";
 import { formatMoney } from "@/lib/budget/money";
 import type { MonthGroup } from "@/lib/budget/month-view";
@@ -281,7 +281,6 @@ export function Section({
           const row = carry ? { in: carryIn(carry.category, ym, carry.ctx), out: carryOut(carry.category, ym, carry.ctx) } : null;
           const status = carry ? carryStatus(carry.category, ym, carry.ctx) : "even";
           const allowance = carry ? nextMonthAllowance(carry.category, ym, carry.ctx) : null;
-          const surplus = carry ? surplusToPutToWork(carry.category, ym, carry.ctx) : 0;
           const spent = stored && tone === "out" ? categorySpent(transactions, categories, stored.id, ym) : g.total;
           return (
             <div key={g.id} className="overflow-hidden rounded-lg border border-border bg-surface">
@@ -332,11 +331,6 @@ export function Section({
                           ? `${formatMoney(row.out)} extra stays here for next month.`
                           : "Right on track."}
                     </p>
-                    {surplus > 0 ? (
-                      <a className="text-sm font-medium text-primary" href={`/grow?lump=${Math.round(surplus)}`}>
-                        See what it could grow to
-                      </a>
-                    ) : null}
                   </div>
                 ) : null}
                 {linked ? (

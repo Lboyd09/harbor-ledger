@@ -8,6 +8,7 @@ import { comingUp, monthStrip, paceSentence } from "@/lib/budget/screen-plan";
 import { useBudgetStore } from "@/store/budget-store";
 import { AmountsPage } from "./budget-amounts";
 import { TransactionsPage } from "./budget-transactions";
+import { LeftoversCard } from "./category-panel";
 import { BudgetMenu } from "./page-menu";
 import { CarryStartControl } from "./carry-start";
 import { CategorizeCoach } from "./categorize-coach";
@@ -27,11 +28,12 @@ export function BudgetView({ page }: { page: "month" | "amounts" | "transactions
   const budgets = useBudgetStore((s) => s.monthBudgets);
   const buckets = useBudgetStore((s) => s.moneyBuckets);
   const moves = useBudgetStore((s) => s.bucketMoves);
+  const setAsides = useBudgetStore((s) => s.setAsides);
   const style = useBudgetStore((s) => (s.profile.budgetStyle === "buckets" ? "buckets" : "monthly"));
   const carryStartMonth = useBudgetStore((s) => s.profile.carryStartMonth);
   const ledger = useMemo(
-    () => monthLedger({ transactions, categories, budgets: budgets ?? [], buckets: buckets ?? [], moves: moves ?? [], style, carryStartMonth }, ym),
-    [transactions, categories, budgets, buckets, moves, style, carryStartMonth, ym],
+    () => monthLedger({ transactions, categories, budgets: budgets ?? [], buckets: buckets ?? [], moves: moves ?? [], setAsides: setAsides ?? [], style, carryStartMonth }, ym),
+    [transactions, categories, budgets, buckets, moves, setAsides, style, carryStartMonth, ym],
   );
   const forecast = useMemo(
     () => monthEndForecast({ transactions, categories, ym, today: todayIso(), budgets: budgets ?? [] }),
@@ -41,6 +43,7 @@ export function BudgetView({ page }: { page: "month" | "amounts" | "transactions
   const today = todayIso();
   const stillComing = page === "month" ? comingUp(recurringBills(transactions, categories, today), today, 45)?.filter((item) => item.status !== "active" || item.nextDate.startsWith(ym)) ?? null : null;
   const [coach, setCoach] = useState(false);
+  const [fundsOpen, setFundsOpen] = useState(false);
 
   return (
     <div className="space-y-6">
@@ -52,9 +55,29 @@ export function BudgetView({ page }: { page: "month" | "amounts" | "transactions
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4" aria-label="This month">
         <Strip label="Received" value={formatMoney(ledger.totals.received)} />
         <Strip label="Spent" value={formatMoney(ledger.totals.spent)} />
-        <Strip label="Saved to funds" value={formatMoney(ledger.totals.savedToFunds)} />
+        <button type="button" className="rounded-lg border border-border bg-surface px-3 py-3 text-left" onClick={() => setFundsOpen((open) => !open)} aria-expanded={fundsOpen}>
+          <div className="text-xs font-medium uppercase tracking-wide text-muted">Saved to funds</div>
+          <div className="mt-1 font-display text-xl tabular">{formatMoney(ledger.totals.savedToFunds)}</div>
+        </button>
         <Strip label="Left" value={formatMoney(ledger.totals.leftOver, { signed: true })} />
       </section>
+      {fundsOpen ? (
+        <ul className="space-y-1 text-sm">
+          {ledger.funds.length ? (
+            ledger.funds.map((fund) => (
+              <li key={fund.id}>
+                {fund.name}: {formatMoney(fund.funding)} funding, {formatMoney(fund.setAsides)} set aside
+              </li>
+            ))
+          ) : (
+            <li className="text-muted">Nothing put into a fund this month.</li>
+          )}
+        </ul>
+      ) : null}
+      {ledger.fundMoves !== 0 ? (
+        <p className="text-sm text-muted">{formatMoney(ledger.fundMoves)} moved between funds, not counted as new savings.</p>
+      ) : null}
+      {page === "month" ? <LeftoversCard /> : null}
       {strip.ready ? (
         <p className="text-sm text-muted">
           {paceSentence(forecast)} The month ends around {formatMoney(strip.expected ?? 0)}.
