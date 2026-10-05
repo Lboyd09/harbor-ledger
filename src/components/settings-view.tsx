@@ -25,10 +25,8 @@ import { Field, Input, Select } from "./ui/field";
 const LOOKS: { id: HarborLook; label: string; note: string }[] = [
   { id: "harbor", label: "Harbor", note: "Warm paper" },
   { id: "tide", label: "Tide", note: "Cool water" },
-  { id: "brass", label: "Brass", note: "Lamp light" },
   { id: "dusk", label: "Dusk", note: "Night ledger" },
-  { id: "meadow", label: "Meadow", note: "Soft green" },
-  { id: "midnight", label: "Midnight", note: "Deep blue" },
+  { id: "auto", label: "Automatic", note: "Follows this device" },
 ];
 
 export function SettingsView() {
@@ -471,9 +469,13 @@ function LeftoverStyle() {
           {TERMS.carryOver}
         </button>
       </div>
-      <p className="text-sm text-muted">
-        This is only for spending categories, such as rent, groceries, and eating out. Income is compared with what usually comes in and is not carried over. A fund is extra savings, not this choice. One category can do the opposite on the Budget page. Switching never deletes the amount, a one-month amount, or a charge.
-      </p>
+      <p className="text-sm text-muted">This choice is for spending categories only.</p>
+      <details className="text-sm text-muted">
+        <summary className="min-h-11 cursor-pointer">What this does not change</summary>
+        <p className="mt-1">Income is compared with what usually comes in. It is not carried.</p>
+        <p className="mt-1">A fund is extra savings, not this choice. One category can do the opposite on Budget.</p>
+        <p className="mt-1">Switching never deletes the amount, a one-month amount, or a charge.</p>
+      </details>
       <CarryStartControl />
     </section>
   );

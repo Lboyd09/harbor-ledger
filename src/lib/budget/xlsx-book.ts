@@ -1,29 +1,89 @@
 import { latestBalance } from "./accounts.ts";
-import { bucketBalance, fullLineOf } from "./buckets.ts";
-import { TERMS } from "../copy/terms.ts";
+import { bucketBalance } from "./buckets.ts";
 import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
 import * as XLSX from "xlsx";
 import { displayMerchant } from "./merchant.ts";
 import { monthLabel } from "./parse-date.ts";
-import { categoryLabel, orderedCategories, planAmount } from "./plans.ts";
-import { groupPayees } from "./payees.ts";
-import { monthlySeries } from "./totals.ts";
-import { buildYearWorkbook } from "./year.ts";
+import { categoryLabel } from "./plans.ts";
+import { FIGURES } from "./reference.ts";
+import { yearLedger, type LedgerSource } from "./ledger-month.ts";
 import { piecesOf } from "./splits.ts";
-import type { Account, BalancePoint, BucketMove, Category, DebtItem, IraRules, MoneyBucket, MonthBudget, NetWorthPoint, Profile, SavingsGoal, Transaction } from "./types.ts";
+import type { Account, BalancePoint, BucketMove, Category, DebtItem, IraRules, MerchantRule, MoneyBucket, MonthBudget, NetWorthPoint, Profile, SavingsGoal, SetAside, Transaction } from "./types.ts";
 
-type Row = (string | number)[];
+type Cell = string | number | { v: string | number; f?: string; z?: string };
+
+const CUR = '"$"#,##0.00';
+const PCT = "0.00%";
+const DATE = "yyyy-mm-dd";
+
+const SHEETS = [
+  "Start here",
+  "Home year",
+  "Budget month",
+  "Categories",
+  "Funds",
+  "Accounts",
+  "Net worth",
+  "Debts",
+  "Transactions",
+  "Rules",
+  "Charts",
+  "Assumptions",
+] as const;
 
 function round2(n: number) {
   return Math.round(n * 100) / 100;
 }
 
-function catKind(categories: Category[], id: string | null) {
-  return categories.find((c) => c.id === id)?.kind ?? "";
+function money(n: number): Cell {
+  return { v: round2(n), z: CUR };
 }
 
-function sheet(rows: Row[]) {
-  return XLSX.utils.aoa_to_sheet(rows.length ? rows : [[""]]);
+function formula(v: number, f: string): Cell {
+  return { v: round2(v), f, z: CUR };
+}
+
+function dateCell(iso: string): Cell {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso;
+  const [year, month, day] = iso.split("-").map(Number);
+  const serial = Date.UTC(year, month - 1, day) / 86400000 + 25569;
+  return { v: serial, z: DATE };
+}
+
+function colLetter(index: number) {
+  let s = "";
+  let n = index + 1;
+  while (n) {
+    const m = (n - 1) % 26;
+    s = String.fromCharCode(65 + m) + s;
+    n = Math.floor((n - 1) / 26);
+  }
+  return s;
+}
+
+function toSheet(rows: Cell[][], opts?: { filter?: boolean; widths?: number[]; headerRow?: number }) {
+  const aoa = rows.map((row) => row.map((cell) => (typeof cell === "object" ? cell.v : cell)));
+  const ws = XLSX.utils.aoa_to_sheet(aoa.length ? aoa : [[""]]);
+  rows.forEach((row, r) => {
+    row.forEach((cell, c) => {
+      if (cell == null || typeof cell !== "object") return;
+      const addr = XLSX.utils.encode_cell({ r, c });
+      const existing = (ws[addr] ?? { v: cell.v }) as XLSX.CellObject;
+      existing.v = cell.v;
+      existing.t = typeof cell.v === "number" ? "n" : "s";
+      if (cell.f) existing.f = cell.f;
+      if (cell.z) existing.z = cell.z;
+      ws[addr] = existing;
+    });
+  });
+  const header = opts?.headerRow ?? 1;
+  ws["!views"] = [{ state: "frozen", ySplit: header, topLeftCell: `A${header + 1}`, activePane: "bottomLeft" }];
+  if (opts?.widths) ws["!cols"] = opts.widths.map((wch) => ({ wch }));
+  if (opts?.filter && rows.length > header) {
+    const width = Math.max(1, ...rows.map((row) => row.length));
+    ws["!autofilter"] = { ref: `A${header}:${colLetter(width - 1)}${rows.length}` };
+  }
+  return ws;
 }
 
 function chartXml(title: string, cats: string, series: { name: string; values: string }[]) {
@@ -59,41 +119,30 @@ function chartXml(title: string, cats: string, series: { name: string; values: s
 }
 
 function drawingXml() {
+  const anchor = (fromCol: number, fromRow: number, toCol: number, toRow: number, id: number, name: string, rel: string) => `<xdr:twoCellAnchor>
+    <xdr:from><xdr:col>${fromCol}</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>${fromRow}</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from>
+    <xdr:to><xdr:col>${toCol}</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>${toRow}</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to>
+    <xdr:graphicFrame macro="">
+      <xdr:nvGraphicFramePr><xdr:cNvPr id="${id}" name="${name}"/><xdr:cNvGraphicFramePr><a:graphicFrameLocks noGrp="1"/></xdr:cNvGraphicFramePr></xdr:nvGraphicFramePr>
+      <xdr:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/></xdr:xfrm>
+      <a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/chart"><c:chart r:id="${rel}"/></a:graphicData></a:graphic>
+    </xdr:graphicFrame>
+    <xdr:clientData/>
+  </xdr:twoCellAnchor>`;
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart">
-  <xdr:twoCellAnchor>
-    <xdr:from><xdr:col>0</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>16</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from>
-    <xdr:to><xdr:col>8</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>32</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to>
-    <xdr:graphicFrame macro="">
-      <xdr:nvGraphicFramePr><xdr:cNvPr id="2" name="Income and spending"/><xdr:cNvGraphicFramePr><a:graphicFrameLocks noGrp="1"/></xdr:cNvGraphicFramePr></xdr:nvGraphicFramePr>
-      <xdr:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/></xdr:xfrm>
-      <a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/chart"><c:chart r:id="rId1"/></a:graphicData></a:graphic>
-    </xdr:graphicFrame>
-    <xdr:clientData/>
-  </xdr:twoCellAnchor>
-  <xdr:twoCellAnchor>
-    <xdr:from><xdr:col>9</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>16</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from>
-    <xdr:to><xdr:col>16</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>32</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to>
-    <xdr:graphicFrame macro="">
-      <xdr:nvGraphicFramePr><xdr:cNvPr id="3" name="Spending by category"/><xdr:cNvGraphicFramePr><a:graphicFrameLocks noGrp="1"/></xdr:cNvGraphicFramePr></xdr:nvGraphicFramePr>
-      <xdr:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/></xdr:xfrm>
-      <a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/chart"><c:chart r:id="rId2"/></a:graphicData></a:graphic>
-    </xdr:graphicFrame>
-    <xdr:clientData/>
-  </xdr:twoCellAnchor>
+  ${anchor(0, 16, 8, 32, 2, "Money in and out", "rId1")}
+  ${anchor(9, 16, 16, 32, 3, "Spending by category", "rId2")}
+  ${anchor(0, 34, 12, 50, 4, "Balances by account", "rId3")}
 </xdr:wsDr>`;
 }
 
 function rels(pairs: [string, string, string][]) {
-  const body = pairs
-    .map(([id, type, target]) => `<Relationship Id="${id}" Type="${type}" Target="${target}"/>`)
-    .join("");
+  const body = pairs.map(([id, type, target]) => `<Relationship Id="${id}" Type="${type}" Target="${target}"/>`).join("");
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${body}</Relationships>`;
 }
 
-/** Drop chart drawings into a SheetJS workbook so Excel and Google Sheets both get the pictures. */
-function withCharts(bytes: Uint8Array, monthRows: number, categoryRows: number): Uint8Array {
-  if (monthRows < 1 && categoryRows < 1) return bytes;
+function withCharts(bytes: Uint8Array, monthRows: number, categoryRows: number, balanceRows: number, accountCount: number): Uint8Array {
   const files = unzipSync(bytes);
   const workbook = strFromU8(files["xl/workbook.xml"]);
   const relFile = strFromU8(files["xl/_rels/workbook.xml.rels"]);
@@ -107,60 +156,85 @@ function withCharts(bytes: Uint8Array, monthRows: number, categoryRows: number):
 
   let sheetXml = strFromU8(files[sheetPath]);
   if (!sheetXml.includes("xmlns:r=")) {
-    sheetXml = sheetXml.replace(
-      "<worksheet",
-      '<worksheet xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"',
-    );
+    sheetXml = sheetXml.replace("<worksheet", '<worksheet xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"');
   }
   if (!sheetXml.includes("<drawing ")) {
     sheetXml = sheetXml.replace("</worksheet>", '<drawing r:id="rId1"/></worksheet>');
   }
   files[sheetPath] = strToU8(sheetXml);
-
   const relPath = sheetPath.replace("worksheets/", "worksheets/_rels/") + ".rels";
-  files[relPath] = strToU8(
-    rels([
-      [
-        "rId1",
-        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing",
-        "../drawings/drawing1.xml",
-      ],
-    ]),
-  );
+  files[relPath] = strToU8(rels([["rId1", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing", "../drawings/drawing1.xml"]]));
 
   const lastMonth = Math.max(2, monthRows + 1);
   const lastCat = Math.max(2, categoryRows + 1);
-  files["xl/charts/chart1.xml"] = strToU8(
-    chartXml("Income and spending", `Charts!$A$2:$A$${lastMonth}`, [
-      { name: "Charts!$B$1", values: `Charts!$B$2:$B$${lastMonth}` },
-      { name: "Charts!$C$1", values: `Charts!$C$2:$C$${lastMonth}` },
-    ]),
-  );
-  files["xl/charts/chart2.xml"] = strToU8(
-    chartXml("Spending by category", `Charts!$F$2:$F$${lastCat}`, [
-      { name: "Charts!$G$1", values: `Charts!$G$2:$G$${lastCat}` },
-    ]),
-  );
+  const lastBal = Math.max(2, balanceRows + 1);
+  const accounts = Math.max(1, accountCount);
+  files["xl/charts/chart1.xml"] = strToU8(chartXml("Money in and out", `Charts!$A$2:$A$${lastMonth}`, [
+    { name: "Charts!$B$1", values: `Charts!$B$2:$B$${lastMonth}` },
+    { name: "Charts!$C$1", values: `Charts!$C$2:$C$${lastMonth}` },
+  ]));
+  files["xl/charts/chart2.xml"] = strToU8(chartXml("Spending by category", `Charts!$E$2:$E$${lastCat}`, [
+    { name: "Charts!$F$1", values: `Charts!$F$2:$F$${lastCat}` },
+  ]));
+  const balanceSeries = Array.from({ length: accounts }, (_, index) => {
+    const letter = colLetter(7 + index);
+    return { name: `Charts!$${letter}$1`, values: `Charts!$${letter}$2:$${letter}$${lastBal}` };
+  });
+  files["xl/charts/chart3.xml"] = strToU8(chartXml("Balances by account", `Charts!$G$2:$G$${lastBal}`, balanceSeries));
   files["xl/drawings/drawing1.xml"] = strToU8(drawingXml());
-  files["xl/drawings/_rels/drawing1.xml.rels"] = strToU8(
-    rels([
-      ["rId1", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart", "../charts/chart1.xml"],
-      ["rId2", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart", "../charts/chart2.xml"],
-    ]),
-  );
+  files["xl/drawings/_rels/drawing1.xml.rels"] = strToU8(rels([
+    ["rId1", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart", "../charts/chart1.xml"],
+    ["rId2", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart", "../charts/chart2.xml"],
+    ["rId3", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart", "../charts/chart3.xml"],
+  ]));
 
   let types = strFromU8(files["[Content_Types].xml"]);
-  const extras = [
-    `<Override PartName="/xl/charts/chart1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawingml.chart+xml"/>`,
-    `<Override PartName="/xl/charts/chart2.xml" ContentType="application/vnd.openxmlformats-officedocument.drawingml.chart+xml"/>`,
-    `<Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>`,
-  ].filter((line) => !types.includes(line.slice(0, 40)));
-  types = types.replace("</Types>", `${extras.join("")}</Types>`);
+  const extras = [1, 2, 3].map((n) => `<Override PartName="/xl/charts/chart${n}.xml" ContentType="application/vnd.openxmlformats-officedocument.drawingml.chart+xml"/>`);
+  extras.push(`<Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>`);
+  types = types.replace("</Types>", `${extras.filter((line) => !types.includes(line.slice(0, 48))).join("")}</Types>`);
   files["[Content_Types].xml"] = strToU8(types);
-
   const packed: Record<string, Uint8Array> = {};
   for (const [name, data] of Object.entries(files)) packed[name] = data;
   return zipSync(packed);
+}
+
+function yearsOf(transactions: Transaction[]) {
+  const years = [...new Set(transactions.map((row) => row.date.slice(0, 4)).filter((year) => /^\d{4}$/.test(year)))].sort();
+  if (!years.length) years.push(String(new Date().getFullYear()));
+  return years;
+}
+
+function howSorted(row: Transaction) {
+  if (row.pinned || row.userSet) return "hand";
+  if (row.auto?.provisional) return "Check";
+  if (row.auto?.source === "rule") return "rule";
+  return "";
+}
+
+function asideFor(setAsides: SetAside[], categoryId: string, ym: string) {
+  return round2(setAsides.filter((row) => row.ym === ym && row.categoryId === categoryId && row.amount > 0).reduce((sum, row) => sum + row.amount, 0));
+}
+
+function sourceOf(input: {
+  transactions: Transaction[];
+  categories: Category[];
+  monthBudgets?: MonthBudget[];
+  moneyBuckets?: MoneyBucket[];
+  bucketMoves?: BucketMove[];
+  setAsides?: SetAside[];
+  profile: Profile;
+}): LedgerSource {
+  return {
+    transactions: input.transactions,
+    categories: input.categories,
+    budgets: input.monthBudgets ?? [],
+    buckets: input.moneyBuckets ?? [],
+    moves: input.bucketMoves ?? [],
+    setAsides: input.setAsides ?? [],
+    style: input.profile.budgetStyle === "buckets" ? "buckets" : "monthly",
+    carryStartMonth: input.profile.carryStartMonth ?? null,
+    profile: input.profile,
+  };
 }
 
 export function buildHarborWorkbook(input: {
@@ -176,247 +250,228 @@ export function buildHarborWorkbook(input: {
   ira?: IraRules;
   accounts?: Account[];
   balances?: BalancePoint[];
+  setAsides?: SetAside[];
+  merchantRules?: MerchantRule[];
 }): Uint8Array {
-  const { profile, categories, transactions } = input;
-  const budgets = input.monthBudgets ?? [];
-  const goals = input.savingsGoals ?? [];
-  const buckets = input.moneyBuckets ?? [];
-  const moves = input.bucketMoves ?? [];
-  const netWorth = input.netWorth ?? [];
-  const debts = input.debts ?? [];
-  const ira = input.ira;
+  const categories = input.categories;
+  const transactions = input.transactions;
   const accounts = input.accounts ?? [];
   const balances = input.balances ?? [];
-  const months = monthlySeries(transactions, categories);
-  const years = [...new Set(transactions.map((t) => t.date.slice(0, 4)).filter((y) => y.length === 4))].sort();
-  const year = years.at(-1) ?? String(new Date().getFullYear());
-  const book = buildYearWorkbook(transactions, categories, year);
-  const payees = groupPayees(transactions);
+  const buckets = input.moneyBuckets ?? [];
+  const moves = input.bucketMoves ?? [];
+  const debts = input.debts ?? [];
+  const netWorth = input.netWorth ?? [];
+  const rules = input.merchantRules ?? [];
+  const setAsides = input.setAsides ?? [];
+  const source = sourceOf(input);
+  const years = yearsOf(transactions);
+  const books = years.map((year) => yearLedger(source, year));
+  const chartYear = books[books.length - 1];
 
-  const spendByCat = new Map<string, number>();
-  for (const t of transactions) {
-    if (t.excluded || t.status === "transfer" || t.status === "reimbursement") continue;
-    const pieces = piecesOf(t);
-    if (pieces) {
-      for (const part of pieces) {
-        const cat = categories.find((c) => c.id === part.categoryId);
-        if (!cat || cat.kind !== "expense") continue;
-        spendByCat.set(cat.id, (spendByCat.get(cat.id) ?? 0) + part.amount);
-      }
-      continue;
+  const home: Cell[][] = [["Year", "Month", "Received", "Spent", "Saved to funds", "Left"]];
+  for (const book of books) {
+    const start = home.length + 1;
+    for (const month of book.months) {
+      const row = home.length + 1;
+      home.push([
+        book.year,
+        monthLabel(month.ym),
+        money(month.totals.received),
+        money(month.totals.spent),
+        money(month.totals.savedToFunds),
+        formula(month.totals.leftOver, `=C${row}-D${row}-E${row}`),
+      ]);
     }
-    const cat = t.categoryId ? categories.find((c) => c.id === t.categoryId) : undefined;
-    if (!cat || cat.kind !== "expense") {
-      if (t.status === "refund") spendByCat.set("__refund__", (spendByCat.get("__refund__") ?? 0) - Math.abs(t.amount));
-      continue;
-    }
-    const delta = t.status === "refund" ? -Math.abs(t.amount) : t.amount < 0 ? -t.amount : 0;
-    spendByCat.set(cat.id, (spendByCat.get(cat.id) ?? 0) + delta);
-  }
-  const spendRows = [...spendByCat.entries()]
-    .filter(([, n]) => Math.abs(n) >= 0.005)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 12);
-
-  const chartAoa: Row[] = [
-    ["Month", "Income", "Spending", "Left", "", "Category", "Spent"],
-    ...Array.from({ length: Math.max(months.length, spendRows.length, 1) }, (_, i) => {
-      const m = months[i];
-      const cat = spendRows[i];
-      return [
-        m ? monthLabel(m.ym) : "",
-        m ? round2(m.income) : "",
-        m ? round2(m.expenses) : "",
-        m ? round2(m.net) : "",
-        "",
-        cat ? (cat[0] === "__refund__" ? "Money a store gave back" : categoryLabel(categories, cat[0])) : "",
-        cat ? round2(cat[1]) : "",
-      ];
-    }),
-  ];
-
-  const wb = XLSX.utils.book_new();
-  const add = (name: string, rows: Row[]) => XLSX.utils.book_append_sheet(wb, sheet(rows), name.slice(0, 31));
-
-  add("Start here", [
-    [profile.ledgerName || "Harbor Ledger"],
-    ["This file is the same ledger as Harbor: months, plan, splits, merchants, and charts."],
-    ["Excel opens it directly. The charts are drawn on the Charts sheet."],
-    ["Google Sheets: File → Import → Upload → choose this file → Replace spreadsheet."],
-    ["Money back from a store lowers spending. It is not income."],
-    ["Paid back means someone repaid a purchase, so neither row is income or spending."],
-    ["A month budget replaces the usual plan for that month only."],
-    ["A budget starts over every month. A fund keeps what's left."],
-    ["Money moved into a fund is not income and not spending."],
-  ]);
-
-  add("Overview", [
-    ["Year", year],
-    ["Income", round2(book.income)],
-    ["Spending", round2(book.expenses)],
-    ["Left", round2(book.net)],
-    ["Usual income plan", round2(book.planIncome)],
-    ["Usual spending plan", round2(book.planExpenses)],
-    ["Rows still needing a category", book.uncategorized],
-  ]);
-
-  add("Accounts", [
-    [TERMS.account, "Kind", "Latest balance", "As of"],
-    ...accounts.map((account) => {
-      const latest = latestBalance(account.id, balances);
-      return [account.name, account.kind, latest ? round2(latest.amount) : "", latest?.date ?? ""];
-    }),
-  ]);
-
-  add("Saving for", [
-    ["Name", "Target", "Saved", "Left", "By"],
-    ...goals.map((g) => [g.name, round2(g.target), round2(g.saved), round2(Math.max(0, g.target - g.saved)), g.by ?? ""]),
-  ]);
-
-  const through = months.at(-1)?.ym ?? year + "-12";
-  add("Funds", [
-    ["Name", "Monthly", "Yearly", "Opening", "Start", "Target", "By", "Balance", "Full line", "Paused", "Linked categories"],
-    ...buckets.map((b) => [
-      b.name,
-      round2(b.monthly),
-      b.yearly ?? "",
-      round2(b.opening),
-      b.startMonth,
-      b.target ?? "",
-      b.by ?? "",
-      round2(bucketBalance(b, through, transactions, categories, moves)),
-      round2(fullLineOf(b)),
-      b.paused ? "yes" : "",
-      b.categoryIds.map((id) => categoryLabel(categories, id)).join(", "),
-    ]),
-    [],
-    ["Moves", "Month", "Amount", "From", "To"],
-    ...moves.map((m) => [
-      m.id,
-      m.ym,
-      round2(m.amount),
-      m.fromId ? (buckets.find((b) => b.id === m.fromId)?.name ?? m.fromId) : "Not given a job yet",
-      buckets.find((b) => b.id === m.toId)?.name ?? m.toId,
-    ]),
-  ]);
-
-  add("Net worth", [
-    ["Date", "Amount", "Note"],
-    ...netWorth.map((p) => [p.date, round2(p.amount), p.note]),
-  ]);
-
-  add("Debts", [
-    ["Name", "Balance", "APR", "Minimum"],
-    ...debts.map((d) => [d.name, round2(d.balance), d.apr, round2(d.minimum)]),
-  ]);
-
-  if (ira) {
-    add("IRA figures", [
-      ["These numbers are editable in Harbor. Check the current IRS figures."],
-      ["Year", ira.year],
-      ["Under 50", ira.under50],
-      ["Catch-up", ira.catchUp],
-      ["Roth phase-out single start", ira.rothSingleStart],
-      ["Roth phase-out single end", ira.rothSingleEnd],
-      ["Roth phase-out joint start", ira.rothJointStart],
-      ["Roth phase-out joint end", ira.rothJointEnd],
-      ["Note", ira.note],
+    const end = home.length;
+    const totalRow = end + 1;
+    home.push([
+      book.year,
+      "Year total",
+      formula(book.totals.received, `=SUM(C${start}:C${end})`),
+      formula(book.totals.spent, `=SUM(D${start}:D${end})`),
+      formula(book.totals.savedToFunds, `=SUM(E${start}:E${end})`),
+      formula(book.totals.leftOver, `=C${totalRow}-D${totalRow}-E${totalRow}`),
     ]);
   }
 
-  add("Months", [
-    ["Month", "Income", "Spending", "Left", "Needs a category", "Status"],
-    ...book.monthSummaries.map((m) => [
-      monthLabel(m.ym),
-      round2(m.income),
-      round2(m.expenses),
-      round2(m.net),
-      m.uncategorized,
-      m.status,
-    ]),
-  ]);
+  const budget: Cell[][] = [["Year", "Month", "Category", "Planned", "Spent", "Carry in", "Carry out", "Aside", "Carries", "Left"]];
+  for (const book of books) {
+    for (const month of book.months) {
+      for (const line of month.spending) {
+        const row = budget.length + 1;
+        const aside = asideFor(setAsides, line.id, month.ym);
+        const left = line.carries ? round2(line.carryIn + line.planned - line.spent - aside) : round2(line.planned - line.spent);
+        budget.push([
+          book.year,
+          monthLabel(month.ym),
+          line.name,
+          money(line.planned),
+          money(line.spent),
+          money(line.carryIn),
+          money(line.carryOut),
+          money(aside),
+          line.carries ? "yes" : "no",
+          formula(left, `=IF(I${row}="yes",F${row}+D${row}-E${row}-H${row},D${row}-E${row})`),
+        ]);
+      }
+    }
+  }
+  if (budget.length > 1) {
+    const row = budget.length + 1;
+    budget.push(["", "Total", "", formula(0, `=SUM(D2:D${row - 1})`), formula(0, `=SUM(E2:E${row - 1})`), "", "", "", "", formula(0, `=SUM(J2:J${row - 1})`)]);
+    const planned = budget[budget.length - 1][3];
+    const spent = budget[budget.length - 1][4];
+    const left = budget[budget.length - 1][9];
+    if (typeof planned === "object") planned.v = round2(books.reduce((sum, book) => sum + book.months.reduce((inner, month) => inner + month.spending.reduce((n, line) => n + line.planned, 0), 0), 0));
+    if (typeof spent === "object") spent.v = round2(books.reduce((sum, book) => sum + book.months.reduce((inner, month) => inner + month.spending.reduce((n, line) => n + line.spent, 0), 0), 0));
+    if (typeof left === "object") left.v = round2(books.reduce((sum, book) => sum + book.months.reduce((inner, month) => inner + month.spending.reduce((n, line) => n + line.left, 0), 0), 0));
+  }
 
+  const spend = new Map<string, number>();
+  for (const month of chartYear.months) {
+    for (const line of month.spending) spend.set(line.name, (spend.get(line.name) ?? 0) + line.spent);
+  }
+  const spendRows = [...spend.entries()].filter(([, n]) => Math.abs(n) >= 0.005).sort((a, b) => b[1] - a[1]);
+
+  const dates = [...new Set(balances.map((point) => point.date))].sort();
+  const balanceRows = dates.map((date) => {
+    const cells: Cell[] = [dateCell(date)];
+    for (const account of accounts) {
+      const point = balances
+        .filter((row) => row.accountId === account.id && row.date <= date)
+        .sort((a, b) => b.date.localeCompare(a.date))[0];
+      cells.push(money(point?.amount ?? 0));
+    }
+    return cells;
+  });
+
+  const chartWidth = Math.max(chartYear.months.length, spendRows.length, balanceRows.length, 1);
+  const charts: Cell[][] = [["Month", "Received", "Spent", "", "Category", "Spent", "Date"]];
+  for (const account of accounts) charts[0].push(account.name);
+  if (!accounts.length) charts[0].push("Balance");
+  for (let i = 0; i < chartWidth; i++) {
+    const month = chartYear.months[i];
+    const cat = spendRows[i];
+    const bal = balanceRows[i];
+    const row: Cell[] = [
+      month ? monthLabel(month.ym) : "",
+      month ? money(month.totals.received) : "",
+      month ? money(month.totals.spent) : "",
+      "",
+      cat ? cat[0] : "",
+      cat ? money(cat[1]) : "",
+      bal ? bal[0] : "",
+    ];
+    if (bal) row.push(...bal.slice(1));
+    else if (!accounts.length) row.push("");
+    charts.push(row);
+  }
+
+  const wb = XLSX.utils.book_new();
+  const add = (name: string, rows: Cell[][], opts?: { filter?: boolean; widths?: number[] }) => {
+    XLSX.utils.book_append_sheet(wb, toSheet(rows, opts), name.slice(0, 31));
+  };
+
+  add("Start here", [
+    [input.profile.ledgerName || "Harbor Ledger"],
+    ["Start here", "What this sheet is"],
+    ["Home year", "Each month: received, spent, saved to funds, and what is left."],
+    ["Budget month", "Each category: planned, spent, carry in, carry out, and left."],
+    ["Categories", "Spending and income names, and the usual plan."],
+    ["Funds", "Money set aside, and moves between funds."],
+    ["Accounts", "Each account and its latest balance."],
+    ["Net worth", "Snapshots you typed."],
+    ["Debts", "Balances, rates, and minimums you typed."],
+    ["Transactions", "Every charge, with how it was sorted."],
+    ["Rules", "A name and the category it uses."],
+    ["Charts", "Money in versus out, spending by category, balances over time."],
+    ["Assumptions", "Reference figures, with the date and whether they need checking."],
+    ["Google Sheets", "File, Import, Upload, then Replace spreadsheet."],
+  ], { widths: [22, 72] });
+
+  add("Home year", home, { widths: [12, 16, 16, 16, 18, 16] });
+  add("Budget month", budget, { widths: [10, 14, 22, 14, 14, 14, 14, 12, 12, 14] });
   add("Categories", [
-    ["Category", "Group", "Kind", "Usual plan", "Split of"],
-    ...orderedCategories(categories).map((c) => [
-      c.name,
-      categoryLabel(categories, c.id),
-      c.kind === "income" ? "Income" : "Spending",
-      c.plannedMonthly,
-      c.parentId ? categoryLabel(categories, c.parentId) : "",
+    ["Category", "Kind", "Usual plan", "Part of"],
+    ...categories.map((category) => [category.name, category.kind === "income" ? "Income" : "Spending", money(category.plannedMonthly), category.parentId ? categoryLabel(categories, category.parentId) : ""]),
+  ], { widths: [24, 14, 16, 24] });
+  const through = chartYear.months.at(-1)?.ym ?? `${chartYear.year}-12`;
+  add("Funds", [
+    ["Name", "Monthly", "Yearly", "Opening", "Start", "Target", "By", "Balance", "Paused"],
+    ...buckets.map((bucket) => [
+      bucket.name,
+      money(bucket.monthly),
+      bucket.yearly ?? "",
+      money(bucket.opening),
+      bucket.startMonth,
+      bucket.target ?? "",
+      bucket.by ?? "",
+      money(bucketBalance(bucket, through, transactions, categories, moves)),
+      bucket.paused ? "yes" : "",
     ]),
-  ]);
-
-  const budgetMonths = [...new Set(budgets.map((b) => b.ym))].sort();
-  add("Month budgets", [
-    ["Category", "Kind", "Usual plan", ...budgetMonths.map((ym) => monthLabel(ym))],
-    ...orderedCategories(categories).map((c) => [
-      categoryLabel(categories, c.id),
-      c.kind,
-      c.plannedMonthly,
-      ...budgetMonths.map((ym) => {
-        const custom = budgets.find((b) => b.categoryId === c.id && b.ym === ym);
-        return custom ? custom.amount : planAmount(c, null, []);
-      }),
+    [],
+    ["Moves", "Month", "Amount", "From", "To"],
+    ...moves.map((move) => [
+      move.id,
+      move.ym,
+      money(move.amount),
+      move.fromId ? (buckets.find((bucket) => bucket.id === move.fromId)?.name ?? "") : "Not given a job yet",
+      buckets.find((bucket) => bucket.id === move.toId)?.name ?? "",
     ]),
-  ]);
-
-  add("Plan", [
-    ["Category", "Kind", "Usual monthly plan"],
-    ...orderedCategories(categories).map((c) => [categoryLabel(categories, c.id), c.kind, c.plannedMonthly]),
-  ]);
-
+  ], { widths: [22, 14, 14, 14, 12, 14, 12, 14, 12] });
+  add("Accounts", [
+    ["Account", "Kind", "Latest balance", "As of"],
+    ...accounts.map((account) => {
+      const latest = latestBalance(account.id, balances);
+      return [account.name, account.kind, latest ? money(latest.amount) : "", latest ? dateCell(latest.date) : ""];
+    }),
+  ], { widths: [24, 16, 18, 14] });
+  add("Net worth", [
+    ["Date", "Amount", "Note"],
+    ...netWorth.map((point) => [dateCell(point.date), money(point.amount), point.note]),
+  ], { widths: [14, 16, 32] });
+  add("Debts", [
+    ["Name", "Balance", "Rate", "Minimum"],
+    ...debts.map((debt) => [debt.name, money(debt.balance), { v: round2(debt.apr) / 100, z: PCT }, money(debt.minimum)]),
+  ], { widths: [24, 16, 12, 14] });
   add("Transactions", [
-    ["Date", "Description", "Amount", "Income", "Spending", "Category", "Kind", "What it means", "Merchant", "Source", "Notes"],
-    ...[...transactions]
-      .sort((a, b) => b.date.localeCompare(a.date))
-      .map((t) => {
-        const pieces = piecesOf(t);
-        const meaning =
-          t.excluded || t.status === "transfer"
-            ? "Left out"
-            : t.status === "reimbursement"
-              ? "Paid back — not in the budget"
-              : t.status === "refund"
-                ? "Money a store gave back — lowers spending"
-                : pieces
-                  ? "Divided across categories"
-                  : "Counts";
-        const categoryText = pieces
-          ? pieces.map((p) => `${categoryLabel(categories, p.categoryId)} ${p.amount.toFixed(2)}`).join("; ")
-          : categoryLabel(categories, t.categoryId);
-        return [
-          t.date,
-          t.description,
-          t.amount,
-          t.amount > 0 && t.status !== "refund" && t.status !== "reimbursement" ? t.amount : "",
-          t.amount < 0 ? Math.abs(t.amount) : t.status === "refund" ? -Math.abs(t.amount) : "",
-          categoryText,
-          catKind(categories, t.categoryId),
-          meaning,
-          displayMerchant(t.description),
-          t.sourceLabel,
-          t.notes.startsWith("payback") ? "Payback" : t.notes,
-        ];
-      }),
-  ]);
-
-  const incomePayees = payees.filter((g) => g.totalIn > 0);
-  const expensePayees = payees.filter((g) => g.totalOut > 0 || g.returned > 0);
-  const payeeHead = ["Name", "Times", "Money in", "Money out", "Money a store gave back", "Category"];
-  const payeeRow = (g: (typeof payees)[number]): Row => [
-    displayMerchant(g.sample),
-    g.count,
-    round2(g.totalIn),
-    round2(g.totalOut),
-    round2(g.returned),
-    categoryLabel(categories, g.categoryId),
-  ];
-  add("Income merchants", [payeeHead, ...incomePayees.map(payeeRow)]);
-  add("Spending merchants", [payeeHead, ...expensePayees.map(payeeRow)]);
-  add("Charts", chartAoa);
+    ["Date", "Account", "Clean name", "Bank text", "Category", "How it was sorted", "Amount", "Month"],
+    ...[...transactions].sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id)).map((row) => {
+      const pieces = piecesOf(row);
+      const categoryText = pieces
+        ? pieces.map((part) => `${categoryLabel(categories, part.categoryId)} ${part.amount.toFixed(2)}`).join("; ")
+        : categoryLabel(categories, row.categoryId);
+      return [
+        dateCell(row.date),
+        accounts.find((account) => account.id === row.accountId)?.name ?? row.sourceLabel,
+        displayMerchant(row.description),
+        row.description,
+        categoryText,
+        howSorted(row),
+        money(row.amount),
+        monthLabel(row.date.slice(0, 7)),
+      ];
+    }),
+  ], { filter: true, widths: [14, 18, 22, 32, 22, 18, 14, 16] });
+  add("Rules", [
+    ["Name", "Category", "Side"],
+    ...rules.map((rule) => [rule.merchantKey, categoryLabel(categories, rule.categoryId), rule.side ?? "both"]),
+  ], { widths: [24, 24, 12] });
+  add("Charts", charts, { widths: [16, 14, 14, 4, 22, 14, 14, 16, 16, 16] });
+  add("Assumptions", [
+    ["Name", "Value", "As of", "Source", "Status"],
+    ...FIGURES.map((figure) => [
+      figure.name,
+      figure.unit === "rate" ? { v: figure.value, z: PCT } : figure.unit === "usd" ? money(figure.value) : figure.value,
+      dateCell(figure.asOf),
+      figure.source,
+      figure.status,
+    ]),
+  ], { widths: [36, 14, 14, 42, 18] });
 
   const raw = XLSX.write(wb, { bookType: "xlsx", type: "array" }) as ArrayBuffer | Uint8Array;
   const bytes = raw instanceof Uint8Array ? raw : new Uint8Array(raw);
-  return withCharts(bytes, months.length, spendRows.length);
+  return withCharts(bytes, chartYear.months.length, spendRows.length, Math.max(balanceRows.length, 1), Math.max(accounts.length, 1));
 }
+
+export const WORKBOOK_SHEETS = SHEETS;

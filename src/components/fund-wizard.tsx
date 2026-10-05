@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { fullLineOf, goalPace, monthName, monthsInclusive } from "@/lib/budget/buckets";
 import { formatMoney, roundMoney } from "@/lib/budget/money";
 import { currentMonthKey } from "@/lib/budget/parse-date";
@@ -12,10 +12,26 @@ const NAMES = ["Vacation", "Emergency fund", "Car", "Groceries", "Gifts", "Somet
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
 export const FUND_LINK_KEY = "harbor-fund-link";
+export const FUND_PREFILL_KEY = "harbor-fund-prefill";
 
 export const queueFundWizard = (categoryId?: string) => {
   sessionStorage.setItem(FUND_LINK_KEY, categoryId ?? "");
 };
+
+export function queueFundFromGoal(prefill: { name: string; target: number; by: string | null; monthly: number }) {
+  sessionStorage.setItem(FUND_PREFILL_KEY, JSON.stringify(prefill));
+  sessionStorage.setItem(FUND_LINK_KEY, "");
+}
+
+function readFundPrefill() {
+  try {
+    const raw = sessionStorage.getItem(FUND_PREFILL_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as { name?: string; target?: number; by?: string | null; monthly?: number };
+  } catch {
+    return null;
+  }
+}
 
 export function FundWizard({
   linkedCategoryId = null,
@@ -32,16 +48,20 @@ export function FundWizard({
   const addBucket = useBudgetStore((s) => s.addBucket);
   const linkBucketCategory = useBudgetStore((s) => s.linkBucketCategory);
   const start = /^\d{4}-\d{2}$/.test(activeMonth) ? activeMonth : currentMonthKey();
+  const prefill = useState(readFundPrefill)[0];
+  useEffect(() => {
+    sessionStorage.removeItem(FUND_PREFILL_KEY);
+  }, []);
   const [step, setStep] = useState(0);
-  const [name, setName] = useState("");
-  const [custom, setCustom] = useState(false);
-  const [wantsGoal, setWantsGoal] = useState<boolean | null>(null);
-  const [target, setTarget] = useState("");
-  const [byMonth, setByMonth] = useState("");
-  const [byYear, setByYear] = useState("");
+  const [name, setName] = useState(prefill?.name ?? "");
+  const [custom, setCustom] = useState(Boolean(prefill?.name && !NAMES.includes(prefill.name)));
+  const [wantsGoal, setWantsGoal] = useState<boolean | null>(prefill ? true : null);
+  const [target, setTarget] = useState(prefill?.target ? String(prefill.target) : "");
+  const [byMonth, setByMonth] = useState(prefill?.by?.slice(5, 7) ?? "");
+  const [byYear, setByYear] = useState(prefill?.by?.slice(0, 4) ?? "");
   const [per, setPer] = useState<"month" | "year">("month");
-  const [amount, setAmount] = useState("");
-  const [seeded, setSeeded] = useState(false);
+  const [amount, setAmount] = useState(prefill?.monthly ? String(prefill.monthly) : "");
+  const [seeded, setSeeded] = useState(Boolean(prefill?.monthly));
   const [chosen, setChosen] = useState<string[]>(linkedCategoryId ? [linkedCategoryId] : []);
   const [opening, setOpening] = useState("");
 

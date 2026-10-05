@@ -2,8 +2,6 @@ import { useState } from "react";
 import { ledgerBackup } from "@/lib/budget/backup";
 import { ledgerCsv, similarAppCsv, transactionsCsv } from "@/lib/budget/export-workbook";
 import { downloadBytes, downloadText } from "@/lib/budget/download";
-import { monthlySeries } from "@/lib/budget/totals";
-import { monthLabel } from "@/lib/budget/parse-date";
 import { buildHarborWorkbook } from "@/lib/budget/xlsx-book";
 import { useBudgetStore } from "@/store/budget-store";
 import { Button } from "./ui/button";
@@ -22,6 +20,7 @@ export function ExportBar() {
   const ira = useBudgetStore((s) => s.ira);
   const accounts = useBudgetStore((s) => s.accounts) ?? [];
   const balances = useBudgetStore((s) => s.balances) ?? [];
+  const setAsides = useBudgetStore((s) => s.setAsides) ?? [];
   const resetAll = useBudgetStore((s) => s.resetAll);
   const restoreBackup = useBudgetStore((s) => s.restoreBackup);
   const [note, setNote] = useState<string | null>(null);
@@ -41,24 +40,19 @@ export function ExportBar() {
     downloadBytes(filename, bytes, type);
   }
 
+  const pack = { profile, categories, transactions, monthBudgets, savingsGoals, moneyBuckets, bucketMoves, netWorth, debts, ira, accounts, balances, setAsides, merchantRules };
+
   function exportCsv() {
     downloadText("harbor-ledger.csv", ledgerCsv(transactions, categories), "text/csv;charset=utf-8");
-    setNote("Downloaded harbor-ledger.csv. Excel opens it. In Google Sheets: File → Import → Upload.");
+    setNote("CSV downloaded. Excel opens it. Google Sheets: File, Import, Upload.");
   }
 
   function exportWorkbook() {
     setBusy(true);
     setNote(null);
     try {
-      const bytes = buildHarborWorkbook({ profile, categories, transactions, monthBudgets, savingsGoals, moneyBuckets, bucketMoves, netWorth, debts, ira, accounts, balances });
-      publish(
-        "harbor-ledger.xlsx",
-        bytes,
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      );
-      setNote(
-        "Downloaded harbor-ledger.xlsx. Excel opens the sheets and the charts. In Google Sheets: File → Import → Upload → Replace spreadsheet. Every Harbor list is a tab: months, plan, month budgets, splits, transactions, and merchants.",
-      );
+      publish("harbor-ledger.xlsx", buildHarborWorkbook(pack), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      setNote("Excel file downloaded. Google Sheets: File, Import, Upload, Replace spreadsheet.");
     } catch (err) {
       setNote(err instanceof Error ? err.message : "Could not build the workbook.");
     } finally {
@@ -66,32 +60,12 @@ export function ExportBar() {
     }
   }
 
-  async function exportSheets() {
+  function exportSheets() {
     setBusy(true);
     setNote(null);
     try {
-      const bytes = buildHarborWorkbook({ profile, categories, transactions, monthBudgets, savingsGoals, moneyBuckets, bucketMoves, netWorth, debts, ira, accounts, balances });
-      publish(
-        "harbor-ledger-google-sheets.xlsx",
-        bytes,
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      );
-      const lines = ["Month\tIncome\tSpending\tLeft"];
-      for (const m of monthlySeries(transactions, categories)) {
-        lines.push([monthLabel(m.ym), m.income.toFixed(2), m.expenses.toFixed(2), m.net.toFixed(2)].join("\t"));
-      }
-      let copied = false;
-      try {
-        await navigator.clipboard.writeText(lines.join("\n"));
-        copied = true;
-      } catch {
-        copied = false;
-      }
-      setNote(
-        copied
-          ? "Downloaded harbor-ledger-google-sheets.xlsx. In Google Sheets: File → Import → Upload → Replace spreadsheet. The month table is also on your clipboard — open a blank Sheet and paste."
-          : "Downloaded harbor-ledger-google-sheets.xlsx. In Google Sheets: File → Import → Upload → Replace spreadsheet. Charts and every Harbor list are in the file.",
-      );
+      publish("harbor-ledger-google-sheets.xlsx", buildHarborWorkbook(pack), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      setNote("Same workbook. In Google Sheets: File, Import, Upload, Replace spreadsheet.");
     } catch (err) {
       setNote(err instanceof Error ? err.message : "Could not build the Google Sheets file.");
     } finally {
@@ -118,18 +92,15 @@ export function ExportBar() {
     <div className="space-y-6">
       <section className="space-y-3 rounded-lg border border-border bg-surface p-4">
         <h2 className="font-display text-lg font-semibold">Google Sheets and Excel</h2>
-        <p className="text-sm text-muted">
-          The workbook is the ledger: overview, every month, categories and splits, the usual plan, month-only budgets,
-          every transaction, income merchants, spending merchants, and two charts.
-        </p>
+        <p className="text-sm text-muted">One workbook for Excel and Google Sheets, plus a CSV. Totals match Home.</p>
         <div className="flex flex-wrap gap-2">
-          <Button size="sm" onClick={exportWorkbook} disabled={!transactions.length || busy}>
+          <Button size="sm" onClick={exportWorkbook} disabled={busy}>
             {busy ? "Building…" : "Excel"}
           </Button>
-          <Button size="sm" variant="outline" onClick={() => void exportSheets()} disabled={!transactions.length || busy}>
+          <Button size="sm" variant="outline" onClick={exportSheets} disabled={busy}>
             Google Sheets
           </Button>
-          <Button variant="outline" size="sm" onClick={exportCsv} disabled={!transactions.length}>
+          <Button variant="outline" size="sm" onClick={exportCsv}>
             Download CSV
           </Button>
         </div>

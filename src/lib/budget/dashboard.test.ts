@@ -113,10 +113,14 @@ test("old ledgers and backups still load when the new looks are absent", () => {
   assert.equal(kept.accent, "harbor");
   assert.equal(kept.ledgerName, "Kept");
   const meadow = normalizeProfile({ ledgerName: "Garden", accent: "meadow", monthlyIncome: 10 });
-  assert.equal(meadow.accent, "meadow");
+  assert.equal(meadow.accent, "tide");
   assert.equal(meadow.ledgerName, "Garden");
   const midnight = normalizeProfile({ accent: "midnight", ledgerName: "Night" });
-  assert.equal(midnight.accent, "midnight");
+  assert.equal(midnight.accent, "dusk");
+  const brass = normalizeProfile({ accent: "brass", ledgerName: "Lamp" });
+  assert.equal(brass.accent, "harbor");
+  const auto = normalizeProfile({ accent: "auto", ledgerName: "Device" });
+  assert.equal(auto.accent, "auto");
 
   const old = {
     profile: { ledgerName: "Old file", monthlyIncome: 100, completedOnboarding: true },
@@ -137,5 +141,5 @@ test("old ledgers and backups still load when the new looks are absent", () => {
   }
   const withLook = parseBackup({ ...old, profile: { ...old.profile, accent: "meadow" } });
   assert.equal(withLook.ok, true);
-  if (withLook.ok) assert.equal(withLook.data.profile.accent, "meadow");
+  if (withLook.ok) assert.equal(withLook.data.profile.accent, "tide");
 });

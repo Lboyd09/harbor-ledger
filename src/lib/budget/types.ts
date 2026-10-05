@@ -6,7 +6,7 @@ export type CategoryKind = "income" | "expense";
 export type RecurringInterval = "weekly" | "biweekly" | "monthly" | "irregular";
 export type BudgetPeriod = "week" | "month";
 export type TxStatus = "posted" | "refund" | "transfer" | "reimbursement";
-export type HarborLook = "harbor" | "dusk" | "tide" | "brass" | "meadow" | "midnight";
+export type HarborLook = "harbor" | "dusk" | "tide" | "auto";
 export type HarborMotion = "calm" | "lively";
 /** How much of the ledger to show. Missing on older ledgers — treat as simple. */
 export type DetailMode = "simple" | "nerd";
@@ -68,6 +68,8 @@ export type Profile = {
   withdrawalRate?: number;
   /** Yearly return band as decimals. Missing means the planning range. */
   returnBand?: { conservative: number; expected: number; optimistic: number };
+  /** Share of income the person said they want to save. Missing means they have not said. */
+  savingsGoalRate?: number;
 };
 
 export type Category = {

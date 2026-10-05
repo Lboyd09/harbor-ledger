@@ -117,8 +117,6 @@ type State = LedgerSnapshot & {
   removeBucket: (id: string) => void;
   linkBucketCategory: (bucketId: string, categoryId: string) => string;
   unlinkBucketCategory: (bucketId: string, categoryId: string) => void;
-  /** On: leftovers stay in this category. Off: it starts over each month. */
-  setKeepsLeftovers: (categoryId: string, on: boolean) => void;
   moveBucketMoney: (move: Omit<BucketMove, "id">) => void;
   addNetWorth: (point: Omit<NetWorthPoint, "id">) => void;
   removeNetWorth: (id: string) => void;
@@ -830,70 +828,6 @@ export const useBudgetStore = create<State>()(
           moneyBuckets: (get().moneyBuckets ?? []).map((b) =>
             b.id === bucketId ? { ...b, categoryIds: b.categoryIds.filter((id) => id !== categoryId) } : b,
           ),
-        });
-        schedulePersist();
-      },
-      setKeepsLeftovers: (categoryId, on) => {
-        const cat = get().categories.find((c) => c.id === categoryId);
-        if (!cat || cat.kind !== "expense") return;
-        const buckets = get().moneyBuckets ?? [];
-        if (!on) {
-          const host = buckets.find((b) => b.categoryIds.includes(categoryId));
-          const monthly = host?.monthly ?? cat.plannedMonthly;
-          const moneyBuckets = buckets.flatMap((b) => {
-            if (!b.categoryIds.includes(categoryId)) return [b];
-            const categoryIds = b.categoryIds.filter((id) => id !== categoryId);
-            const onlyThis =
-              categoryIds.length === 0 &&
-              !b.target &&
-              !b.fromGoalId &&
-              b.opening === 0 &&
-              !(b.pastRates && b.pastRates.length) &&
-              !b.paused;
-            if (onlyThis) return [];
-            return [{ ...b, categoryIds }];
-          });
-          set({
-            moneyBuckets,
-            categories: get().categories.map((c) => (c.id === categoryId ? { ...c, plannedMonthly: monthly } : c)),
-          });
-          schedulePersist();
-          return;
-        }
-        if (buckets.some((b) => b.categoryIds.includes(categoryId))) return;
-        const id = newId("bucket");
-        const linked = linkCategoryState({
-          categories: get().categories,
-          monthBudgets: get().monthBudgets ?? [],
-          buckets: [
-            ...buckets,
-            {
-              id,
-              name: cat.name,
-              monthly: cat.plannedMonthly,
-              yearly: null,
-              categoryIds: [],
-              target: null,
-              by: null,
-              startMonth: get().activeMonth,
-              opening: 0,
-              fromGoalId: null,
-              monthlyFrom: get().activeMonth,
-              pastRates: [],
-              paused: false,
-              pausedFrom: null,
-              fullLine: null,
-              nudgeDismissedYm: null,
-            },
-          ],
-          categoryId,
-          bucketId: id,
-        });
-        if (!linked) return;
-        set({
-          categories: linked.categories,
-          monthBudgets: linked.monthBudgets,
-          moneyBuckets: linked.buckets,
         });
         schedulePersist();
       },

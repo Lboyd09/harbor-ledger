@@ -76,6 +76,7 @@ export function PageMenu({ title, items }: { title: string; items: PageMenuItem[
                 <button
                   type="button"
                   role="menuitem"
+                  aria-current={item.current ? "page" : undefined}
                   className="flex min-h-11 w-full items-center rounded-md px-3 text-left text-sm hover:bg-chip"
                   onClick={() => {
                     setOpen(false);

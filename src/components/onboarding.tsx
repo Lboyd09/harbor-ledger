@@ -628,9 +628,13 @@ function StyleStep({
           <div className="flex items-start justify-between gap-3">
             <div>
               <div className="text-base font-medium">{TERMS.carryOver}</div>
-              <p className="mt-1 text-sm text-muted">
-                Leftover in a spending category stays for next month. Going over means next month has less. Income is not carried, because pay changes. Leftovers start at the first month of your file. You can start from this month instead. Past months will show what you would have carried. Changing it does not delete anything.
-              </p>
+              <p className="mt-1 text-sm text-muted">Leftover in a category stays for next month.</p>
+              <details className="mt-1 text-sm text-muted">
+                <summary className="cursor-pointer">How leftovers start</summary>
+                <p className="mt-1">Going over means next month has less. Income is not carried, because pay changes.</p>
+                <p className="mt-1">Leftovers start at the first month of your file. You can start from this month instead.</p>
+                <p className="mt-1">Past months show what you would have carried. Changing it does not delete anything.</p>
+              </details>
             </div>
             <Jar mode="carry" lively={lively} />
           </div>

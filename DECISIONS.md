@@ -2,9 +2,36 @@
 
 Newest first. If this file conflicts with earlier chat, this file wins.
 
+## Current rules
+
+Harbor is a private ledger. Nothing connects to a bank.
+Five tabs: Home, Budget, Funds, Grow, and Account. Each title opens its own pages. There is no second tab row.
+Home is the year. Budget is the month. Funds are extra savings for one purchase, not the budget.
+One calculation makes each month. Every screen and the workbook read it. They do not add their own totals.
+A month is money in, money spent, money saved to funds, and what is left. Those four add up.
+Leftovers start at the first month of the first imported file. The person can start from the present month instead.
+Tapping a category opens one panel: the picture, one sentence, and the charges, editable in place.
+An investment account can estimate growth. A typed balance wins over an estimate.
+Home lists bank and cash, then savings, then investments and retirement, then cards and loans.
+Grow opens on one question, "What do you want to do?", with five answers. Each calculator is its own page.
+A calculator shows one question, the person's numbers, one result, one picture, key numbers, up to three tips, assumptions, and the years.
+Tips are short and general. Each page says "Not personal advice" once. A tip uses a number only when that number is a dated reference figure.
+There are three looks: Harbor, Tide, and Dusk. Automatic follows the device and is stored as auto, not as a color.
+Motion is short, plays once, and stops when the person or the device asks for less motion.
+The workbook uses the same pages as the app. Its totals equal the app. Excel and Google Sheets get the same file.
+The words bucket, envelope, rollover, allocate, reconcile, and Nerd are not shown. Advanced is the visible word for the extra tools.
+Simple shows the answer, one picture, and one next action. Advanced adds the workings.
+Import sorts a sure charge, marks a fair guess as Check, and waits when there is no good guess.
+A spending category can carry over or start fresh on its own. Income does not carry. A fund link does not take a category off the budget.
+Old ledgers and backups still load. New fields are optional.
+
 ## 2026-10-05
 
+60. The workbook mirrors the app's pages and its totals equal the app's.
+59. There are three looks (Harbor, Tide, Dusk) and Automatic, which follows the device. Motion is subtle and happens once.
+58. Grow opens on one question, "What do you want to do?", with five answers. Each calculator is its own page with the same layout. Tips are short, general, and labeled.
 57. An investment or retirement account estimates its own growth once the person gives a return and a monthly amount. A typed balance always wins over an estimate.
+
 56. Home leads with bank and cash balances, then savings, then investments and retirement, then cards and loans. Cash and investments are quick to add.
 55. Funds and the budget agree: money put into funds shows in the month, and linked categories show their fund.
 54. Unused money is suggested for a fund or the growth calculators in one place only.

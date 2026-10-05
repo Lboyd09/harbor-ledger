@@ -86,8 +86,16 @@ export function AppShell() {
 
   useEffect(() => {
     const root = document.documentElement;
-    root.dataset.accent = accent;
-    root.dataset.motion = motion;
+    const paint = () => {
+      const mode = accent === "auto" && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dusk" : accent === "auto" ? "harbor" : accent;
+      root.dataset.accent = mode;
+      root.dataset.motion = motion;
+    };
+    paint();
+    if (accent !== "auto") return;
+    const query = window.matchMedia("(prefers-color-scheme: dark)");
+    query.addEventListener("change", paint);
+    return () => query.removeEventListener("change", paint);
   }, [accent, motion]);
 
   if (publicAuth) {

@@ -38,7 +38,15 @@ const HOUSEHOLDS = ["single", "partnered", "married"] as const;
 const STAGES = ["student", "early-career", "established", "parent", "retired"] as const;
 const HOUSING = ["family", "rent", "own"] as const;
 const GOALS: BudgetGoal[] = ["track", "save", "debt", "purchase", "live-within"];
-const LOOKS: HarborLook[] = ["harbor", "dusk", "tide", "brass", "meadow", "midnight"];
+const STORED_LOOK: Record<string, HarborLook> = {
+  harbor: "harbor",
+  tide: "tide",
+  dusk: "dusk",
+  auto: "auto",
+  brass: "harbor",
+  meadow: "tide",
+  midnight: "dusk",
+};
 const MOTIONS: HarborMotion[] = ["calm", "lively"];
 const DETAILS: DetailMode[] = ["simple", "nerd"];
 const CADENCES: IncomeCadence[] = ["monthly", "twice-monthly", "biweekly", "weekly", "irregular"];
@@ -102,6 +110,9 @@ function optionalPlanner(p: Record<string, unknown>): Partial<Profile> {
       out.returnBand = { conservative: conservative as number, expected: expected as number, optimistic: optimistic as number };
     }
   }
+  if (typeof p.savingsGoalRate === "number" && Number.isFinite(p.savingsGoalRate) && p.savingsGoalRate >= 0 && p.savingsGoalRate <= 1) {
+    out.savingsGoalRate = p.savingsGoalRate;
+  }
   return out;
 }
 
@@ -142,7 +153,7 @@ export function normalizeProfile(raw: unknown): Profile {
       : ["track"],
     completedOnboarding: asBool(p.completedOnboarding, false),
     budgetPeriod,
-    accent: LOOKS.includes(p.accent as HarborLook) ? (p.accent as HarborLook) : "harbor",
+    accent: STORED_LOOK[asString(p.accent)] ?? "harbor",
     motion: MOTIONS.includes(p.motion as HarborMotion) ? (p.motion as HarborMotion) : "lively",
     detail: DETAILS.includes(p.detail as DetailMode) ? (p.detail as DetailMode) : "simple",
     detailChosen: asBool(p.detailChosen, false),
