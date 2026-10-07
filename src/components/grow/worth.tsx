@@ -21,7 +21,7 @@ export function WorthPage() {
   return (
     <CalcFrame
       question="What do you own, minus what you owe?"
-      result={latest ? `Last snapshot is ${formatMoney(latest.amount)} on ${latest.date}.` : fromAccounts ? `Accounts total ${formatMoney(fromAccounts.total)} as of ${fromAccounts.date}.` : "Nothing entered yet. Harbor cannot see a bank."}
+      result={latest ? `Last snapshot is ${formatMoney(latest.amount)} on ${latest.date}.` : fromAccounts ? `Accounts total ${formatMoney(fromAccounts.total)} as of ${fromAccounts.date}.` : "Nothing entered yet. BudgetFlow cannot see a bank."}
       topic="worth"
       facts={g.tipFacts}
       assumptionIds={[]}

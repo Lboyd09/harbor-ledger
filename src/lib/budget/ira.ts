@@ -14,7 +14,7 @@ export const DEFAULT_IRA: IraRules = {
   rothSingleEnd: IRA_LIMITS.rothSingleEnd,
   rothJointStart: IRA_LIMITS.rothJointStart,
   rothJointEnd: IRA_LIMITS.rothJointEnd,
-  note: "Check the current IRS figures before you rely on these. Harbor does not update them for you.",
+  note: "Check the current IRS figures before you rely on these. BudgetFlow does not update them for you.",
 };
 
 function num(v: unknown, fallback: number) {

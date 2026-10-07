@@ -56,13 +56,13 @@ function Confirm() {
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-5 py-10">
-      <p className="text-sm font-medium uppercase tracking-widest text-muted">Harbor Ledger</p>
+      <p className="text-sm font-medium uppercase tracking-widest text-muted">BudgetFlow</p>
       <h1 className="mt-3 font-display text-3xl font-semibold">Confirm email</h1>
       {state === "working" ? <p className="mt-3 text-sm text-muted">Checking the link…</p> : null}
       {state === "done" ? <p className="mt-3 text-sm text-muted">Email confirmed. You can go back to the ledger.</p> : null}
       {state === "error" ? <p className="mt-3 text-sm text-danger">{error}</p> : null}
       <Link to="/" className="mt-6">
-        <Button className="w-full">Open Harbor</Button>
+        <Button className="w-full">Open BudgetFlow</Button>
       </Link>
     </main>
   );

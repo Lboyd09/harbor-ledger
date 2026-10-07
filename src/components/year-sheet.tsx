@@ -110,7 +110,7 @@ export function YearSheet({ embedded = false }: { embedded?: boolean }) {
   const expenseMonths = book.months.map((_, i) => expenseRows.reduce((s, r) => s + r.months[i], 0));
 
   function downloadCsv() {
-    downloadText(`harbor-${year}-sheet.csv`, yearSheetCsv(book), "text/csv;charset=utf-8");
+    downloadText(`budgetflow-${year}-sheet.csv`, yearSheetCsv(book), "text/csv;charset=utf-8");
   }
 
   if (!transactions.length) {

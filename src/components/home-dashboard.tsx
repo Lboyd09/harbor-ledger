@@ -124,7 +124,7 @@ export function HomeDashboard() {
         <AccountBoard />
         <EmptyArt kind="home" />
         <h1 className="font-display text-3xl font-semibold">Nothing here yet</h1>
-        <p className="text-sm text-muted">Add a bank file. Harbor reads a typical month, what repeats, and where the money went.</p>
+        <p className="text-sm text-muted">Add a bank file. BudgetFlow reads a typical month, what repeats, and where the money went.</p>
         <Link to="/import">
           <Button>Add your first bank file</Button>
         </Link>
@@ -134,7 +134,7 @@ export function HomeDashboard() {
 
   function downloadYear() {
     const book = buildYearWorkbook(transactions, categories, year);
-    downloadText(`harbor-${year}-sheet.csv`, yearSheetCsv(book), "text/csv;charset=utf-8");
+    downloadText(`budgetflow-${year}-sheet.csv`, yearSheetCsv(book), "text/csv;charset=utf-8");
   }
 
   return (

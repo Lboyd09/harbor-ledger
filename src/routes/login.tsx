@@ -54,7 +54,7 @@ function Login() {
         const { error: err } = await authClient.signUp.email({
           email: email.trim(),
           password,
-          name: email.trim().split("@")[0] || "Harbor",
+          name: email.trim().split("@")[0] || "BudgetFlow",
         });
         if (err) throw new Error(err.message || "Could not create the account.");
         await authClient.getSession();
@@ -79,7 +79,7 @@ function Login() {
   if (confirmLink) {
     return (
       <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-5 py-10">
-        <p className="text-sm font-medium uppercase tracking-widest text-muted">Harbor Ledger</p>
+        <p className="text-sm font-medium uppercase tracking-widest text-muted">BudgetFlow</p>
         <h1 className="mt-3 font-display text-3xl font-semibold">Confirm your email</h1>
         <p className="mt-3 text-sm text-muted">
           Mail is not connected on this host yet, so the confirmation link is here instead of in an inbox. After you add
@@ -99,7 +99,7 @@ function Login() {
     <main className="min-h-dvh bg-bg text-fg md:grid md:grid-cols-2">
       <section className="hidden flex-col justify-between border-r border-border bg-surface px-12 py-12 md:flex">
         <div>
-          <p className="text-sm font-medium uppercase tracking-widest text-muted">Harbor Ledger</p>
+          <p className="text-sm font-medium uppercase tracking-widest text-muted">BudgetFlow</p>
           <h1 className="mt-6 max-w-md font-display text-4xl font-semibold leading-tight">
             {fromOnboarding ? "Your outlook is ready. Keep it." : "A private ledger for the files your bank already gives you."}
           </h1>
@@ -137,7 +137,7 @@ function Login() {
       </section>
 
       <section className="flex flex-col justify-center px-5 py-10 md:px-16">
-        <p className="text-sm font-medium uppercase tracking-widest text-muted md:hidden">Harbor Ledger</p>
+        <p className="text-sm font-medium uppercase tracking-widest text-muted md:hidden">BudgetFlow</p>
         {fromOnboarding ? (
           <p className="mt-2 rounded-md bg-chip px-3 py-2 text-sm md:hidden">
             {profile.ledgerName || "Your ledger"} is set up. Create an account to keep it.

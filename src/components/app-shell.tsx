@@ -68,7 +68,7 @@ export function AppShell() {
       ? "Budget"
       : path === "/funds"
         ? "Funds"
-        : (NAV.find((n) => n.to === path)?.label ?? "Harbor");
+        : (NAV.find((n) => n.to === path)?.label ?? "BudgetFlow");
   const ledgerName = useBudgetStore((s) => s.profile.ledgerName);
   const accent = useBudgetStore((s) => s.profile.accent ?? "harbor");
   const motion = useBudgetStore((s) => s.profile.motion ?? "lively");
@@ -105,8 +105,8 @@ export function AppShell() {
   if (!hydrated || (isPending && !user)) {
     return (
       <div className="flex min-h-dvh flex-col items-center justify-center gap-2 bg-bg px-6 text-center">
-        <p className="text-sm font-medium uppercase tracking-widest text-muted">Harbor Ledger</p>
-        <p className="font-display text-2xl font-semibold">Opening Harbor…</p>
+        <p className="text-sm font-medium uppercase tracking-widest text-muted">BudgetFlow</p>
+        <p className="font-display text-2xl font-semibold">Opening BudgetFlow…</p>
       </div>
     );
   }
@@ -122,7 +122,7 @@ export function AppShell() {
         <div className="px-5 py-6">
           <div className="flex items-center gap-2">
             <HarborMark className="size-5 text-primary" />
-            <div className="font-display text-xl font-semibold">Harbor</div>
+            <div className="font-display text-xl font-semibold">BudgetFlow</div>
           </div>
           <div className="truncate text-xs text-muted">{ledgerName || "Ledger"}</div>
         </div>
@@ -155,7 +155,7 @@ export function AppShell() {
         <div className="flex items-center gap-2">
           <HarborMark className="size-5 text-primary" />
           <div>
-            <div className="font-display text-lg font-semibold">Harbor</div>
+            <div className="font-display text-lg font-semibold">BudgetFlow</div>
             <div className="text-xs text-muted">{current}</div>
           </div>
         </div>

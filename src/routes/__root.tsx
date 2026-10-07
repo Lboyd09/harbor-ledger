@@ -5,7 +5,7 @@ import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import { AppShell } from "@/components/app-shell";
 import appCss from "../styles.css?url";
 
-const APP_NAME = "Harbor Ledger";
+const APP_NAME = "BudgetFlow";
 
 const fetchSessionUser = createServerFn({ method: "GET" }).handler(async () => {
   const { getSessionUser } = await import("@/lib/auth/verify.server");

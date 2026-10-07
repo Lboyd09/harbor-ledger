@@ -81,7 +81,7 @@ function Reset() {
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-5 py-10">
-      <p className="text-sm font-medium uppercase tracking-widest text-muted">Harbor Ledger</p>
+      <p className="text-sm font-medium uppercase tracking-widest text-muted">BudgetFlow</p>
       <h1 className="mt-3 font-display text-3xl font-semibold">Reset password</h1>
       {done ? (
         <div className="mt-4 space-y-4">
@@ -107,7 +107,7 @@ function Reset() {
             <p className="text-sm text-muted">
               Email yourself a link. It works for one hour. Google and X sign-in do not use a password.
             </p>
-            {sent ? <p className="text-sm text-good">If that email uses a Harbor password, the link is on its way.</p> : null}
+            {sent ? <p className="text-sm text-good">If that email uses a BudgetFlow password, the link is on its way.</p> : null}
             <Field label="Email">
               <Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
             </Field>
