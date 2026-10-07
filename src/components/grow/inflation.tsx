@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { needsPrompt, readNumber } from "@/lib/budget/calc-input";
 import { inflated } from "@/lib/budget/grow-math";
 import { formatMoney } from "@/lib/budget/money";
 import { Input } from "../ui/field";
@@ -18,6 +19,14 @@ export function InflationPage() {
     else if (g.facts.cashSavings.value != null) setAmount(String(Math.round(g.facts.cashSavings.value)));
     setRate(String(Math.round((g.facts.inflation.value ?? 0.02) * 1000) / 10));
   }, [g.facts]);
+  const missing = needsPrompt(
+    [
+      { label: "an amount", value: readNumber(amount), above: 0 },
+      { label: "how many years", value: readNumber(years), min: 0 },
+      { label: "the inflation rate (0 is fine)", value: readNumber(rate) },
+    ],
+    "what it buys later",
+  );
   const pile = Number(amount) || 0;
   const yearCount = Math.max(0, Math.round(Number(years) || 0));
   const inflation = Number(rate) || 0;
@@ -27,6 +36,7 @@ export function InflationPage() {
     <CalcFrame
       question="What will today's money buy later?"
       result={`${formatMoney(pile)} buys about ${formatMoney(result.buyingPower)} in ${yearCount} years if prices rise ${inflation} percent.`}
+      missing={missing}
       topic="inflation"
       facts={g.tipFacts}
       assumptionIds={["inflation"]}

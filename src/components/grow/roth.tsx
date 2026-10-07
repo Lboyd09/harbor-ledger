@@ -1,3 +1,4 @@
+import { needsPrompt } from "@/lib/budget/calc-input";
 import { rothVsTraditional } from "@/lib/budget/grow-math";
 import { sensitivityOf } from "@/lib/budget/grow-tables";
 import { formatMoney } from "@/lib/budget/money";
@@ -11,6 +12,17 @@ import { useGrow } from "./session";
 export function RothPage() {
   const g = useGrow();
   const over = g.annualN > g.limit;
+  const missing = needsPrompt(
+    [
+      { label: "the pre-tax amount each year", value: g.annualIn, above: 0 },
+      { label: "how many years", value: g.yearsIn, above: 0 },
+      { label: "the yearly rate", value: g.rateIn },
+      { label: "the tax rate now (0 is fine)", value: g.taxNowIn, min: 0 },
+      { label: "the tax rate later (0 is fine)", value: g.taxLaterIn, min: 0 },
+      ...(g.today ? [{ label: "inflation", value: g.inflationIn }] : []),
+    ],
+    "which one leaves more",
+  );
   const winner = g.compare.roth >= g.compare.traditional ? "Roth" : "Traditional";
   const rows = Array.from({ length: Math.min(Math.max(1, Math.round(g.yearCount)), 30) }, (_, index) => {
     const year = index + 1;
@@ -24,6 +36,7 @@ export function RothPage() {
     <CalcFrame
       question="Roth or traditional, after tax?"
       result={`${winner} leaves about ${formatMoney(Math.max(g.compare.roth, g.compare.traditional))} in this estimate.`}
+      missing={missing}
       topic="roth"
       facts={g.tipFacts}
       assumptionIds={["ira-under-50", "ira-catch-up", "roth-single-start", "roth-single-end", "market-expected", "inflation"]}

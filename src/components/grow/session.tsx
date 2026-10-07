@@ -4,6 +4,7 @@ import { latestBalance } from "@/lib/budget/accounts";
 import { bucketBalance } from "@/lib/budget/buckets";
 import { MARKET_RATES, SAVINGS_RATES, monthlyPath, projectBoth, projectLump, rothVsTraditional } from "@/lib/budget/grow-math";
 import { DEFAULT_IRA, iraLimit, rothRoom } from "@/lib/budget/ira";
+import { readNumber } from "@/lib/budget/calc-input";
 import { buildYearWorkbook } from "@/lib/budget/year";
 import { useBudgetStore } from "@/store/budget-store";
 import { useLivelyMotion } from "../use-lively-motion";
@@ -116,6 +117,15 @@ function useGrowState() {
     }
   }, [facts]);
 
+  // Typed values, or null when the box is blank. Pages use these to ask for what is missing.
+  const yearsIn = readNumber(years);
+  const rateIn = readNumber(rate);
+  const inflationIn = readNumber(inflation);
+  const principalIn = readNumber(principal);
+  const monthlyIn = readNumber(monthly);
+  const taxNowIn = readNumber(taxNow);
+  const taxLaterIn = readNumber(taxLater);
+  const annualIn = readNumber(annual);
   const inflationRate = Math.max(0, (Number(inflation) || 0) / 100);
   const yearCount = Math.max(0, Number(years) || 0);
   const principalN = Math.max(0, Number(principal) || 0);
@@ -148,6 +158,7 @@ function useGrowState() {
     principal, setPrincipal, years, setYears, monthly, setMonthly, rate, setRate, taxNow, setTaxNow, taxLater, setTaxLater,
     annual, setAnnual, today, setToday, inflation, setInflation, age50, setAge50, joint, setJoint, magi, setMagi,
     inflationRate, yearCount, principalN, monthlyN, taxNowN, taxLaterN, market, annualN,
+    yearsIn, rateIn, inflationIn, principalIn, monthlyIn, taxNowIn, taxLaterIn, annualIn,
     savings, taxable, rothLump, traditionalLump, path, both, compare, limit, room, tipFacts,
   };
 }

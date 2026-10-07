@@ -1,4 +1,5 @@
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { needsPrompt } from "@/lib/budget/calc-input";
 import { sensitivityOf, yearRows } from "@/lib/budget/grow-tables";
 import { formatMoney } from "@/lib/budget/money";
 import { Input } from "../ui/field";
@@ -9,11 +10,21 @@ import { useGrow } from "./session";
 export function MonthlyPage() {
   const g = useGrow();
   const end = g.both.at(-1);
+  const missing = needsPrompt(
+    [
+      { label: "how much you add each month (0 is fine)", value: g.monthlyIn, min: 0 },
+      { label: "how many years", value: g.yearsIn, min: 0 },
+      { label: "the yearly rate", value: g.rateIn },
+      ...(g.today ? [{ label: "inflation", value: g.inflationIn }] : []),
+    ],
+    "the ending balance",
+  );
   const rows = yearRows({ principal: g.principalN, monthly: g.monthlyN, years: g.yearCount, rate: g.market, inflation: g.inflationRate, today: g.today });
   return (
     <CalcFrame
       question="What if you add money every month?"
       result={`${formatMoney(end?.contributed ?? 0)} is money you put in. The ending balance is ${formatMoney(end?.balance ?? 0)}.`}
+      missing={missing}
       topic="monthly"
       facts={g.tipFacts}
       assumptionIds={["market-expected", "inflation"]}

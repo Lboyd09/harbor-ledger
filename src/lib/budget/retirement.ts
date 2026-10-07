@@ -1,3 +1,4 @@
+import { needsPrompt, readNumber } from "./calc-input.ts";
 import { roundMoney } from "./money.ts";
 import { DEFAULT_INFLATION, DEFAULT_RETIRE_AGE, DEFAULT_WITHDRAWAL, PLANNING_MARKET } from "./reference.ts";
 
@@ -83,6 +84,80 @@ export function cleanRetirementInput(raw: RetirementInput): RetirementInput {
     incomeWantedYearly: Math.max(0, Number.isFinite(raw.incomeWantedYearly) ? raw.incomeWantedYearly : 0),
     socialSecurityMonthly: Math.max(0, Number.isFinite(raw.socialSecurityMonthly) ? raw.socialSecurityMonthly : 0),
     withdrawalRate: clamp(raw.withdrawalRate, 0, 0.2),
+  };
+}
+
+/** Youngest and oldest ages the estimate will run for. */
+export const PLAN_AGE_MIN = 14;
+export const PLAN_AGE_MAX = 100;
+
+/** The retirement boxes as typed. Percent boxes are in percent ("7" means 7%). */
+export type RetirementFields = {
+  age: string;
+  retireAge: string;
+  saved: string;
+  monthlySaving: string;
+  employerMatchPercent: string;
+  low: string;
+  mid: string;
+  high: string;
+  inflation: string;
+  incomeWantedYearly: string;
+  socialSecurityMonthly: string;
+  withdrawal: string;
+};
+
+export type RetirementRead = { ok: true; input: RetirementInput } | { ok: false; message: string };
+
+/**
+ * Turn the typed boxes into an input, or say what is missing.
+ * Age, retire age, the three returns, inflation, and withdrawal must be entered; a blank one is never 0.
+ * Saved, monthly saving, match, income wanted, and Social Security may be blank and then mean none.
+ */
+export function retirementInputFrom(fields: RetirementFields): RetirementRead {
+  const goal = "your retirement estimate";
+  const age = readNumber(fields.age);
+  const retireAge = readNumber(fields.retireAge);
+  if (age == null) return { ok: false, message: `Enter your age to see ${goal}.` };
+  if (age < PLAN_AGE_MIN || age > PLAN_AGE_MAX) {
+    return { ok: false, message: `Enter an age between ${PLAN_AGE_MIN} and ${PLAN_AGE_MAX} to see ${goal}.` };
+  }
+  if (retireAge == null) return { ok: false, message: `Enter the age you want to retire to see ${goal}.` };
+  if (retireAge <= age) return { ok: false, message: `Enter a retirement age older than your age now to see ${goal}.` };
+  if (retireAge > PLAN_AGE_MAX) return { ok: false, message: `Enter a retirement age of ${PLAN_AGE_MAX} or younger to see ${goal}.` };
+  const mid = readNumber(fields.mid);
+  const low = readNumber(fields.low);
+  const high = readNumber(fields.high);
+  const inflation = readNumber(fields.inflation);
+  const withdrawal = readNumber(fields.withdrawal);
+  const missing = needsPrompt(
+    [
+      { label: "the expected return", value: mid },
+      { label: "the low return", value: low },
+      { label: "the high return", value: high },
+      { label: "inflation", value: inflation },
+      { label: "a withdrawal rate above 0", value: withdrawal, above: 0 },
+    ],
+    goal,
+  );
+  if (missing || mid == null || low == null || high == null || inflation == null || withdrawal == null) {
+    return { ok: false, message: missing ?? `Fill in the boxes to see ${goal}.` };
+  }
+  const optional = (raw: string) => Math.max(0, readNumber(raw) ?? 0);
+  return {
+    ok: true,
+    input: {
+      age,
+      retireAge,
+      saved: optional(fields.saved),
+      monthlySaving: optional(fields.monthlySaving),
+      employerMatchPercent: optional(fields.employerMatchPercent),
+      returns: { conservative: low / 100, expected: mid / 100, optimistic: high / 100 },
+      inflation: inflation / 100,
+      incomeWantedYearly: optional(fields.incomeWantedYearly),
+      socialSecurityMonthly: optional(fields.socialSecurityMonthly),
+      withdrawalRate: withdrawal / 100,
+    },
   };
 }
 
@@ -205,10 +280,11 @@ export function projectRetirement(raw: RetirementInput): RetirementResult {
   const ss = roundMoney(input.socialSecurityMonthly * 12);
   const low = paths[0].real;
   const high = paths[2].real;
+  const cover = input.incomeWantedYearly > 0 ? ` That covers about ${expected.coveredPercent} percent of what you want.` : "";
   const sentence =
     years <= 0
-      ? `You are already past ${input.retireAge}. What you have now is about ${formatRough(expected.real)}. That covers about ${expected.coveredPercent} percent of what you want.`
-      : `At ${input.retireAge} you'd likely have about ${formatRough(expected.real)} (${formatRough(low)} to ${formatRough(high)}). That covers about ${expected.coveredPercent} percent of what you want.`;
+      ? `You are already past ${input.retireAge}. What you have now is about ${formatRough(expected.real)}.${cover}`
+      : `At ${input.retireAge} you'd likely have about ${formatRough(expected.real)} (${formatRough(low)} to ${formatRough(high)}).${cover}`;
   return {
     years,
     age: input.age,

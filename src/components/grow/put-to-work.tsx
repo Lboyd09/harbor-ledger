@@ -1,3 +1,4 @@
+import { needsPrompt } from "@/lib/budget/calc-input";
 import { sensitivityOf, yearRows } from "@/lib/budget/grow-tables";
 import { formatMoney } from "@/lib/budget/money";
 import { GrowthArea, PlaceMap } from "../grow-pictures";
@@ -9,11 +10,23 @@ import { useGrow } from "./session";
 export function PutToWork() {
   const g = useGrow();
   const rows = yearRows({ principal: g.principalN, monthly: 0, years: g.yearCount, rate: g.market, inflation: g.inflationRate, today: g.today });
+  const missing = needsPrompt(
+    [
+      { label: "an amount", value: g.principalIn, above: 0 },
+      { label: "how many years", value: g.yearsIn, min: 0 },
+      { label: "the yearly rate", value: g.rateIn },
+      { label: "the tax rate now (0 is fine)", value: g.taxNowIn, min: 0 },
+      { label: "the tax rate later (0 is fine)", value: g.taxLaterIn, min: 0 },
+      ...(g.today ? [{ label: "inflation", value: g.inflationIn }] : []),
+    ],
+    "what it could grow to",
+  );
   const amountTag = g.facts.saved.value != null && Number(g.principal) === Math.round(g.facts.saved.value) ? tagOf(g.facts.saved.source) : g.principalN > 0 ? "from your accounts" : "typed";
   return (
     <CalcFrame
         question="What if this amount is left alone?"
         result={`Savings about ${formatMoney(g.savings.expected)}. Taxable about ${formatMoney(g.taxable.expected)}. Roth about ${formatMoney(g.rothLump.expected)}. Traditional about ${formatMoney(g.traditionalLump.expected)}.`}
+        missing={missing}
         topic="work"
         facts={g.tipFacts}
         assumptionIds={["savings-expected", "market-expected", "inflation"]}

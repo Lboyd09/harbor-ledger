@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
+import { needsPrompt, readNumber } from "@/lib/budget/calc-input";
 import { monthlyForGoal } from "@/lib/budget/grow-math";
 import { formatMoney } from "@/lib/budget/money";
 import { shiftMonth } from "@/lib/budget/parse-date";
@@ -23,6 +24,13 @@ export function GoalPage() {
     if (g.facts.cashSavings.value != null) setHave(String(Math.round(g.facts.cashSavings.value)));
     if (g.facts.typicalSpendMonthly.value != null) setTarget(String(Math.round(g.facts.typicalSpendMonthly.value * 3)));
   }, [g.facts]);
+  const missing = needsPrompt(
+    [
+      { label: "the goal amount", value: readNumber(target), above: 0 },
+      { label: "how many months", value: readNumber(months), above: 0 },
+    ],
+    "the monthly amount",
+  );
   const goal = Number(target) || 0;
   const saved = Number(have) || 0;
   const monthCount = Math.max(0, Number(months) || 0);
@@ -36,6 +44,7 @@ export function GoalPage() {
       <CalcFrame
         question="What should you set aside each month?"
         result={goal > 0 ? `Set aside ${formatMoney(need)} each month for ${monthCount} months.` : "Type the price. Already saved starts from a savings account when one exists."}
+        missing={missing}
         topic="goal"
         facts={g.tipFacts}
         assumptionIds={[]}
@@ -87,6 +96,7 @@ export function GoalPage() {
         type="button"
         variant="outline"
         size="sm"
+        disabled={missing != null}
         onClick={() => {
           queueFundFromGoal({ name: "Goal", target: goal, by, monthly: Math.max(0, need) });
           void navigate({ to: "/funds" });

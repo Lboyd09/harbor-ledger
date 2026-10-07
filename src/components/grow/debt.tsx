@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { debtTimeline, sensitivityOf } from "@/lib/budget/grow-tables";
+import { firstMissing, readNumber } from "@/lib/budget/calc-input";
 import { payoffPlan } from "@/lib/budget/grow-math";
 import { formatMoney } from "@/lib/budget/money";
 import { PayoffRace } from "../grow-pictures";
@@ -26,6 +27,16 @@ export function DebtPage() {
     setBalance(String(Math.round(g.facts.creditOwed.value)));
   }, [g.debts.length, g.facts]);
   const extraN = Math.max(0, Number(extra) || 0);
+  // A blank rate or minimum is not 0. Typing 0 on purpose is fine.
+  const balanceIn = readNumber(balance);
+  const aprIn = readNumber(apr);
+  const minimumIn = readNumber(minimum);
+  const debtNeeds = firstMissing([
+    { label: "the balance", value: balanceIn, above: 0 },
+    { label: "the interest rate (0 is fine)", value: aprIn, min: 0 },
+    { label: "the minimum payment (0 is fine)", value: minimumIn, min: 0 },
+  ]);
+  const typing = Boolean(name.trim() || balance.trim() || apr.trim() || minimum.trim());
   const snow = payoffPlan(g.debts, extraN, "snowball");
   const ava = payoffPlan(g.debts, extraN, "avalanche");
   const line = g.debts.length ? debtTimeline(g.debts, extraN) : null;
@@ -62,11 +73,17 @@ export function DebtPage() {
             <Input aria-label="Minimum" inputMode="decimal" placeholder="Minimum" value={minimum} onChange={(e) => setMinimum(e.target.value)} />
           </div>
           <p className="text-xs text-muted">{tagOf(g.facts.creditOwed.source)}</p>
+          {typing && (debtNeeds || !name.trim()) ? (
+            <p className="text-xs text-muted" role="status">
+              {debtNeeds ? `Enter ${debtNeeds} to add this debt.` : "Enter a name to add this debt."}
+            </p>
+          ) : null}
           <Button
             size="sm"
-            disabled={!name.trim() || !(Number(balance) > 0)}
+            disabled={!name.trim() || debtNeeds != null}
             onClick={() => {
-              addDebt({ name, balance: Number(balance), apr: Number(apr) || 0, minimum: Number(minimum) || 0 });
+              if (balanceIn == null || aprIn == null || minimumIn == null) return;
+              addDebt({ name, balance: balanceIn, apr: aprIn, minimum: minimumIn });
               setName("");
               setBalance("");
               setApr("");
