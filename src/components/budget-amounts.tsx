@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { monthEndForecast } from "@/lib/budget/analytics";
+import { amountDraft, usualAmountCommit } from "@/lib/budget/amount-input";
 import { incomeStability, typicalMonth } from "@/lib/budget/analytics-depth";
 import { monthLedger } from "@/lib/budget/ledger-month";
 import { TERMS } from "@/lib/copy/terms";
@@ -12,6 +13,7 @@ import { categoryCarries } from "@/lib/budget/style";
 import type { BudgetStyle } from "@/lib/budget/types";
 import { useBudgetStore } from "@/store/budget-store";
 import { EmptyArt } from "./visuals/empty-art";
+import { AmountField } from "./amount-field";
 import { FillJar, SpendMeter } from "./money-visual";
 import { openCategoryPanel } from "./category-panel";
 import { SideSwitch, useMoneySide } from "./side-switch";
@@ -230,13 +232,15 @@ function BudgetSides({ style }: { style: BudgetStyle }) {
                 {due ? <p className="mt-2 text-sm font-medium">{due}</p> : null}
                 <label className="mt-3 block text-xs text-muted">
                   Usual amount, if you want one
-                  <Input
+                  <AmountField
                     className="mt-1 max-w-xs"
-                    inputMode="decimal"
                     aria-label={`Usual amount for ${category.name}`}
-                    value={category.plannedMonthly ? String(category.plannedMonthly) : ""}
+                    value={amountDraft(category.plannedMonthly)}
                     placeholder="0"
-                    onChange={(e) => updateCategory(category.id, { plannedMonthly: Number(e.target.value) || 0, name: category.name })}
+                    onCommit={(draft) => {
+                      const next = usualAmountCommit(draft, category.plannedMonthly || 0);
+                      if (next != null) updateCategory(category.id, { plannedMonthly: next });
+                    }}
                   />
                 </label>
                 <label className="mt-2 block text-xs text-muted">

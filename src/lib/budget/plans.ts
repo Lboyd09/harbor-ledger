@@ -39,3 +39,15 @@ export function orderedCategories(categories: Category[], kind?: CategoryKind): 
   }
   return out;
 }
+
+/** Apply a change to one category. A fund link never changes what was typed. */
+export function patchCategory(categories: Category[], id: string, patch: Partial<Category>): Category[] {
+  return categories.map((c) => (c.id === id ? { ...c, ...patch } : c));
+}
+
+/** Set or clear one month's own amount for a category. Other months are left alone. */
+export function withMonthPlan(budgets: MonthBudget[], categoryId: string, ym: string, amount: number | null): MonthBudget[] {
+  const rest = budgets.filter((b) => !(b.categoryId === categoryId && b.ym === ym));
+  if (amount == null || !Number.isFinite(amount)) return rest;
+  return [...rest, { categoryId, ym, amount: Math.max(0, amount) }];
+}

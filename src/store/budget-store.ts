@@ -36,6 +36,7 @@ import { withBudgetStyle } from "@/lib/budget/style";
 import { currentMonthKey, currentWeekKey } from "@/lib/budget/parse-date";
 import { clearLedger, loadLedger, saveLedger } from "@/lib/budget/persist";
 import { paybackNotes, paybackPartnerId } from "@/lib/budget/payback";
+import { patchCategory, withMonthPlan } from "@/lib/budget/plans";
 import { buildPresetCategories } from "@/lib/budget/presets";
 import { recommendedPlans } from "@/lib/budget/year";
 import { SAMPLE_CSV, SAMPLE_PROFILE } from "@/lib/budget/sample";
@@ -53,7 +54,6 @@ import type {
   IraRules,
   LedgerSnapshot,
   MoneyBucket,
-  MonthBudget,
   NetWorthPoint,
   Profile,
   SavingsGoal,
@@ -528,11 +528,7 @@ export const useBudgetStore = create<State>()(
         schedulePersist();
       },
       updateCategory: (id, patch) => {
-        const linked = (get().moneyBuckets ?? []).some((b) => b.categoryIds.includes(id));
-        const safe = linked && patch.plannedMonthly ? { ...patch, plannedMonthly: 0 } : patch;
-        set({
-          categories: get().categories.map((c) => (c.id === id ? { ...c, ...safe } : c)),
-        });
+        set({ categories: patchCategory(get().categories, id, patch) });
         schedulePersist();
       },
       addCategory: (cat) => {
@@ -558,11 +554,7 @@ export const useBudgetStore = create<State>()(
         schedulePersist();
       },
       setMonthPlan: (categoryId, ym, amount) => {
-        if ((get().moneyBuckets ?? []).some((b) => b.categoryIds.includes(categoryId))) return;
-        const rest = (get().monthBudgets ?? []).filter((b) => !(b.categoryId === categoryId && b.ym === ym));
-        const monthBudgets: MonthBudget[] =
-          amount == null || !Number.isFinite(amount) ? rest : [...rest, { categoryId, ym, amount: Math.max(0, amount) }];
-        set({ monthBudgets });
+        set({ monthBudgets: withMonthPlan(get().monthBudgets ?? [], categoryId, ym, amount) });
         schedulePersist();
       },
       setTransactionCategory: (id, categoryId, applyToMerchant) => {

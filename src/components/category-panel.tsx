@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "@tanstack/react-router";
+import { amountDraft, monthAmountCommit, usualAmountCommit } from "@/lib/budget/amount-input";
 import { earliestDataMonth, monthLedger, type LedgerSource, type SpendingLine } from "@/lib/budget/ledger-month";
 import { categoryStory, carryConsequence, surplusSuggestions } from "@/lib/budget/screen-plan";
 import { groupMonth } from "@/lib/budget/month-view";
@@ -12,6 +13,7 @@ import { monthSeries } from "@/lib/budget/visual-data";
 import type { Category, Transaction } from "@/lib/budget/types";
 import { useBudgetStore } from "@/store/budget-store";
 import { queueFundWizard } from "./fund-wizard";
+import { AmountField } from "./amount-field";
 import { FillJar, SpendMeter } from "./money-visual";
 import { CategoryChange, RowTools } from "./month-parts";
 import { MiniBars } from "./visuals/mini-bars";
@@ -420,36 +422,59 @@ function Amounts({ category, ym, line }: { category: Category; ym: string; line:
   const monthAmount = planAmount(category, ym, monthBudgets);
   const custom = hasMonthOverride(category.id, ym, monthBudgets);
   const carries = categoryCarries(category, style);
+  const [undo, setUndo] = useState<{ before: number; after: number } | null>(null);
   return (
     <div className="mt-4 space-y-3">
       <h3 className="text-sm font-medium">Amounts</h3>
       <div className="grid grid-cols-2 gap-2">
         <label className="text-xs text-muted">
           Usual amount
-          <Input
+          <AmountField
             className="mt-1"
-            inputMode="decimal"
             aria-label={`Monthly amount for ${category.name}`}
-            value={category.plannedMonthly ? String(category.plannedMonthly) : ""}
+            value={amountDraft(category.plannedMonthly)}
             placeholder="0"
-            onChange={(e) => updateCategory(category.id, { plannedMonthly: Number(e.target.value) || 0 })}
+            onCommit={(draft) => {
+              const before = category.plannedMonthly || 0;
+              const next = usualAmountCommit(draft, before);
+              if (next == null) return;
+              updateCategory(category.id, { plannedMonthly: next });
+              setUndo({ before, after: next });
+            }}
           />
         </label>
         <label className="text-xs text-muted">
           This month only
-          <Input
+          <AmountField
             className="mt-1"
-            inputMode="decimal"
             aria-label={`This month for ${category.name}`}
-            value={custom ? String(monthAmount) : ""}
+            value={custom ? amountDraft(monthAmount) : ""}
             placeholder="Same"
-            onChange={(e) => {
-              const raw = e.target.value.trim();
-              setMonthPlan(category.id, ym, raw ? Number(raw) || 0 : null);
+            onCommit={(draft) => {
+              const change = monthAmountCommit(draft, custom ? monthAmount : null);
+              if (change.action === "clear") setMonthPlan(category.id, ym, null);
+              if (change.action === "set") setMonthPlan(category.id, ym, change.amount);
             }}
           />
         </label>
       </div>
+      {undo ? (
+        <p className="flex flex-wrap items-center gap-2 text-sm" role="status">
+          <span>
+            Usual amount changed from {formatMoney(undo.before)} to {formatMoney(undo.after)}.
+          </span>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              updateCategory(category.id, { plannedMonthly: undo.before });
+              setUndo(null);
+            }}
+          >
+            Undo
+          </Button>
+        </p>
+      ) : null}
       <div className="grid grid-cols-2 gap-2" role="group" aria-label={`Carry over for ${category.name}`}>
         <button
           type="button"
