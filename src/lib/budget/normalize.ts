@@ -161,6 +161,7 @@ export function normalizeProfile(raw: unknown): Profile {
     carryStartMonth: /^\d{4}-\d{2}$/.test(asString(p.carryStartMonth)) ? asString(p.carryStartMonth) : null,
     carryAskSeen: /^\d{4}-\d{2}$/.test(asString(p.carryAskSeen)) ? asString(p.carryAskSeen) : null,
     bankLabelMap: normalizeBankMap(p.bankLabelMap),
+    demo: asBool(p.demo, false),
     ...optionalPlanner(p),
   };
 }

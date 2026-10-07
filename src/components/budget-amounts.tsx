@@ -71,11 +71,12 @@ function BudgetSides({ style }: { style: BudgetStyle }) {
   const carryStart = useBudgetStore((s) => s.profile.carryStartMonth);
   const moves = useBudgetStore((s) => s.bucketMoves) ?? [];
   const setAsides = useBudgetStore((s) => s.setAsides) ?? [];
+  const profile = useBudgetStore((s) => s.profile);
   const ledger = monthLedger(
-    { transactions, categories, budgets: monthBudgets, buckets: moneyBuckets, moves, setAsides, style, carryStartMonth: carryStart },
+    { transactions, categories, budgets: monthBudgets, buckets: moneyBuckets, moves, setAsides, style, carryStartMonth: carryStart, profile },
     ym,
   );
-  const income = incomeRows({ transactions, categories, ym, budgets: monthBudgets });
+  const income = incomeRows({ transactions, categories, ym, budgets: monthBudgets, profile });
   const spending = spendingRows({
     transactions,
     categories,

@@ -15,7 +15,7 @@ export function formatMoney(n: number, opts?: { signed?: boolean; dashZero?: boo
     style: "currency",
     currency: "USD",
   }).format(abs);
-  if (n < 0) return `(${body})`;
+  if (n < 0) return `-${body}`;
   if (opts?.signed && n > 0) return `+${body}`;
   return body;
 }

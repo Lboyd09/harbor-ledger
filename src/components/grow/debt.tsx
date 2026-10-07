@@ -138,16 +138,16 @@ export function DebtPage() {
       keyNumbers={
         single
           ? [
-              { label: "Paid off in", value: ava.unfinished ? "50+ years" : `${ava.months} months` },
-              { label: "Interest", value: formatMoney(ava.interest) },
+              { label: "Paid off in", value: ava.unfinished ? "—" : `${ava.months} months` },
+              { label: "Interest", value: ava.unfinished ? "—" : formatMoney(ava.interest) },
               { label: "Paying each month", value: formatMoney(monthlyTotal) },
               { label: "Extra", value: formatMoney(extraN) },
             ]
           : [
-              { label: "Highest rate first", value: ava.unfinished ? "50+ years" : `${ava.months} months` },
-              { label: "Interest, highest rate first", value: formatMoney(ava.interest) },
-              { label: "Smallest balance first", value: snow.unfinished ? "50+ years" : `${snow.months} months` },
-              { label: "Interest, smallest balance first", value: formatMoney(snow.interest) },
+              { label: "Highest rate first", value: ava.unfinished ? "—" : `${ava.months} months` },
+              { label: "Interest, highest rate first", value: ava.unfinished ? "—" : formatMoney(ava.interest) },
+              { label: "Smallest balance first", value: snow.unfinished ? "—" : `${snow.months} months` },
+              { label: "Interest, smallest balance first", value: snow.unfinished ? "—" : formatMoney(snow.interest) },
               { label: "Paying each month", value: formatMoney(monthlyTotal) },
               { label: "Debts", value: String(g.debts.length) },
             ]

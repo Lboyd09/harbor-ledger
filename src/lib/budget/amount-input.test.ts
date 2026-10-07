@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { amountDraft, monthAmountCommit, parseAmountInput, usualAmountCommit } from "./amount-input.ts";
 import { monthLedger } from "./ledger-month.ts";
-import { patchCategory, planAmount, withMonthPlan } from "./plans.ts";
+import { freezePastUsual, patchCategory, planAmount, withMonthPlan } from "./plans.ts";
 import type { Category, MoneyBucket, MonthBudget, Transaction } from "./types.ts";
 
 const groceries: Category = { id: "food", slug: "food", name: "Groceries", kind: "expense", plannedMonthly: 400 };
@@ -125,4 +125,17 @@ test("amountDraft shows saved amounts without noise", () => {
   assert.equal(amountDraft(12.5), "12.5");
   assert.equal(amountDraft(0), "");
   assert.equal(amountDraft(undefined), "");
+});
+
+test("a new usual amount keeps earlier months", () => {
+  const frozen = freezePastUsual([], "food", 400, "2026-10", "2026-08");
+  assert.deepEqual(
+    frozen.map((row) => row.ym).sort(),
+    ["2026-08", "2026-09"],
+  );
+  assert.equal(frozen.every((row) => row.amount === 400), true);
+  const kept = freezePastUsual([{ categoryId: "food", ym: "2026-08", amount: 650 }], "food", 400, "2026-10", "2026-08");
+  assert.equal(kept.find((row) => row.ym === "2026-08")?.amount, 650);
+  assert.equal(kept.find((row) => row.ym === "2026-09")?.amount, 400);
+  assert.equal(planAmount(groceries, "2026-10", kept), 400);
 });

@@ -30,13 +30,13 @@ import {
   storedFileBalance,
   upsertFileBalance,
 } from "@/lib/budget/accounts";
-import { applyCompleteSetup, type SetupExtras } from "@/lib/budget/onboarding-plan";
+import { applyCompleteSetup, isDemoLedger, type SetupExtras } from "@/lib/budget/onboarding-plan";
 import { earliestDataMonth } from "@/lib/budget/ledger-month";
 import { withBudgetStyle } from "@/lib/budget/style";
 import { currentMonthKey, currentWeekKey } from "@/lib/budget/parse-date";
 import { clearLedger, loadLedger, saveLedger } from "@/lib/budget/persist";
 import { paybackNotes, paybackPartnerId } from "@/lib/budget/payback";
-import { patchCategory, withMonthPlan } from "@/lib/budget/plans";
+import { patchCategory, freezePastUsual, withMonthPlan } from "@/lib/budget/plans";
 import { buildPresetCategories } from "@/lib/budget/presets";
 import { recommendedPlans } from "@/lib/budget/year";
 import { SAMPLE_CSV, SAMPLE_PROFILE } from "@/lib/budget/sample";
@@ -349,7 +349,8 @@ export const useBudgetStore = create<State>()(
         void flushPersist();
       },
       reopenSetup: () => {
-        set({ profile: { ...get().profile, completedOnboarding: false } });
+        const state = get();
+        set({ profile: { ...state.profile, completedOnboarding: false, demo: isDemoLedger(state) } });
         schedulePersist();
       },
       cancelSetup: () => {
@@ -463,7 +464,7 @@ export const useBudgetStore = create<State>()(
       },
       addCashCharge: (input) => {
         if (!input.categoryId || !Number.isFinite(input.amount) || input.amount === 0) return;
-        const day = /^\d{4}-\d{2}-\d{2}$/.test(input.date) ? input.date : todayInput();
+        const day = /^\d{4}-\d{2}-\d{2}$/.test(input.date) && input.date <= todayInput() ? input.date : todayInput();
         const description = input.description?.trim() || "Cash";
         const row: Transaction = {
           id: newId("tx"),
@@ -528,7 +529,15 @@ export const useBudgetStore = create<State>()(
         schedulePersist();
       },
       updateCategory: (id, patch) => {
-        set({ categories: patchCategory(get().categories, id, patch) });
+        const current = get().categories.find((category) => category.id === id);
+        let monthBudgets = get().monthBudgets ?? [];
+        if (current && patch.plannedMonthly != null && Number.isFinite(patch.plannedMonthly) && patch.plannedMonthly !== current.plannedMonthly) {
+          const carry = current.carryFrom && /^\d{4}-\d{2}$/.test(current.carryFrom) ? current.carryFrom : null;
+          const fromProfile = get().profile.carryStartMonth;
+          const start = carry ?? (fromProfile && /^\d{4}-\d{2}$/.test(fromProfile) ? fromProfile : null) ?? earliestDataMonth(get().transactions);
+          monthBudgets = freezePastUsual(monthBudgets, id, current.plannedMonthly || 0, get().activeMonth, start);
+        }
+        set({ categories: patchCategory(get().categories, id, patch), monthBudgets });
         schedulePersist();
       },
       addCategory: (cat) => {
@@ -1078,7 +1087,7 @@ export const useBudgetStore = create<State>()(
         }
         const goalId = "goal_demo_car";
         const ordered = dressed.sort((a, b) => b.date.localeCompare(a.date));
-        const profileWithStart = { ...profile, carryStartMonth: earliestDataMonth(ordered) };
+        const profileWithStart = { ...profile, carryStartMonth: earliestDataMonth(ordered), demo: true };
         set({
           profile: profileWithStart,
           categories,

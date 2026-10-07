@@ -1,4 +1,5 @@
 import { fundingForMonth } from "./buckets.ts";
+import { expectedMonthlyOf } from "./income.ts";
 import { groupMonth, type MonthLayout } from "./month-view.ts";
 import { roundMoney } from "./money.ts";
 import { monthKeyFromDate, shiftMonth } from "./parse-date.ts";
@@ -119,6 +120,8 @@ function spentOf(layout: MonthLayout, categoryId: string): { spent: number; char
 }
 
 function usualIncome(source: LedgerSource, category: Category, ym: string, cache: Map<string, MonthLayout>): number {
+  const fromSetup = expectedFromStreams(source, category.id, ym);
+  if (fromSetup != null) return fromSetup;
   const past: number[] = [];
   for (let i = 1; i <= 6; i++) {
     const layout = layoutOf(source, shiftMonth(ym, -i), cache);
@@ -127,6 +130,15 @@ function usualIncome(source: LedgerSource, category: Category, ym: string, cache
   }
   if (past.length) return roundMoney(median(past));
   return planAmount(category, ym, source.budgets ?? []);
+}
+
+/** Setup income wins over old deposits. A month amount replaces that category for that month only. */
+function expectedFromStreams(source: LedgerSource, categoryId: string, ym: string): number | null {
+  const streams = (source.profile?.incomeStreams ?? []).filter((stream) => stream.categoryId === categoryId && expectedMonthlyOf(stream) > 0);
+  if (!streams.length) return null;
+  const hit = (source.budgets ?? []).find((row) => row.categoryId === categoryId && row.ym === ym);
+  if (hit && Number.isFinite(hit.amount)) return Math.max(0, hit.amount);
+  return roundMoney(streams.reduce((sum, stream) => sum + expectedMonthlyOf(stream), 0));
 }
 
 function carryStartFor(category: Category, ledgerStart: string | null): string | null {
@@ -242,7 +254,13 @@ export function monthLedger(source: LedgerSource, ym: string, cache?: Map<string
   const leftOver = roundMoney(received - spent - savedToFunds);
   const plannedTotal = roundMoney(spending.reduce((sum, line) => sum + line.planned, 0));
   const expectedIncome = roundMoney(income.reduce((sum, line) => sum + line.expected, 0));
-  const unassigned = roundMoney(expectedIncome - plannedTotal - savedToFunds);
+  const linkedIds = new Set<string>();
+  for (const bucket of source.buckets ?? []) {
+    if (bucket.startMonth > ym) continue;
+    for (const id of bucket.categoryIds) linkedIds.add(id);
+  }
+  const linkedPlanned = roundMoney(spending.filter((line) => linkedIds.has(line.id)).reduce((sum, line) => sum + line.planned, 0));
+  const unassigned = roundMoney(expectedIncome - plannedTotal - savedToFunds + linkedPlanned);
   const provisional = source.transactions.filter(
     (row) => monthKeyFromDate(row.date) === ym && row.auto?.provisional && !row.excluded && row.status !== "transfer" && row.status !== "reimbursement",
   ).length;

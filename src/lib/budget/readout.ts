@@ -55,9 +55,10 @@ export function incomeRows(input: {
   categories: Category[];
   ym: string;
   budgets?: MonthBudget[];
+  profile?: import("./types.ts").Profile | null;
 }): SideRow[] {
   const ledger = monthLedger(
-    { transactions: input.transactions, categories: input.categories, budgets: input.budgets, style: "monthly" },
+    { transactions: input.transactions, categories: input.categories, budgets: input.budgets, style: "monthly", profile: input.profile },
     input.ym,
   );
   return ledger.income.map((line) => {

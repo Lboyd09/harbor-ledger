@@ -242,3 +242,57 @@ test("an old ledger keeps category links after setup", () => {
   assert.equal(next.merchantRules[0]?.categoryId, food?.id);
   assert.equal(next.transactions.length, 1);
 });
+
+test("starting your own budget wipes demo paychecks, debts, and the net worth snapshot", () => {
+  const built = buildSetup(
+    answers({
+      categoriesTouched: true,
+      categorySlugs: ["housing", "food"],
+      income: [{ id: "income_paycheck", name: "Paycheck", amount: 4200, cadence: "monthly", depositWords: "" }],
+    }),
+    DEFAULT_PROFILE,
+    { today: "2026-10-07" },
+  );
+  const start = emptySnapshot();
+  start.profile = { ...start.profile, demo: true };
+  start.transactions = [
+    {
+      id: "demo_pay",
+      date: "2026-09-01",
+      description: "NORTHWIND PAYROLL",
+      merchantKey: "NORTHWIND PAYROLL",
+      amount: 3360,
+      sourceLabel: "Demo bank file",
+      fingerprint: "demo_pay",
+      categoryId: "pay",
+      userSet: false,
+      notes: "",
+      excluded: false,
+      status: "posted",
+    },
+  ];
+  start.debts = [{ id: "debt_demo_card", name: "Store card", balance: 640, apr: 19.9, minimum: 25 }];
+  start.netWorth = [{ id: "nw_demo_2", date: "2026-09-30", amount: 5100, note: "After the car fund" }];
+  start.moneyBuckets = [
+    {
+      id: "bucket_demo_groceries",
+      name: "Groceries",
+      monthly: 220,
+      yearly: null,
+      categoryIds: [],
+      target: null,
+      by: null,
+      startMonth: "2026-06",
+      opening: 40,
+    },
+  ];
+  start.activeMonth = "2026-10";
+  const next = applyCompleteSetup(start, built.profile, built.categories, built.extras);
+  assert.equal(next.profile.demo, false);
+  assert.equal(next.transactions.length, 0);
+  assert.equal(next.debts.length, 0);
+  assert.equal(next.netWorth.length, 0);
+  assert.equal(next.moneyBuckets.some((bucket) => bucket.id === "bucket_demo_groceries"), false);
+  const paycheck = next.categories.find((category) => category.slug === "paycheck");
+  assert.equal(paycheck?.plannedMonthly, 4200);
+});

@@ -23,9 +23,8 @@ import { Button } from "./ui/button";
 import { Field, Input, Select } from "./ui/field";
 
 const LOOKS: { id: HarborLook; label: string; note: string }[] = [
-  { id: "harbor", label: "Harbor", note: "Warm paper" },
-  { id: "tide", label: "Tide", note: "Cool water" },
-  { id: "dusk", label: "Dusk", note: "Night ledger" },
+  { id: "harbor", label: "Light", note: "Warm paper" },
+  { id: "dusk", label: "Dark", note: "Night" },
   { id: "auto", label: "Automatic", note: "Follows this device" },
 ];
 
@@ -39,7 +38,7 @@ export function SettingsView() {
   return (
     <div className="mx-auto max-w-2xl space-y-8">
       <div>
-        <h1 className="font-display text-3xl font-semibold">Account & settings</h1>
+        <h1 className="font-display text-3xl font-semibold">Settings</h1>
         <p className="mt-2 text-sm text-muted">
           Import, categories, how much detail to show, and the file for Excel or Google Sheets.
         </p>

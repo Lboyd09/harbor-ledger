@@ -569,12 +569,28 @@ export function mergeSavingsPlans(existing: MoneyBucket[], incoming: MoneyBucket
 }
 
 /** What completeSetup writes. One object, so the store can apply it in one update. */
+export function isDemoLedger(state: {
+  profile: { demo?: boolean; ledgerName?: string };
+  debts?: { id: string }[];
+  netWorth?: { id: string }[];
+  imports?: { sourceLabel?: string | null; fileName?: string }[];
+  moneyBuckets?: { id: string }[];
+}): boolean {
+  if (state.profile.demo) return true;
+  if ((state.debts ?? []).some((debt) => debt.id === "debt_demo_card")) return true;
+  if ((state.netWorth ?? []).some((point) => point.id.startsWith("nw_demo"))) return true;
+  if ((state.imports ?? []).some((batch) => batch.fileName === "sample-demo.csv" || batch.sourceLabel === "Demo bank file")) return true;
+  if ((state.moneyBuckets ?? []).some((bucket) => bucket.id === "bucket_demo_groceries")) return true;
+  return state.profile.ledgerName === "Demo household";
+}
+
 export function applyCompleteSetup(
   state: LedgerSnapshot,
   profile: Profile,
   categories: Category[],
   extras?: SetupExtras,
 ): LedgerSnapshot {
+  const demo = isDemoLedger(state);
   const idMap = new Map<string, string>();
   for (const old of state.categories) {
     const match = categories.find((c) => c.slug === old.slug) ?? categories.find((c) => c.name === old.name);
@@ -586,14 +602,13 @@ export function applyCompleteSetup(
     if (known.has(id)) return id;
     return idMap.get(id) ?? null;
   };
-  const moneyBuckets = mergeSavingsPlans(
-    (state.moneyBuckets ?? []).map((bucket) => ({
-      ...bucket,
-      categoryIds: bucket.categoryIds.map((id) => idMap.get(id)).filter((id): id is string => Boolean(id)),
-    })),
-    extras?.savingsPlans ?? [],
-    state.activeMonth,
-  );
+  const keptBuckets = demo
+    ? []
+    : (state.moneyBuckets ?? []).map((bucket) => ({
+        ...bucket,
+        categoryIds: bucket.categoryIds.map((id) => idMap.get(id)).filter((id): id is string => Boolean(id)),
+      }));
+  const moneyBuckets = mergeSavingsPlans(keptBuckets, extras?.savingsPlans ?? [], state.activeMonth);
   return {
     profile: {
       ...state.profile,
@@ -602,28 +617,34 @@ export function applyCompleteSetup(
       completedOnboarding: true,
       detail: profile.detail ?? state.profile.detail ?? "simple",
       detailChosen: true,
+      demo: false,
     },
     categories,
-    transactions: state.transactions.map((tx) => ({
-      ...tx,
-      categoryId: tx.categoryId ? (idMap.get(tx.categoryId) ?? null) : null,
-      splits: tx.splits?.map((part) => ({ ...part, categoryId: idMap.get(part.categoryId) ?? part.categoryId })) ?? null,
-    })),
-    merchantRules: state.merchantRules
-      .map((rule) => ({ ...rule, categoryId: idMap.get(rule.categoryId) ?? "" }))
-      .filter((rule) => rule.categoryId),
-    imports: state.imports,
-    monthBudgets: state.monthBudgets ?? [],
-    savingsGoals: state.savingsGoals ?? [],
+    transactions: demo
+      ? []
+      : state.transactions.map((tx) => ({
+          ...tx,
+          categoryId: tx.categoryId ? (idMap.get(tx.categoryId) ?? null) : null,
+          splits: tx.splits?.map((part) => ({ ...part, categoryId: idMap.get(part.categoryId) ?? part.categoryId })) ?? null,
+        })),
+    merchantRules: demo
+      ? []
+      : state.merchantRules
+          .map((rule) => ({ ...rule, categoryId: idMap.get(rule.categoryId) ?? "" }))
+          .filter((rule) => rule.categoryId),
+    imports: demo ? [] : state.imports,
+    monthBudgets: demo ? [] : (state.monthBudgets ?? []),
+    savingsGoals: demo ? [] : (state.savingsGoals ?? []),
     moneyBuckets,
-    bucketMoves: state.bucketMoves ?? [],
-    netWorth: state.netWorth ?? [],
-    debts: state.debts ?? [],
+    bucketMoves: demo ? [] : (state.bucketMoves ?? []),
+    netWorth: demo ? [] : (state.netWorth ?? []),
+    debts: demo ? [] : (state.debts ?? []),
     ira: state.ira,
-    accounts: mergeAccounts(state.accounts ?? [], extras?.accounts ?? []),
-    balances: mergeBalances(state.balances ?? [], extras?.balances ?? []),
+    accounts: mergeAccounts(demo ? [] : (state.accounts ?? []), extras?.accounts ?? []),
+    balances: mergeBalances(demo ? [] : (state.balances ?? []), extras?.balances ?? []),
     activeMonth: state.activeMonth,
     activeWeek: state.activeWeek,
+    setAsides: demo ? [] : (state.setAsides ?? []),
   };
 }
 

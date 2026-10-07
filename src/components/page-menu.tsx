@@ -113,39 +113,59 @@ export function PageMenu({ title, items }: { title: string; items: PageMenuItem[
   );
 }
 
-export function HomeMenu({ current, onAccounts }: { current: "overview" | "year" | "import" | "rules" | "imports"; onAccounts?: () => void }) {
-  const titles = {
-    overview: "Overview",
-    year: "Year review",
-    import: "Import a file",
-    rules: "Sorting rules",
-    imports: "Past imports",
-  } as const;
+export function SectionTabs({ label, items }: { label: string; items: PageMenuItem[] }) {
   return (
-    <PageMenu
-      title={titles[current]}
-      items={[
-        { to: "/", label: "Overview", current: current === "overview" },
-        { to: "/year", label: "Year review", current: current === "year" },
-        { to: "/import", label: "Import a file", current: current === "import" },
-        { to: "/rules", label: "Sorting rules", current: current === "rules" },
-        { to: "/imports", label: "Past imports", current: current === "imports" },
-        ...(onAccounts ? [{ label: "Accounts", current: false, onSelect: onAccounts }] : []),
-      ]}
-    />
+    <nav className="flex gap-2 overflow-x-auto pb-1" aria-label={label}>
+      {items.map((item) => {
+        const className = cn(
+          "inline-flex min-h-11 shrink-0 items-center rounded-full border px-3 text-sm",
+          item.current ? "border-primary bg-chip font-medium text-fg" : "border-border bg-surface text-muted hover:text-fg",
+        );
+        if (item.onSelect) {
+          return (
+            <button key={item.label} type="button" className={className} aria-current={item.current ? "page" : undefined} onClick={item.onSelect}>
+              {item.label}
+            </button>
+          );
+        }
+        return (
+          <Link key={item.label} to={item.to ?? "/"} search={item.search} className={className} aria-current={item.current ? "page" : undefined}>
+            {item.label}
+          </Link>
+        );
+      })}
+    </nav>
   );
 }
 
-export function BudgetMenu({ page }: { page: "month" | "amounts" | "transactions" }) {
-  const titles = { month: "This month", amounts: "Set amounts", transactions: "All transactions" } as const;
+export function HomeMenu({ current, onAccounts }: { current: "overview" | "year" | "import" | "rules" | "imports"; onAccounts?: () => void }) {
+  if (current === "overview") return null;
+  return <BudgetMenu page={current} onAccounts={onAccounts} />;
+}
+
+export function BudgetMenu({
+  page,
+  onAccounts,
+}: {
+  page: "month" | "amounts" | "transactions" | "year" | "import" | "rules" | "imports";
+  onAccounts?: () => void;
+}) {
   return (
-    <PageMenu
-      title={titles[page]}
-      items={[
-        { to: "/budget", label: "This month", current: page === "month" },
-        { to: "/budget", search: { page: "amounts" }, label: "Set amounts", current: page === "amounts" },
-        { to: "/budget", search: { page: "transactions" }, label: "All transactions", current: page === "transactions" },
-      ]}
-    />
+    <div className="min-w-0 space-y-2">
+      <h1 className="font-display text-2xl font-semibold md:text-3xl">Budget</h1>
+      <SectionTabs
+        label="Budget"
+        items={[
+          { to: "/budget", label: "This month", current: page === "month" },
+          { to: "/budget", search: { page: "amounts" }, label: "Amounts", current: page === "amounts" },
+          { to: "/budget", search: { page: "transactions" }, label: "Transactions", current: page === "transactions" },
+          { to: "/import", label: "Import", current: page === "import" },
+          { to: "/year", label: "Year", current: page === "year" },
+          { to: "/rules", label: "Sorting", current: page === "rules" },
+          { to: "/imports", label: "Past imports", current: page === "imports" },
+          ...(onAccounts ? [{ label: "Accounts", current: false, onSelect: onAccounts }] : []),
+        ]}
+      />
+    </div>
   );
 }

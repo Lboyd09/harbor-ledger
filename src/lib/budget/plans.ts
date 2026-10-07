@@ -1,3 +1,4 @@
+import { shiftMonth } from "./parse-date.ts";
 import type { Category, CategoryKind, MonthBudget } from "./types.ts";
 
 export function planAmount(category: Category, ym: string | null, budgets: MonthBudget[] = []): number {
@@ -50,4 +51,28 @@ export function withMonthPlan(budgets: MonthBudget[], categoryId: string, ym: st
   const rest = budgets.filter((b) => !(b.categoryId === categoryId && b.ym === ym));
   if (amount == null || !Number.isFinite(amount)) return rest;
   return [...rest, { categoryId, ym, amount: Math.max(0, amount) }];
+}
+
+/**
+ * A new usual amount applies from the current month forward.
+ * Earlier months keep the amount they already had.
+ */
+export function freezePastUsual(
+  budgets: MonthBudget[],
+  categoryId: string,
+  previousUsual: number,
+  activeYm: string,
+  startYm: string | null,
+): MonthBudget[] {
+  if (!startYm || !/^\d{4}-\d{2}$/.test(startYm) || !/^\d{4}-\d{2}$/.test(activeYm) || startYm >= activeYm) return budgets;
+  let next = budgets;
+  let cursor = startYm;
+  let guard = 0;
+  const amount = Math.max(0, previousUsual || 0);
+  while (cursor < activeYm && guard < 240) {
+    if (!hasMonthOverride(categoryId, cursor, next)) next = withMonthPlan(next, categoryId, cursor, amount);
+    cursor = shiftMonth(cursor, 1);
+    guard += 1;
+  }
+  return next;
 }

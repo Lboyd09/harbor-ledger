@@ -223,3 +223,40 @@ test("safe to spend is derived from the month ledger", () => {
   );
   assert.equal(safe.amount, 1000 - 1100 - 100 - 10);
 });
+
+test("a fund-linked category is counted once in unassigned", () => {
+  const bucket: MoneyBucket = {
+    id: "g",
+    name: "Groceries",
+    monthly: 100,
+    yearly: null,
+    categoryIds: ["food"],
+    target: null,
+    by: null,
+    startMonth: "2026-07",
+    opening: 0,
+  };
+  const ledger = monthLedger({ transactions: [], categories, buckets: [bucket], style: "monthly" }, "2026-07");
+  assert.equal(ledger.totals.savedToFunds, 100);
+  assert.equal(ledger.totals.plannedTotal, 100 + 40 + 1100);
+  assert.equal(ledger.totals.unassigned, 2000 - (100 + 40 + 1100) - 100 + 100);
+});
+
+test("setup income is the expected amount, not the old deposits", () => {
+  const transactions = [
+    tx({ id: "old", date: "2026-06-01", amount: 3000, categoryId: "pay" }),
+    tx({ id: "now", date: "2026-07-01", amount: 3100, categoryId: "pay" }),
+  ];
+  const planned = monthLedger(
+    {
+      transactions,
+      categories,
+      style: "monthly",
+      profile: { monthlyIncome: 4200, incomeStreams: [{ id: "s", name: "Paycheck", amount: 4200, cadence: "monthly", matchHints: [], categoryId: "pay" }] },
+    },
+    "2026-07",
+  );
+  const line = planned.income.find((row) => row.id === "pay");
+  assert.equal(line?.received, 3100);
+  assert.equal(line?.expected, 4200);
+});

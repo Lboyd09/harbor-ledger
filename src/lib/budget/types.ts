@@ -70,6 +70,8 @@ export type Profile = {
   returnBand?: { conservative: number; expected: number; optimistic: number };
   /** Share of income the person said they want to save. Missing means they have not said. */
   savingsGoalRate?: number;
+  /** True while the sample household is loaded. Starting your own budget clears it. */
+  demo?: boolean;
 };
 
 export type Category = {

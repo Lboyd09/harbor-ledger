@@ -327,9 +327,8 @@ export function loanCompare(input: { balance: number; apr: number; years: number
   unfinished: boolean;
 } {
   const balance = Math.max(0, input.balance);
-  const years = Math.max(1, Math.round(input.years));
+  const n = Math.max(1, Math.round(Math.max(0, input.years) * 12));
   const r = Math.max(0, input.apr) / 100 / 12;
-  const n = years * 12;
   const payment = r === 0 ? balance / n : (balance * r) / (1 - Math.pow(1 + r, -n));
   function run(extra: number) {
     let left = balance;

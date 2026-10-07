@@ -68,9 +68,8 @@ export function amortizationSchedule(input: {
   extra?: number;
 }): AmortizationRow[] {
   const start = Math.max(0, input.balance);
-  const years = Math.max(1, Math.round(input.years));
+  const months = Math.max(1, Math.round(Math.max(0, input.years) * 12));
   const rate = Math.max(0, input.aprPercent) / 100 / 12;
-  const months = years * 12;
   const payment = rate === 0 ? start / months : (start * rate) / (1 - Math.pow(1 + rate, -months));
   const pay = payment + Math.max(0, input.extra ?? 0);
   const rows: AmortizationRow[] = [];

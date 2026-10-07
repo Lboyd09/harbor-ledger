@@ -195,6 +195,7 @@ function CategoryPanel({ categoryId, initialYm, onClose }: { categoryId: string;
   const asideRows = useBudgetStore((s) => s.setAsides);
   const style = useBudgetStore((s) => (s.profile.budgetStyle === "buckets" ? "buckets" : "monthly"));
   const carryStart = useBudgetStore((s) => s.profile.carryStartMonth);
+  const profile = useBudgetStore((s) => s.profile);
   const category = categories.find((item) => item.id === categoryId) ?? null;
 
   const source = useMemo<LedgerSource>(
@@ -207,8 +208,9 @@ function CategoryPanel({ categoryId, initialYm, onClose }: { categoryId: string;
       setAsides: asideRows ?? [],
       style,
       carryStartMonth: carryStart,
+      profile,
     }),
-    [transactions, categories, monthBudgets, moneyBuckets, bucketMoves, asideRows, style, carryStart],
+    [transactions, categories, monthBudgets, moneyBuckets, bucketMoves, asideRows, style, carryStart, profile],
   );
   const ledger = useMemo(() => monthLedger(source, ym), [source, ym]);
   const line = ledger.spending.find((row) => row.id === categoryId) ?? null;

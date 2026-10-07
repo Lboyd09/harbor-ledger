@@ -1,36 +1,43 @@
-import { useEffect, useRef, useState } from "react";
-import { amortizationSchedule } from "@/lib/budget/grow-tables";
+import { useState } from "react";
 import { readLoan } from "@/lib/budget/calc-input";
 import { loanCompare } from "@/lib/budget/grow-math";
+import { amortizationSchedule } from "@/lib/budget/grow-tables";
 import { formatMoney } from "@/lib/budget/money";
 import { Input } from "../ui/field";
-import { CalcFrame, Field, Sensitivity, YearTable, tagOf } from "./frame";
+import { CalcFrame, Field, Sensitivity, YearTable } from "./frame";
 import { useGrow } from "./session";
+
+function termLabel(months: number) {
+  if (!Number.isFinite(months) || months <= 0) return "—";
+  const years = Math.floor(months / 12);
+  const rest = months % 12;
+  if (years === 0) return `${rest} month${rest === 1 ? "" : "s"}`;
+  if (rest === 0) return `${years} year${years === 1 ? "" : "s"}`;
+  return `${years} year${years === 1 ? "" : "s"} ${rest} month${rest === 1 ? "" : "s"}`;
+}
 
 export function LoanPage() {
   const g = useGrow();
-  const started = useRef(false);
   const [balance, setBalance] = useState("");
   const [apr, setApr] = useState("");
-  const [years, setYears] = useState("5");
-  const [extra, setExtra] = useState("0");
-  useEffect(() => {
-    if (started.current) return;
-    if (g.facts.creditOwed.value == null) return;
-    started.current = true;
-    setBalance(String(Math.round(g.facts.creditOwed.value)));
-  }, [g.facts]);
-  // A blank rate is not 0%. Nothing is shown until the balance, rate, and years are entered.
+  const [years, setYears] = useState("");
+  const [extra, setExtra] = useState("");
   const read = readLoan({ balance, apr, years, extra });
   const balanceN = read.ok ? read.balance : 0;
   const aprN = read.ok ? read.apr : 0;
   const yearsN = read.ok ? read.years : 1;
   const extraN = read.ok ? read.extra : 0;
   const result = loanCompare({ balance: balanceN, apr: aprN, years: yearsN, extra: extraN });
+  const plain = loanCompare({ balance: balanceN, apr: aprN, years: yearsN, extra: 0 });
   const table = amortizationSchedule({ balance: balanceN, aprPercent: aprN, years: yearsN, extra: extraN });
-  const sentence = result.unfinished
-    ? "This payment does not finish the loan in 50 years."
-    : `The regular payment is ${formatMoney(result.payment)}. Extra saves ${formatMoney(Math.max(0, result.interest - result.extraInterest))}.`;
+  const saved = Math.max(0, plain.interest - result.extraInterest);
+  const sentence = !read.ok
+    ? ""
+    : result.unfinished
+      ? "This payment does not finish the loan in 50 years."
+      : `The regular payment is ${formatMoney(result.payment)}. Paying ${formatMoney(extraN)} extra saves ${formatMoney(saved)}.`;
+  const schedule = table.filter((row) => row.month % 12 === 0 || row.month === table.length);
+  const dash = !read.ok || result.unfinished;
   return (
     <CalcFrame
       question="What does an extra payment save?"
@@ -39,20 +46,20 @@ export function LoanPage() {
       topic="loan"
       facts={g.tipFacts}
       assumptionIds={[]}
-      extraAssumptions={["The regular payment matches this loan. Extra is added on top."]}
+      extraAssumptions={["The regular payment matches this loan. Extra is added on top. A card balance is not filled in."]}
       numbers={
         <div className="grid gap-2 sm:grid-cols-2">
-          <Field label="Balance" tag={tagOf(g.facts.creditOwed.source)}>
+          <Field label="Balance" tag="typed">
             <Input className="mt-1" aria-label="Loan balance" inputMode="decimal" value={balance} onChange={(e) => setBalance(e.target.value)} />
           </Field>
           <Field label="Interest %" tag="typed">
             <Input className="mt-1" aria-label="Loan interest" inputMode="decimal" value={apr} onChange={(e) => setApr(e.target.value)} />
           </Field>
           <Field label="Years" tag="typed">
-            <Input className="mt-1" aria-label="Loan years" inputMode="decimal" value={years} onChange={(e) => setYears(e.target.value)} />
+            <Input className="mt-1" aria-label="Loan years" inputMode="decimal" placeholder="5.5" value={years} onChange={(e) => setYears(e.target.value)} />
           </Field>
           <Field label="Extra each month" tag="typed">
-            <Input className="mt-1" aria-label="Extra payment" inputMode="decimal" value={extra} onChange={(e) => setExtra(e.target.value)} />
+            <Input className="mt-1" aria-label="Extra payment" inputMode="decimal" placeholder="0" value={extra} onChange={(e) => setExtra(e.target.value)} />
           </Field>
         </div>
       }
@@ -60,37 +67,46 @@ export function LoanPage() {
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="rounded-md border border-border p-3">
             <div className="text-sm font-medium">Regular payment</div>
-            <div className="mt-1 font-display text-2xl tabular">{formatMoney(result.payment)}</div>
+            <div className="mt-1 font-display text-2xl tabular">{read.ok ? formatMoney(result.payment) : "—"}</div>
           </div>
           <div className="rounded-md border border-border p-3">
             <div className="text-sm font-medium">With extra</div>
-            <div className="mt-1 font-display text-2xl tabular">{result.extraMonths} months</div>
+            <div className="mt-1 font-display text-2xl tabular">{dash ? "—" : termLabel(result.extraMonths)}</div>
           </div>
         </div>
       }
-      keyNumbers={[
-        { label: "Payment", value: formatMoney(result.payment) },
-        { label: "Months", value: String(result.months) },
-        { label: "Interest", value: formatMoney(result.interest) },
-        { label: "Months with extra", value: String(result.extraMonths) },
-        { label: "Interest with extra", value: formatMoney(result.extraInterest) },
-        { label: "Saved", value: formatMoney(Math.max(0, result.interest - result.extraInterest)) },
-      ]}
+      keyNumbers={
+        read.ok
+          ? [
+              { label: "Payment", value: formatMoney(result.payment) },
+              { label: "Paid off in", value: dash ? "—" : termLabel(result.months) },
+              { label: "Interest", value: dash ? "—" : formatMoney(result.interest) },
+              { label: "With extra", value: dash ? "—" : termLabel(result.extraMonths) },
+              { label: "Interest with extra", value: dash ? "—" : formatMoney(result.extraInterest) },
+              { label: "Extra saves", value: dash ? "—" : formatMoney(saved) },
+            ]
+          : []
+      }
       years={
         <YearTable
           columns={["Month", "Interest", "Principal", "Left"]}
-          rows={table.filter((row) => row.month % 6 === 0 || row.month === table.length).slice(0, 40).map((row) => [String(row.month), formatMoney(row.interest), formatMoney(row.principal), formatMoney(row.balance)])}
+          rows={schedule.map((row) => [String(row.month), formatMoney(row.interest), formatMoney(row.principal), formatMoney(row.balance)])}
         />
       }
       advanced={
-        g.nerd ? (
+        g.nerd && read.ok ? (
           <Sensitivity
             rows={[
-              { label: "Rate 2 points lower", value: formatMoney(loanCompare({ balance: balanceN, apr: aprN - 2, years: yearsN, extra: extraN }).interest) },
-              { label: "Rate as entered", value: formatMoney(loanCompare({ balance: balanceN, apr: aprN, years: yearsN, extra: 0 }).interest) },
-              { label: "Rate 2 points higher", value: formatMoney(loanCompare({ balance: balanceN, apr: aprN + 2, years: yearsN, extra: extraN }).interest) },
-              { label: "Extra $100 less", value: `${loanCompare({ balance: balanceN, apr: aprN, years: yearsN, extra: Math.max(0, extraN - 100) }).extraMonths} months` },
-              { label: "Extra $100 more", value: `${loanCompare({ balance: balanceN, apr: aprN, years: yearsN, extra: extraN + 100 }).extraMonths} months` },
+              { label: "No extra", value: `${termLabel(plain.extraMonths)} · ${formatMoney(plain.interest)}` },
+              { label: "With this extra", value: `${termLabel(result.extraMonths)} · ${formatMoney(result.extraInterest)}` },
+              { label: "This extra saves", value: formatMoney(saved) },
+              {
+                label: "Extra $100 more",
+                value: (() => {
+                  const more = loanCompare({ balance: balanceN, apr: aprN, years: yearsN, extra: extraN + 100 });
+                  return more.unfinished ? "—" : `${termLabel(more.extraMonths)} · saves ${formatMoney(Math.max(0, plain.interest - more.extraInterest))}`;
+                })(),
+              },
             ]}
           />
         ) : null

@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { Link } from "@tanstack/react-router";
 import { bucketBalance, categorySpend, DEFAULT_FUND_VIEW, fundWindow, fullLineOf, fundingForMonth, goalPace, monthName } from "@/lib/budget/buckets";
 import { monthLedger } from "@/lib/budget/ledger-month";
 import { displayMerchant } from "@/lib/budget/merchant";
@@ -11,6 +10,10 @@ import { useBudgetStore } from "@/store/budget-store";
 import { FUND_LINK_KEY, FundWizard } from "./fund-wizard";
 import { openCategoryPanel } from "./category-panel";
 import { FillJar } from "./money-visual";
+import { AccountBoard } from "./account-board";
+import { SectionTabs } from "./page-menu";
+import { GrowProvider } from "./grow/session";
+import { WorthPage } from "./grow/worth";
 import { useLivelyMotion } from "./use-lively-motion";
 import { EmptyArt } from "./visuals/empty-art";
 import { MiniBars } from "./visuals/mini-bars";
@@ -28,8 +31,10 @@ export function FundsView() {
   const setAsides = useBudgetStore((s) => s.setAsides) ?? [];
   const style = useBudgetStore((s) => (s.profile.budgetStyle === "buckets" ? "buckets" : "monthly"));
   const carryStartMonth = useBudgetStore((s) => s.profile.carryStartMonth);
+  const profile = useBudgetStore((s) => s.profile);
   const [wizard, setWizard] = useState(false);
   const [linked, setLinked] = useState<string | null>(null);
+  const [section, setSection] = useState<"goals" | "accounts" | "worth">("goals");
 
   useEffect(() => {
     const queued = sessionStorage.getItem(FUND_LINK_KEY);
@@ -51,22 +56,32 @@ export function FundsView() {
 
   const total = funds.reduce((sum, fund) => sum + bucketBalance(fund, ym, transactions, categories, moves), 0);
   const ledger = monthLedger(
-    { transactions, categories, budgets, buckets: funds, moves, setAsides, style, carryStartMonth },
+    { transactions, categories, budgets, buckets: funds, moves, setAsides, style, carryStartMonth, profile },
     ym,
   );
   const used = ledger.funds.reduce((sum, fund) => sum + fund.spent, 0);
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="font-display text-2xl font-semibold md:text-3xl">Funds</h1>
-        <p className="mt-2 max-w-xl text-sm text-muted">
-          A fund is extra savings for one purchase. It is not the budget.
-        </p>
-        <Link to="/grow" className="mt-2 inline-flex text-sm font-medium text-primary">
-          Money that could go to work is on Grow
-        </Link>
+      <div className="space-y-2">
+        <h1 className="font-display text-2xl font-semibold md:text-3xl">Money</h1>
+        <SectionTabs
+          label="Money"
+          items={[
+            { label: "Goals", current: section === "goals", onSelect: () => setSection("goals") },
+            { label: "Accounts", current: section === "accounts", onSelect: () => setSection("accounts") },
+            { label: "Net worth", current: section === "worth", onSelect: () => setSection("worth") },
+          ]}
+        />
       </div>
+      {section === "accounts" ? <AccountBoard /> : null}
+      {section === "worth" ? (
+        <GrowProvider>
+          <WorthPage />
+        </GrowProvider>
+      ) : null}
+      {section === "goals" ? (
+      <>
       {funds.length ? (
         <div>
           <p className="font-display text-xl">Across all funds: {formatMoney(total)}</p>
@@ -92,6 +107,8 @@ export function FundsView() {
         <Button variant="outline" onClick={() => { setLinked(null); setWizard(true); }}>
           Add a fund
         </Button>
+      ) : null}
+      </>
       ) : null}
     </div>
   );

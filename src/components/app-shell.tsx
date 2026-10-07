@@ -12,12 +12,28 @@ import { Onboarding } from "./onboarding";
 import { WelcomeGate } from "./welcome-gate";
 
 const NAV = [
-  { to: "/", label: "Home", icon: Home },
+  { to: "/", label: "Today", icon: Home },
   { to: "/budget", label: "Budget", icon: Wallet },
-  { to: "/funds", label: "Funds", icon: PiggyBank },
-  { to: "/grow", label: "Grow", icon: Sprout },
-  { to: "/settings", label: "Account", icon: Settings },
+  { to: "/funds", label: "Money", icon: PiggyBank },
+  { to: "/grow", label: "Plan", icon: Sprout },
 ] as const;
+
+const BUDGET_PATHS = ["/budget", "/import", "/year", "/rules", "/imports"];
+
+function navOn(to: (typeof NAV)[number]["to"], path: string) {
+  if (to === "/") return path === "/";
+  if (to === "/budget") return BUDGET_PATHS.includes(path);
+  return path === to;
+}
+
+function sectionLabel(path: string) {
+  if (path === "/") return "Today";
+  if (BUDGET_PATHS.includes(path)) return "Budget";
+  if (path === "/funds") return "Money";
+  if (path === "/grow") return "Plan";
+  if (path === "/settings") return "Settings";
+  return "BudgetFlow";
+}
 
 function AuthSlot() {
   const { user, isPending } = useCurrentUserState();
@@ -60,15 +76,14 @@ export function AppShell() {
   const hydrateLocal = useBudgetStore((s) => s.hydrateLocal);
   const done = useBudgetStore((s) => s.profile.completedOnboarding);
   const path = useRouterState({ select: (s) => s.location.pathname });
-  const homeOn = path === "/" || path === "/year" || path === "/import" || path === "/rules" || path === "/imports";
-  const budgetOn = path === "/budget";
-  const current = homeOn
-    ? "Home"
-    : budgetOn
-      ? "Budget"
-      : path === "/funds"
-        ? "Funds"
-        : (NAV.find((n) => n.to === path)?.label ?? "BudgetFlow");
+  const current = sectionLabel(path);
+  const [hideDeviceNote, setHideDeviceNote] = useState(() => {
+    try {
+      return sessionStorage.getItem("bf-hide-device") === "1";
+    } catch {
+      return false;
+    }
+  });
   const ledgerName = useBudgetStore((s) => s.profile.ledgerName);
   const accent = useBudgetStore((s) => s.profile.accent ?? "harbor");
   const motion = useBudgetStore((s) => s.profile.motion ?? "lively");
@@ -129,7 +144,7 @@ export function AppShell() {
         <nav className="flex flex-1 flex-col gap-1 px-3">
           {NAV.map((item) => {
             const Icon = item.icon;
-            const on = item.to === "/" ? homeOn : item.to === "/budget" ? budgetOn : path === item.to;
+            const on = navOn(item.to, path);
             return (
               <Link
                 key={item.to}
@@ -146,6 +161,10 @@ export function AppShell() {
           })}
         </nav>
         <div className="min-w-0 space-y-2 border-t border-border px-3 py-4">
+          <Link to="/settings" className={cn("flex min-h-11 items-center gap-2 rounded-md px-3 text-sm", path === "/settings" ? "bg-chip text-fg" : "text-muted hover:bg-chip hover:text-fg")}>
+            <Settings className="size-4" />
+            Settings
+          </Link>
           <SavePill />
           <AuthSlot />
         </div>
@@ -161,17 +180,36 @@ export function AppShell() {
         </div>
         <div className="flex items-center gap-3">
           <SavePill />
+          <Link to="/settings" aria-label="Settings" className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md text-muted">
+            <Settings className="size-5" />
+          </Link>
           <AuthSlot />
         </div>
       </header>
 
       <main className="px-4 pb-28 pt-4 md:ml-64 md:px-8 md:pb-10 md:pt-8">
-        {!user ? (
+        {!user && !hideDeviceNote ? (
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-surface px-4 py-3">
-            <p className="text-sm">This ledger stays on this device until you sign in.</p>
-            <Link to="/login" className="text-sm font-medium text-primary">
-              Sign in to save
-            </Link>
+            <p className="text-sm">This budget stays on this device until you sign in.</p>
+            <div className="flex gap-2">
+              <Link to="/login" className="text-sm font-medium text-primary">
+                Sign in to save
+              </Link>
+              <button
+                type="button"
+                className="min-h-11 px-2 text-sm text-muted"
+                onClick={() => {
+                  setHideDeviceNote(true);
+                  try {
+                    sessionStorage.setItem("bf-hide-device", "1");
+                  } catch {
+                    /* private mode */
+                  }
+                }}
+              >
+                Close
+              </button>
+            </div>
           </div>
         ) : null}
         <div key={path} className="route-fade min-w-0">
@@ -179,10 +217,10 @@ export function AppShell() {
         </div>
       </main>
 
-      <nav className="safe-nav fixed inset-x-0 bottom-0 z-10 grid grid-cols-5 border-t border-border bg-surface md:hidden">
+      <nav className="safe-nav fixed inset-x-0 bottom-0 z-10 grid grid-cols-4 border-t border-border bg-surface md:hidden">
         {NAV.map((item) => {
           const Icon = item.icon;
-          const on = item.to === "/" ? homeOn : item.to === "/budget" ? budgetOn : path === item.to;
+          const on = navOn(item.to, path);
           return (
             <Link
               key={item.to}

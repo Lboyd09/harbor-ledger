@@ -24,6 +24,17 @@ test("the loan table matches the loan payment and the payoff month", () => {
   assert.ok(rows.at(-1)!.balance < 1);
 });
 
+test("5.5 years is 66 months and extra payments lower the interest", () => {
+  const half = loanCompare({ balance: 10000, apr: 6, years: 5.5, extra: 0 });
+  assert.equal(half.months, 66);
+  const rows = amortizationSchedule({ balance: 10000, aprPercent: 6, years: 5.5 });
+  assert.equal(rows.length, 66);
+  const plain = loanCompare({ balance: 20000, apr: 6.5, years: 5, extra: 0 });
+  const extra = loanCompare({ balance: 20000, apr: 6.5, years: 5, extra: 100 });
+  assert.ok(extra.extraInterest < plain.interest);
+  assert.ok(extra.extraMonths < plain.months);
+});
+
 test("the debt timeline matches the avalanche payoff", () => {
   const debts: DebtItem[] = [
     { id: "a", name: "Card", balance: 2000, apr: 18, minimum: 80 },
