@@ -1167,7 +1167,7 @@ export const useBudgetStore = create<State>()(
           imports: [
             {
               id: newId("imp"),
-              fileName: "harbor-ledger-backup.json",
+              fileName: "budgetflow-backup.json",
               importedAt: new Date().toISOString(),
               added: parsed.data.transactions.length,
               skippedDuplicates: 0,

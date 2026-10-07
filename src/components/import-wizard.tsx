@@ -184,7 +184,7 @@ export function ImportWizard() {
       <div>
         <h1 className="font-display text-2xl font-semibold md:text-3xl">Import a bank file</h1>
         <p className="mt-2 max-w-2xl text-sm text-muted">
-          Harbor reads a file you download from the bank. It does not log in. Each file belongs to one account.
+          BudgetFlow reads a file you download from the bank. It does not log in. Each file belongs to one account.
         </p>
       </div>
 
@@ -492,7 +492,7 @@ const BANK_STEPS: { bank: string; steps: string[] }[] = [
       "Sign in on chase.com (the download is more reliable there than in the app).",
       "Open the account → See all activity or Account activity.",
       "Choose Download, pick CSV, set a date range, download.",
-      "The file often starts with Details, Posting Date, Description, Amount. Harbor ignores Details as a direction marker.",
+      "The file often starts with Details, Posting Date, Description, Amount. BudgetFlow ignores Details as a direction marker.",
     ],
   },
   {
@@ -506,14 +506,14 @@ const BANK_STEPS: { bank: string; steps: string[] }[] = [
   {
     bank: "Wells Fargo",
     steps: [
-      "Account → Activity → Download. CSV may have no header row — Harbor still reads date, amount, description.",
+      "Account → Activity → Download. CSV may have no header row — BudgetFlow still reads date, amount, description.",
     ],
   },
   {
     bank: "Capital One / Citi / Ally / most credit cards",
     steps: [
       "Look for Download, Export, or Spreadsheet in account activity.",
-      "Prefer CSV. If the file has Debit and Credit columns instead of a signed Amount, leave the column map as-is — Harbor uses both.",
+      "Prefer CSV. If the file has Debit and Credit columns instead of a signed Amount, leave the column map as-is — BudgetFlow uses both.",
     ],
   },
 ];

@@ -15,7 +15,7 @@ async function sendMail(to: string, subject: string, text: string, html: string)
     return {
       configured: false as const,
       sent: false as const,
-      error: "Email is not connected yet. Add RESEND_API_KEY and HARBOR_FROM_EMAIL where Harbor is hosted.",
+      error: "Email is not connected yet. Add RESEND_API_KEY and HARBOR_FROM_EMAIL where BudgetFlow is hosted.",
     };
   }
   const res = await fetch("https://api.resend.com/emails", {
@@ -82,9 +82,9 @@ export const sendConfirmationEmail = createServerFn({ method: "POST" })
     const link = `${originFromRequest()}/confirm?token=${token}`;
     const mailed = await sendMail(
       email,
-      "Confirm your Harbor email",
-      `Confirm this email for Harbor: ${link}\n\nThe link works for 3 days. If you did not create a Harbor account, ignore this note.`,
-      `<p>Confirm this email for Harbor.</p><p><a href="${link}">Confirm email</a></p><p>The link works for 3 days. If you did not create a Harbor account, you can ignore this note.</p>`,
+      "Confirm your BudgetFlow email",
+      `Confirm this email for BudgetFlow: ${link}\n\nThe link works for 3 days. If you did not create a BudgetFlow account, ignore this note.`,
+      `<p>Confirm this email for BudgetFlow.</p><p><a href="${link}">Confirm email</a></p><p>The link works for 3 days. If you did not create a BudgetFlow account, you can ignore this note.</p>`,
     );
     if (!mailed.configured) {
       return { ok: true as const, configured: false, sent: false, error: mailed.error, previewLink: link };
@@ -129,7 +129,7 @@ export const requestPasswordReset = createServerFn({ method: "POST" })
       return {
         ok: false as const,
         configured: false,
-        error: "Email is not connected yet. Sign in and use Account to get a reset link on the page, or add RESEND_API_KEY and HARBOR_FROM_EMAIL where Harbor is hosted.",
+        error: "Email is not connected yet. Sign in and use Account to get a reset link on the page, or add RESEND_API_KEY and HARBOR_FROM_EMAIL where BudgetFlow is hosted.",
       };
     }
     if (!data.email.includes("@")) return { ok: true as const, configured: true };
@@ -147,9 +147,9 @@ export const requestPasswordReset = createServerFn({ method: "POST" })
     const link = `${originFromRequest()}/reset?token=${token}`;
     await sendMail(
       data.email,
-      "Reset your Harbor password",
-      `Set a new Harbor password: ${link}\n\nThis link works for one hour. If you did not ask for it, ignore this note.`,
-      `<p>Set a new Harbor password.</p><p><a href="${link}">Choose a new password</a></p><p>This link works for one hour. If you did not ask for it, you can ignore this note.</p>`,
+      "Reset your BudgetFlow password",
+      `Set a new BudgetFlow password: ${link}\n\nThis link works for one hour. If you did not ask for it, ignore this note.`,
+      `<p>Set a new BudgetFlow password.</p><p><a href="${link}">Choose a new password</a></p><p>This link works for one hour. If you did not ask for it, you can ignore this note.</p>`,
     );
     return { ok: true as const, configured: true };
   });
@@ -180,9 +180,9 @@ export const sendOwnResetLink = createServerFn({ method: "POST" })
     const link = `${originFromRequest()}/reset?token=${token}`;
     const mailed = await sendMail(
       email,
-      "Reset your Harbor password",
-      `Set a new Harbor password: ${link}\n\nThis link works for one hour. If you did not ask for it, ignore this note.`,
-      `<p>Set a new Harbor password.</p><p><a href="${link}">Choose a new password</a></p><p>This link works for one hour. If you did not ask for it, you can ignore this note.</p>`,
+      "Reset your BudgetFlow password",
+      `Set a new BudgetFlow password: ${link}\n\nThis link works for one hour. If you did not ask for it, ignore this note.`,
+      `<p>Set a new BudgetFlow password.</p><p><a href="${link}">Choose a new password</a></p><p>This link works for one hour. If you did not ask for it, you can ignore this note.</p>`,
     );
     if (!mailed.configured) {
       return { ok: true as const, configured: false, sent: false, error: mailed.error, previewLink: link };

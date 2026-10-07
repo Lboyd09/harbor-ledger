@@ -113,7 +113,7 @@ export function spreadsheetXml(opts: {
   const rec = findRecurringAll(transactions);
 
   const overview: Cell[][] = [
-    [{ type: "String", value: profile.ledgerName || "Harbor Ledger" }],
+    [{ type: "String", value: profile.ledgerName || "BudgetFlow" }],
     [{ type: "String", value: "Import this file in Google Sheets: File → Import → Upload. Also opens in Excel and Numbers." }],
     [],
     [{ type: "String", value: "Planned income" }, { type: "Number", value: plan.income }],

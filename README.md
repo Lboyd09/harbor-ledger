@@ -1,6 +1,6 @@
-# Harbor Ledger
+# BudgetFlow
 
-Harbor is a private budget you keep on this device. You import a bank file, sort the charges, and see the month and the year. Nothing connects to a bank.
+BudgetFlow is a private budget you keep on this device. You import a bank file, sort the charges, and see the month and the year. Nothing connects to a bank.
 
 ## The five tabs
 
@@ -16,7 +16,7 @@ Every screen and the workbook read the same month and the same year. A screen do
 
 ## Import
 
-Use Home or Account and choose a CSV from your bank. Harbor sorts a charge when it is sure, marks a fair guess as Check, and leaves the rest for you. You can change one charge, one month, or the default for that name.
+Use Home or Account and choose a CSV from your bank. BudgetFlow sorts a charge when it is sure, marks a fair guess as Check, and leaves the rest for you. You can change one charge, one month, or the default for that name.
 
 ## Export
 

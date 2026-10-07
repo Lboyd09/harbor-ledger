@@ -29,7 +29,7 @@ export function WelcomeGate() {
     <div className="mx-auto flex min-h-dvh max-w-xl flex-col px-5 py-8 md:py-12">
       <div className="flex items-center gap-2">
         <HarborMark className="size-5 text-primary" />
-        <p className="text-sm font-medium uppercase tracking-widest text-muted">Harbor Ledger</p>
+        <p className="text-sm font-medium uppercase tracking-widest text-muted">BudgetFlow</p>
       </div>
       <h1 className="mt-4 font-display text-3xl font-semibold md:text-4xl">Let's set up your budget</h1>
       <p className="mt-3 text-muted">

@@ -34,10 +34,10 @@ import { Field, Input, Select } from "./ui/field";
 const STEPS = [
   { title: "About you", why: "Why we ask: this picks a starting list of what you pay for." },
   { title: "What you pay for", why: "Why we ask: these become the categories on your plan." },
-  { title: "Money coming in", why: "Why we ask: Harbor uses this to suggest an amount for each category." },
+  { title: "Money coming in", why: "Why we ask: BudgetFlow uses this to suggest an amount for each category." },
   { title: "How leftover money works", why: "Why we ask: this decides what happens to money you do not spend." },
   { title: "Your amounts", why: "Why we ask: these are a starting plan. You can change any month later." },
-  { title: `Accounts and a ${TERMS.savingsPlan.toLowerCase()}`, why: "Why we ask: a balance today lets Harbor show your money before a file." },
+  { title: `Accounts and a ${TERMS.savingsPlan.toLowerCase()}`, why: "Why we ask: a balance today lets BudgetFlow show your money before a file." },
   { title: "Your plan on one page", why: "Why we ask: check this once, then add a file or look around." },
 ];
 
@@ -195,7 +195,7 @@ export function Onboarding({ onExit }: { onExit?: () => void }) {
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <HarborMark className="size-5 text-primary" />
-          <p className="text-sm font-medium uppercase tracking-widest text-muted">Harbor Ledger</p>
+          <p className="text-sm font-medium uppercase tracking-widest text-muted">BudgetFlow</p>
         </div>
         <SignedIn>
           <UserButton />

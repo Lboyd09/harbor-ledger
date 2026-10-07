@@ -45,12 +45,12 @@ export const FIGURES: ReferenceFigure[] = [
   { id: "ss-latest", name: "Latest Social Security age with credits", value: 70, unit: "age", asOf: "2026-01-01", source: SSA, status: "checked" },
   { id: "inflation", name: "Default inflation", value: 0.02, unit: "rate", asOf: "2025-08-22", source: "Federal Reserve longer-run inflation goal", status: "checked" },
   { id: "withdrawal", name: "Withdrawal rate", value: 0.04, unit: "rate", asOf: "1994-10-01", source: "Bengen, Journal of Financial Planning, October 1994", status: "checked" },
-  { id: "savings-conservative", name: "Savings return, low", value: SAVINGS_RATES.conservative, unit: "rate", asOf: "2026-01-01", source: "Harbor planning range, not a published series", status: "needs checking" },
-  { id: "savings-expected", name: "Savings return, middle", value: SAVINGS_RATES.expected, unit: "rate", asOf: "2026-01-01", source: "Harbor planning range, not a published series", status: "needs checking" },
-  { id: "savings-optimistic", name: "Savings return, high", value: SAVINGS_RATES.optimistic, unit: "rate", asOf: "2026-01-01", source: "Harbor planning range, not a published series", status: "needs checking" },
-  { id: "market-conservative", name: "Market return, low", value: MARKET_RATES.conservative, unit: "rate", asOf: "2026-01-01", source: "Harbor planning range, not a published series", status: "needs checking" },
-  { id: "market-expected", name: "Market return, middle", value: MARKET_RATES.expected, unit: "rate", asOf: "2026-01-01", source: "Harbor planning range, not a published series", status: "needs checking" },
-  { id: "market-optimistic", name: "Market return, high", value: MARKET_RATES.optimistic, unit: "rate", asOf: "2026-01-01", source: "Harbor planning range, not a published series", status: "needs checking" },
+  { id: "savings-conservative", name: "Savings return, low", value: SAVINGS_RATES.conservative, unit: "rate", asOf: "2026-01-01", source: "BudgetFlow planning range, not a published series", status: "needs checking" },
+  { id: "savings-expected", name: "Savings return, middle", value: SAVINGS_RATES.expected, unit: "rate", asOf: "2026-01-01", source: "BudgetFlow planning range, not a published series", status: "needs checking" },
+  { id: "savings-optimistic", name: "Savings return, high", value: SAVINGS_RATES.optimistic, unit: "rate", asOf: "2026-01-01", source: "BudgetFlow planning range, not a published series", status: "needs checking" },
+  { id: "market-conservative", name: "Market return, low", value: MARKET_RATES.conservative, unit: "rate", asOf: "2026-01-01", source: "BudgetFlow planning range, not a published series", status: "needs checking" },
+  { id: "market-expected", name: "Market return, middle", value: MARKET_RATES.expected, unit: "rate", asOf: "2026-01-01", source: "BudgetFlow planning range, not a published series", status: "needs checking" },
+  { id: "market-optimistic", name: "Market return, high", value: MARKET_RATES.optimistic, unit: "rate", asOf: "2026-01-01", source: "BudgetFlow planning range, not a published series", status: "needs checking" },
 ];
 
 export function figureById(id: string): ReferenceFigure | undefined {

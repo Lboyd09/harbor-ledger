@@ -732,7 +732,7 @@ export function MonthSheet({ rows, categories, ym }: { rows: Transaction[]; cate
     for (const t of sorted) {
       lines.push([t.date, csvCell(displayMerchant(t.description)), t.amount > 0 ? t.amount.toFixed(2) : "", t.amount < 0 ? Math.abs(t.amount).toFixed(2) : "", csvCell(sheetCategory(categories, t)), csvCell(countsLabel(t))].join(","));
     }
-    downloadText(`harbor-${ym}.csv`, lines.join("\r\n"), "text/csv;charset=utf-8");
+    downloadText(`budgetflow-${ym}.csv`, lines.join("\r\n"), "text/csv;charset=utf-8");
   }
   return (
     <section className="space-y-3">

@@ -373,7 +373,7 @@ export function buildHarborWorkbook(input: {
   };
 
   add("Start here", [
-    [input.profile.ledgerName || "Harbor Ledger"],
+    [input.profile.ledgerName || "BudgetFlow"],
     ["Start here", "What this sheet is"],
     ["Home year", "Each month: received, spent, saved to funds, and what is left."],
     ["Budget month", "Each category: planned, spent, carry in, carry out, and left."],

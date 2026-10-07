@@ -43,7 +43,7 @@ export function ExportBar() {
   const pack = { profile, categories, transactions, monthBudgets, savingsGoals, moneyBuckets, bucketMoves, netWorth, debts, ira, accounts, balances, setAsides, merchantRules };
 
   function exportCsv() {
-    downloadText("harbor-ledger.csv", ledgerCsv(transactions, categories), "text/csv;charset=utf-8");
+    downloadText("budgetflow.csv", ledgerCsv(transactions, categories), "text/csv;charset=utf-8");
     setNote("CSV downloaded. Excel opens it. Google Sheets: File, Import, Upload.");
   }
 
@@ -51,7 +51,7 @@ export function ExportBar() {
     setBusy(true);
     setNote(null);
     try {
-      publish("harbor-ledger.xlsx", buildHarborWorkbook(pack), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      publish("budgetflow.xlsx", buildHarborWorkbook(pack), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
       setNote("Excel file downloaded. Google Sheets: File, Import, Upload, Replace spreadsheet.");
     } catch (err) {
       setNote(err instanceof Error ? err.message : "Could not build the workbook.");
@@ -64,7 +64,7 @@ export function ExportBar() {
     setBusy(true);
     setNote(null);
     try {
-      publish("harbor-ledger-google-sheets.xlsx", buildHarborWorkbook(pack), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      publish("budgetflow-google-sheets.xlsx", buildHarborWorkbook(pack), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
       setNote("Same workbook. In Google Sheets: File, Import, Upload, Replace spreadsheet.");
     } catch (err) {
       setNote(err instanceof Error ? err.message : "Could not build the Google Sheets file.");
@@ -121,7 +121,7 @@ export function ExportBar() {
             size="sm"
             disabled={!transactions.length}
             onClick={() =>
-              downloadText("harbor-ledger-transactions.csv", transactionsCsv(transactions, categories), "text/csv;charset=utf-8")
+              downloadText("budgetflow-transactions.csv", transactionsCsv(transactions, categories), "text/csv;charset=utf-8")
             }
           >
             Transactions CSV
@@ -131,7 +131,7 @@ export function ExportBar() {
             size="sm"
             disabled={!transactions.length}
             onClick={() =>
-              downloadText("harbor-ledger-ynab.csv", similarAppCsv(transactions, categories), "text/csv;charset=utf-8")
+              downloadText("budgetflow-ynab.csv", similarAppCsv(transactions, categories), "text/csv;charset=utf-8")
             }
           >
             Date / payee / amount CSV
@@ -141,7 +141,7 @@ export function ExportBar() {
             size="sm"
             onClick={() =>
               downloadText(
-                "harbor-ledger-backup.json",
+                "budgetflow-backup.json",
                 JSON.stringify(
                   ledgerBackup({
                     profile,
