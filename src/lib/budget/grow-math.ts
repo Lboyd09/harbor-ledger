@@ -67,11 +67,20 @@ export function monthlyPath(input: {
 }
 
 /**
- * Same pre-tax dollars.
- * Roth invests the after-tax slice and is not taxed later.
- * Traditional invests the full amount and is taxed at the retirement rate.
+ * Value of the same deposit made at the end of every year (an ordinary annuity), compounded yearly.
+ * FV = deposit × ((1 + r)^n − 1) / r, and deposit × n when r is 0.
+ * A part year after the last deposit only grows; it adds no deposit.
  */
-export function rothVsTraditional(input: {
+export function yearlyDepositsValue(deposit: number, rate: number, years: number): number {
+  const total = Math.max(0, years);
+  const n = Math.floor(total + 1e-9);
+  const pay = Math.max(0, deposit);
+  const atLast = Math.abs(rate) < 1e-12 ? pay * n : (pay * (Math.pow(1 + rate, n) - 1)) / rate;
+  return atLast * Math.pow(1 + rate, total - n);
+}
+
+export type RothInput = {
+  /** Pre-tax pay set aside each year. */
   annual: number;
   years: number;
   rate: number;
@@ -79,18 +88,86 @@ export function rothVsTraditional(input: {
   taxLater: number;
   inflation: number;
   today: boolean;
-}) {
+};
+
+/**
+ * Same pre-tax pay each year, the standard comparison.
+ * Roth: pay tax now, invest what is left (annual × (1 − taxNow)), nothing is taxed later.
+ * Traditional: invest the whole annual amount, pay taxLater on everything taken out.
+ * Deposits go in at the end of each year and grow at `rate`, compounded yearly.
+ */
+export function rothVsTraditional(input: RothInput) {
   const now = Math.min(0.8, Math.max(0, input.taxNow));
   const later = Math.min(0.8, Math.max(0, input.taxLater));
-  const factor = Math.pow(1 + input.rate, Math.max(0, input.years));
-  const rothInvested = input.annual * (1 - now);
-  const roth = deflate(rothInvested * factor, input.inflation, input.years, input.today);
-  const traditional = deflate(input.annual * factor * (1 - later), input.inflation, input.years, input.today);
+  const annual = Math.max(0, input.annual);
+  const years = Math.max(0, input.years);
+  const deposits = Math.floor(years + 1e-9);
+  const rothYearly = annual * (1 - now);
+  const rothNominal = yearlyDepositsValue(rothYearly, input.rate, years);
+  const traditionalNominal = yearlyDepositsValue(annual, input.rate, years);
+  const roth = deflate(rothNominal, input.inflation, years, input.today);
+  const traditionalBeforeTax = deflate(traditionalNominal, input.inflation, years, input.today);
+  const traditional = traditionalBeforeTax * (1 - later);
   return {
     roth: roundMoney(roth),
     traditional: roundMoney(traditional),
-    rothContributed: roundMoney(rothInvested * input.years),
-    traditionalContributed: roundMoney(input.annual * input.years),
+    traditionalBeforeTax: roundMoney(traditionalBeforeTax),
+    rothYearly: roundMoney(rothYearly),
+    traditionalYearly: roundMoney(annual),
+    rothContributed: roundMoney(rothYearly * deposits),
+    traditionalContributed: roundMoney(annual * deposits),
+  };
+}
+
+/** One plain sentence saying which leaves more after taxes, and why. */
+export function rothVerdict(result: { roth: number; traditional: number }, taxNow: number, taxLater: number): string {
+  const gap = Math.abs(result.roth - result.traditional);
+  if (gap < 1) {
+    return "Roth and traditional leave about the same after taxes, because your tax rate now and later are the same.";
+  }
+  const amount = `$${Math.round(gap).toLocaleString("en-US")}`;
+  return result.roth > result.traditional
+    ? `Roth leaves you about ${amount} more after taxes, because your tax rate now (${pct(taxNow)}) is lower than later (${pct(taxLater)}).`
+    : `Traditional leaves you about ${amount} more after taxes, because your tax rate later (${pct(taxLater)}) is lower than now (${pct(taxNow)}).`;
+}
+
+function pct(rate: number) {
+  return `${Math.round(rate * 1000) / 10}%`;
+}
+
+export type RothWhatIf = { label: string; roth: number; traditional: number };
+
+/** What-if rows that each change something this yearly calculator uses. */
+export function rothWhatIfs(input: RothInput): RothWhatIf[] {
+  const row = (label: string, patch: Partial<RothInput>): RothWhatIf => {
+    const result = rothVsTraditional({ ...input, ...patch });
+    return { label, roth: result.roth, traditional: result.traditional };
+  };
+  return [
+    row("Return 2 points lower", { rate: input.rate - 0.02 }),
+    row("As entered", {}),
+    row("Return 2 points higher", { rate: input.rate + 0.02 }),
+    row("$1,000 less each year", { annual: Math.max(0, input.annual - 1000) }),
+    row("$1,000 more each year", { annual: input.annual + 1000 }),
+    row("Tax later 5 points higher", { taxLater: input.taxLater + 0.05 }),
+  ];
+}
+
+export type LimitCheck = { rothIn: number; traditionalIn: number; rothOver: number; traditionalOver: number };
+
+/**
+ * The IRA limit applies to what actually goes into the account.
+ * Roth puts in the after-tax amount; traditional puts in the whole pre-tax amount.
+ */
+export function iraLimitCheck(annual: number, taxNow: number, limit: number): LimitCheck {
+  const now = Math.min(0.8, Math.max(0, taxNow));
+  const rothIn = roundMoney(Math.max(0, annual) * (1 - now));
+  const traditionalIn = roundMoney(Math.max(0, annual));
+  return {
+    rothIn,
+    traditionalIn,
+    rothOver: roundMoney(Math.max(0, rothIn - limit)),
+    traditionalOver: roundMoney(Math.max(0, traditionalIn - limit)),
   };
 }
 
