@@ -6,35 +6,9 @@ export type Band = { conservative: number; expected: number; optimistic: number 
 export const SAVINGS_RATES: Band = { conservative: 0.03, expected: 0.042, optimistic: 0.05 };
 export const MARKET_RATES: Band = { conservative: 0.04, expected: 0.07, optimistic: 0.1 };
 
-function grow(principal: number, rate: number, years: number) {
-  return principal * Math.pow(1 + rate, Math.max(0, years));
-}
-
 function deflate(nominal: number, inflation: number, years: number, today: boolean) {
   if (!today || inflation <= -0.99) return nominal;
   return nominal / Math.pow(1 + inflation, Math.max(0, years));
-}
-
-export function projectLump(input: {
-  principal: number;
-  years: number;
-  rates: Band;
-  inflation: number;
-  today: boolean;
-  /** Tax taken from the gain at the end. Roth passes 0. */
-  gainTax: number;
-  /** Tax taken from the whole ending balance. Traditional passes the retirement rate. */
-  endTax: number;
-}): Band {
-  const taxGain = Math.min(0.8, Math.max(0, input.gainTax));
-  const taxEnd = Math.min(0.8, Math.max(0, input.endTax));
-  function one(rate: number) {
-    const nominal = grow(input.principal, rate, input.years);
-    const gain = Math.max(0, nominal - input.principal);
-    const after = (nominal - gain * taxGain) * (1 - taxEnd);
-    return roundMoney(deflate(after, input.inflation, input.years, input.today));
-  }
-  return { conservative: one(input.rates.conservative), expected: one(input.rates.expected), optimistic: one(input.rates.optimistic) };
 }
 
 /** Future value of a monthly deposit. Rate is annual. */

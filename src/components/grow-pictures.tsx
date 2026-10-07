@@ -1,7 +1,7 @@
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { accountKindLabel } from "@/lib/budget/accounts";
 import { accountRows } from "@/lib/budget/dashboard";
-import { MARKET_RATES, projectLump } from "@/lib/budget/grow-math";
+import type { LumpPoint } from "@/lib/budget/lump";
 import { formatMoney } from "@/lib/budget/money";
 import type { Account, AccountKind, BalancePoint, NetWorthPoint } from "@/lib/budget/types";
 import { useState } from "react";
@@ -177,38 +177,24 @@ export function PlaceMap() {
 }
 
 export function GrowthArea({
-  principal,
-  years,
-  inflation,
+  points,
+  rate,
   today,
-  gainTax,
   lively,
 }: {
-  principal: number;
-  years: number;
-  inflation: number;
+  points: LumpPoint[];
+  /** The typed yearly rate as a decimal. */
+  rate: number;
   today: boolean;
-  gainTax: number;
   lively: boolean;
 }) {
-  const count = Math.max(1, Math.round(years));
-  const points = Array.from({ length: count + 1 }, (_, year) => {
-    const band = projectLump({
-      principal,
-      years: year,
-      rates: MARKET_RATES,
-      inflation,
-      today,
-      gainTax,
-      endTax: 0,
-    });
-    return { year: String(year), putIn: principal, low: band.conservative, mid: band.expected, high: band.optimistic };
-  });
   const last = points.at(-1);
+  const pct = (n: number) => `${Math.round(n * 1000) / 10}%`;
+  const years = last?.year ?? 0;
   return (
     <figure>
       <p className="text-sm">
-        After {count} years the expected path is {formatMoney(last?.mid ?? 0)}. The flat band is the {formatMoney(principal)} you put in. The space above it is growth. An estimate, not financial advice.
+        {`After ${years} ${years === 1 ? "year" : "years"} at ${pct(rate)} it is about ${formatMoney(last?.mid ?? 0)} before tax${today ? ", in today's dollars" : ""}. The shaded band shows ${pct(rate - 0.02)} to ${pct(rate + 0.02)}. The flat band is the ${formatMoney(last?.putIn ?? 0)} you put in. An estimate, not financial advice.`}
       </p>
       <div className="chart-rise mt-2 h-52 w-full">
         <ResponsiveContainer width="100%" height="100%">
@@ -217,17 +203,17 @@ export function GrowthArea({
             <XAxis dataKey="year" tick={{ fontSize: 12, fill: "var(--color-muted)" }} />
             <YAxis tick={{ fontSize: 11, fill: "var(--color-muted)" }} width={48} />
             <Tooltip formatter={(v) => formatMoney(Number(Array.isArray(v) ? v[0] : v))} />
-            <Area type="monotone" dataKey="high" name="Optimistic" stroke="var(--color-muted)" fill="var(--color-primary)" fillOpacity={0.12} isAnimationActive={lively} />
-            <Area type="monotone" dataKey="mid" name="Expected" stroke="var(--color-primary)" fill="var(--color-primary)" fillOpacity={0.28} isAnimationActive={lively} />
-            <Area type="monotone" dataKey="low" name="Conservative" stroke="var(--color-warn)" fill="transparent" isAnimationActive={lively} />
+            <Area type="monotone" dataKey="high" name="2 points higher" stroke="var(--color-muted)" fill="var(--color-primary)" fillOpacity={0.12} isAnimationActive={lively} />
+            <Area type="monotone" dataKey="mid" name="Rate you typed" stroke="var(--color-primary)" fill="var(--color-primary)" fillOpacity={0.28} isAnimationActive={lively} />
+            <Area type="monotone" dataKey="low" name="2 points lower" stroke="var(--color-warn)" fill="transparent" isAnimationActive={lively} />
             <Area type="monotone" dataKey="putIn" name="Put in" stroke="var(--color-fg)" fill="var(--color-chip)" fillOpacity={0.95} isAnimationActive={lively} />
           </AreaChart>
         </ResponsiveContainer>
       </div>
       <ShowNumbers
-        caption="Conservative, expected, and optimistic paths. The put-in row does not grow."
-        columns={["Year", "Put in", "Conservative", "Expected", "Optimistic"]}
-        rows={points.map((point) => [point.year, formatMoney(point.putIn), formatMoney(point.low), formatMoney(point.mid), formatMoney(point.high)])}
+        caption="Before tax, at the rate you typed and 2 points either side. The put-in row does not grow."
+        columns={["Year", "Put in", "2 points lower", "Rate you typed", "2 points higher"]}
+        rows={points.map((point) => [String(point.year), formatMoney(point.putIn), formatMoney(point.low), formatMoney(point.mid), formatMoney(point.high)])}
       />
     </figure>
   );
