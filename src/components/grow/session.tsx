@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createContext, useContext } from "react";
 import { latestBalance } from "@/lib/budget/accounts";
 import { bucketBalance } from "@/lib/budget/buckets";
-import { MARKET_RATES, SAVINGS_RATES, monthlyPath, projectBoth, projectLump, rothVsTraditional } from "@/lib/budget/grow-math";
+import { monthlyPath, projectBoth, rothVsTraditional } from "@/lib/budget/grow-math";
 import { DEFAULT_IRA, iraLimit, rothRoom } from "@/lib/budget/ira";
 import { readNumber } from "@/lib/budget/calc-input";
 import { buildYearWorkbook } from "@/lib/budget/year";
@@ -88,6 +88,8 @@ function useGrowState() {
   const [rate, setRate] = useState("7");
   const [taxNow, setTaxNow] = useState("22");
   const [taxLater, setTaxLater] = useState("12");
+  // Put it to work: tax on the gain when you sell. Long-term gains are usually 0%, 15% or 20%.
+  const [gainTax, setGainTax] = useState("15");
   const [annual, setAnnual] = useState(String(ira?.under50 ?? 7500));
   const [today, setToday] = useState(false);
   const [inflation, setInflation] = useState("2");
@@ -133,10 +135,6 @@ function useGrowState() {
   const taxNowN = (Number(taxNow) || 0) / 100;
   const taxLaterN = (Number(taxLater) || 0) / 100;
   const market = (Number(rate) || 0) / 100;
-  const savings = projectLump({ principal: principalN, years: yearCount, rates: SAVINGS_RATES, inflation: inflationRate, today, gainTax: taxNowN, endTax: 0 });
-  const taxable = projectLump({ principal: principalN, years: yearCount, rates: MARKET_RATES, inflation: inflationRate, today, gainTax: taxNowN, endTax: 0 });
-  const rothLump = projectLump({ principal: principalN * (1 - taxNowN), years: yearCount, rates: MARKET_RATES, inflation: inflationRate, today, gainTax: 0, endTax: 0 });
-  const traditionalLump = projectLump({ principal: principalN, years: yearCount, rates: MARKET_RATES, inflation: inflationRate, today, gainTax: 0, endTax: taxLaterN });
   const path = monthlyPath({ monthly: monthlyN, years: yearCount, rate: market, inflation: inflationRate, today });
   const both = projectBoth({ principal: principalN, monthly: monthlyN, years: yearCount, rate: market, inflation: inflationRate, today });
   const annualN = Math.max(0, Number(annual) || 0);
@@ -155,11 +153,11 @@ function useGrowState() {
 
   return {
     page, setPage, profile, transactions, categories, accounts, balances, debts, netWorth, ira, facts, lively, nerd, book, cashSaved, savingsOnly, surplus, ym,
-    principal, setPrincipal, years, setYears, monthly, setMonthly, rate, setRate, taxNow, setTaxNow, taxLater, setTaxLater,
+    principal, setPrincipal, years, setYears, monthly, setMonthly, rate, setRate, taxNow, setTaxNow, taxLater, setTaxLater, gainTax, setGainTax,
     annual, setAnnual, today, setToday, inflation, setInflation, age50, setAge50, joint, setJoint, magi, setMagi,
     inflationRate, yearCount, principalN, monthlyN, taxNowN, taxLaterN, market, annualN,
     yearsIn, rateIn, inflationIn, principalIn, monthlyIn, taxNowIn, taxLaterIn, annualIn,
-    savings, taxable, rothLump, traditionalLump, path, both, compare, limit, room, tipFacts,
+    path, both, compare, limit, room, tipFacts,
   };
 }
 
