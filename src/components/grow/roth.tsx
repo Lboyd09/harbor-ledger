@@ -1,17 +1,25 @@
 import { needsPrompt } from "@/lib/budget/calc-input";
-import { rothVsTraditional } from "@/lib/budget/grow-math";
-import { sensitivityOf } from "@/lib/budget/grow-tables";
+import { iraLimitCheck, rothVerdict, rothVsTraditional, rothWhatIfs } from "@/lib/budget/grow-math";
 import { formatMoney } from "@/lib/budget/money";
 import { RothBars } from "../grow-pictures";
-import { ProgressRing } from "../visuals/progress-ring";
 import { Input } from "../ui/field";
 import { IraEditors, SharedRates } from "./editors";
 import { CalcFrame, Field, Sensitivity, YearTable } from "./frame";
 import { useGrow } from "./session";
 
+const ROOM_TEXT = {
+  full: "Your income allows the full Roth amount.",
+  partial: "Your income is in the phase-out range, so only part of the Roth amount may be allowed.",
+  none: "Your income is above the Roth limit, so a direct Roth contribution isn't allowed.",
+} as const;
+
+const ROOM_SHORT = { full: "Full amount", partial: "Part of it", none: "Not allowed" } as const;
+
+const METHOD_NOTE =
+  "Both use the same pre-tax pay each year. Roth puts in what's left after today's tax and is tax-free later. Traditional puts in all of it and is taxed when you take it out. Deposits go in at the end of each year.";
+
 export function RothPage() {
   const g = useGrow();
-  const over = g.annualN > g.limit;
   const missing = needsPrompt(
     [
       { label: "the pre-tax amount each year", value: g.annualIn, above: 0 },
@@ -23,23 +31,33 @@ export function RothPage() {
     ],
     "which one leaves more",
   );
-  const winner = g.compare.roth >= g.compare.traditional ? "Roth" : "Traditional";
-  const rows = Array.from({ length: Math.min(Math.max(1, Math.round(g.yearCount)), 30) }, (_, index) => {
+  const input = {
+    annual: g.annualN,
+    years: g.yearCount,
+    rate: g.market,
+    taxNow: g.taxNowN,
+    taxLater: g.taxLaterN,
+    inflation: g.inflationRate,
+    today: g.today,
+  };
+  const check = iraLimitCheck(g.annualN, g.taxNowN, g.limit);
+  const verdict = rothVerdict(g.compare, g.taxNowN, g.taxLaterN);
+  const limitLine = (name: string, amount: number, over: number) =>
+    `${name}: ${formatMoney(amount)} a year goes in, ${over > 0 ? `${formatMoney(over)} over the limit` : "within the limit"}.`;
+  const rows = Array.from({ length: Math.min(Math.floor(g.yearCount), 30) }, (_, index) => {
     const year = index + 1;
-    return [
-      String(year),
-      formatMoney((g.compare.rothContributed / Math.max(1, g.yearCount)) * year),
-      formatMoney((g.compare.traditionalContributed / Math.max(1, g.yearCount)) * year),
-    ];
+    const at = rothVsTraditional({ ...input, years: year });
+    return [String(year), formatMoney(at.rothContributed), formatMoney(at.roth), formatMoney(at.traditionalContributed), formatMoney(at.traditional)];
   });
   return (
     <CalcFrame
       question="Roth or traditional, after tax?"
-      result={`${winner} leaves about ${formatMoney(Math.max(g.compare.roth, g.compare.traditional))} in this estimate.`}
+      result={verdict}
       missing={missing}
       topic="roth"
       facts={g.tipFacts}
       assumptionIds={["ira-under-50", "ira-catch-up", "roth-single-start", "roth-single-end", "market-expected", "inflation"]}
+      extraAssumptions={[METHOD_NOTE]}
       assumptionEditor={
         <>
           <SharedRates />
@@ -64,43 +82,34 @@ export function RothPage() {
       }
       picture={
         <div className="space-y-3">
-          {over ? <p className="text-sm">Over the {g.ira.year} limit of {formatMoney(g.limit)}. Check the current year.</p> : null}
-          {g.room === "partial" ? <p className="text-sm text-muted">Income is inside the phase-out. Only part may be allowed.</p> : null}
-          {g.room === "none" ? <p className="text-sm text-muted">Income is past the phase-out in your settings.</p> : null}
+          <p className="text-xs text-muted">{METHOD_NOTE}</p>
           <RothBars roth={g.compare.roth} traditional={g.compare.traditional} taxNow={g.taxNow} taxLater={g.taxLater} />
-          <ProgressRing
-            pct={g.limit > 0 ? Math.min(100, (g.annualN / g.limit) * 100) : 0}
-            tone={over ? "danger" : "primary"}
-            label={over ? `Over the ${g.ira.year} limit` : `${formatMoney(g.annualN)} of ${formatMoney(g.limit)}`}
-          />
+          <div className="space-y-1 text-sm" aria-label="Yearly limit">
+            <p className="font-medium">
+              You can put in up to {formatMoney(g.limit)} this year ({g.ira.year} IRS limit).
+            </p>
+            <p>{limitLine("Roth", check.rothIn, check.rothOver)}</p>
+            <p>{limitLine("Traditional", check.traditionalIn, check.traditionalOver)}</p>
+            <p className="text-muted">{ROOM_TEXT[g.room]}</p>
+          </div>
         </div>
       }
       keyNumbers={[
-        { label: "Roth after tax", value: formatMoney(g.compare.roth) },
-        { label: "Traditional after tax", value: formatMoney(g.compare.traditional) },
-        { label: "Roth put in", value: formatMoney(g.compare.rothContributed) },
-        { label: "Traditional put in", value: formatMoney(g.compare.traditionalContributed) },
-        { label: "Limit", value: formatMoney(g.limit) },
-        { label: "Room", value: g.room },
+        { label: "Roth, after tax", value: formatMoney(g.compare.roth) },
+        { label: "Traditional, after tax", value: formatMoney(g.compare.traditional) },
+        { label: "Roth, you put in", value: formatMoney(g.compare.rothContributed) },
+        { label: "Traditional, you put in", value: formatMoney(g.compare.traditionalContributed) },
+        { label: "You can put in", value: `Up to ${formatMoney(g.limit)} a year` },
+        { label: "Roth at your income", value: ROOM_SHORT[g.room] },
       ]}
-      years={<YearTable columns={["Year", "Roth put in", "Traditional put in"]} rows={rows} />}
+      years={<YearTable columns={["Year", "Roth put in", "Roth value", "Traditional put in", "Traditional after tax"]} rows={rows} />}
       advanced={
         g.nerd ? (
           <Sensitivity
-            rows={sensitivityOf(
-              (next) =>
-                rothVsTraditional({
-                  annual: g.annualN,
-                  years: g.yearCount,
-                  rate: next,
-                  taxNow: g.taxNowN,
-                  taxLater: g.taxLaterN,
-                  inflation: g.inflationRate,
-                  today: g.today,
-                }).roth,
-              g.market,
-              0,
-            ).map((row) => ({ label: row.label, value: formatMoney(row.value) }))}
+            rows={rothWhatIfs(input).map((row) => ({
+              label: row.label,
+              value: `Roth ${formatMoney(row.roth)}, traditional ${formatMoney(row.traditional)}`,
+            }))}
           />
         ) : null
       }
