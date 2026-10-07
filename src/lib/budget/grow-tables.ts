@@ -1,4 +1,4 @@
-import { payoffPlan, projectBoth, yearsToFi } from "./grow-math.ts";
+import { payoffPlan, projectBoth, simulatePayoff, yearsToFi } from "./grow-math.ts";
 import { roundMoney } from "./money.ts";
 import type { Account, AccountKind, BalancePoint, DebtItem } from "./types.ts";
 
@@ -92,42 +92,11 @@ export function amortizationSchedule(input: {
 
 export type DebtMonth = { month: number; remaining: number };
 
-function debtStep(debts: { balance: number; apr: number; minimum: number }[], extra: number) {
-  const next = debts.map((row) => ({ ...row }));
-  const order = next
-    .map((row, index) => ({ index, row }))
-    .filter((item) => item.row.balance > 0)
-    .sort((a, b) => b.row.apr - a.row.apr || a.row.balance - b.row.balance)
-    .map((item) => item.index);
-  let pool = extra;
-  for (const index of order) {
-    if (next[index].balance <= 0) continue;
-    const pay = Math.min(next[index].balance, next[index].minimum + pool);
-    pool -= Math.max(0, pay - next[index].minimum);
-    next[index].balance = roundMoney(next[index].balance - pay);
-  }
-  for (const row of next) {
-    if (row.balance <= 0) continue;
-    row.balance = roundMoney(row.balance * (1 + row.apr / 100 / 12));
-  }
-  return next;
-}
-
-/** Remaining balance each month, minimums only and with extra. Avalanche order, same as the payoff calculator. */
+/** Remaining balance each month, minimums only and with extra. Same simulation as the payoff calculator. */
 export function debtTimeline(debts: DebtItem[], extra: number): { minimums: DebtMonth[]; withExtra: DebtMonth[] } {
-  function run(add: number): DebtMonth[] {
-    let rows = debts
-      .filter((debt) => debt.balance > 0)
-      .map((debt) => ({ balance: debt.balance, apr: Math.max(0, debt.apr), minimum: Math.max(0, debt.minimum) }));
-    const out: DebtMonth[] = [{ month: 0, remaining: roundMoney(rows.reduce((sum, row) => sum + row.balance, 0)) }];
-    for (let month = 1; month <= 600; month++) {
-      if (rows.every((row) => row.balance <= 0.5)) break;
-      rows = debtStep(rows, add);
-      out.push({ month, remaining: roundMoney(rows.reduce((sum, row) => sum + Math.max(0, row.balance), 0)) });
-    }
-    return out;
-  }
-  return { minimums: run(0), withExtra: run(Math.max(0, extra)) };
+  const run = (add: number): DebtMonth[] =>
+    simulatePayoff(debts, Math.max(0, add), "avalanche").remaining.map((remaining, month) => ({ month, remaining }));
+  return { minimums: run(0), withExtra: run(extra) };
 }
 
 export function debtMatchesPayoff(debts: DebtItem[], extra: number): boolean {

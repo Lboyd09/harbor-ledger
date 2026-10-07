@@ -268,10 +268,13 @@ export function PayoffRace({
   const avaX = Math.max(8, (avaMonths / max) * 100);
   const gap = Math.abs(snowInterest - avaInterest);
   const less = avaInterest <= snowInterest ? "Highest interest first" : "Smallest balance first";
+  const same = gap < 0.005 && snowMonths === avaMonths;
   return (
     <figure>
       <p className="text-sm">
-        {less} costs {formatMoney(gap)} less interest in this estimate. An estimate, not financial advice.
+        {same
+          ? `Both orders finish in ${avaMonths} months with the same interest. An estimate, not financial advice.`
+          : `${less} costs ${formatMoney(gap)} less interest in this estimate. An estimate, not financial advice.`}
       </p>
       <svg viewBox="0 0 100 48" className="mt-2 h-28 w-full" role="img" aria-label={`Smallest balance first ${snowMonths} months. Highest interest first ${avaMonths} months.`}>
         <line x1="0" y1="16" x2={snowX} y2="8" stroke="var(--color-primary)" strokeWidth="2" />
