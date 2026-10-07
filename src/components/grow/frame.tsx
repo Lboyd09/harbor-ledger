@@ -21,6 +21,7 @@ export function CalcFrame({
   assumptionEditor,
   years,
   advanced,
+  missing,
 }: {
   question: string;
   numbers: ReactNode;
@@ -34,6 +35,8 @@ export function CalcFrame({
   assumptionEditor?: ReactNode;
   years?: ReactNode;
   advanced?: ReactNode;
+  /** When a needed box is blank, this sentence replaces every result, picture, and table. */
+  missing?: string | null;
 }) {
   const tips = tipsFor(topic, facts);
   const lines = [...assumptionLines(assumptionIds), ...(extraAssumptions ?? [])];
@@ -44,19 +47,27 @@ export function CalcFrame({
         <h3 className="text-sm font-medium">Your numbers</h3>
         <div className="mt-2">{numbers}</div>
       </section>
-      <p className="text-sm">{result}</p>
-      {picture}
-      <section>
-        <h3 className="text-sm font-medium">Key numbers</h3>
-        <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
-          {keyNumbers.map((row) => (
-            <div key={row.label} className="rounded-md border border-border p-2">
-              <dt className="text-xs text-muted">{row.label}</dt>
-              <dd className="text-sm font-medium tabular">{row.value}</dd>
-            </div>
-          ))}
-        </dl>
-      </section>
+      {missing ? (
+        <p className="rounded-md border border-dashed border-border p-3 text-sm" role="status">
+          {missing}
+        </p>
+      ) : (
+        <>
+          <p className="text-sm">{result}</p>
+          {picture}
+          <section>
+            <h3 className="text-sm font-medium">Key numbers</h3>
+            <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {keyNumbers.map((row) => (
+                <div key={row.label} className="rounded-md border border-border p-2">
+                  <dt className="text-xs text-muted">{row.label}</dt>
+                  <dd className="text-sm font-medium tabular">{row.value}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+        </>
+      )}
       <section>
         <h3 className="text-sm font-medium">Tips</h3>
         <ul className="mt-2 space-y-2 text-sm">
@@ -77,13 +88,13 @@ export function CalcFrame({
           ))}
         </ul>
       </details>
-      {years ? (
+      {years && !missing ? (
         <details className="rounded-lg border border-border bg-surface p-3">
           <summary className="min-h-11 cursor-pointer text-sm font-medium">Show the years</summary>
           <div className="mt-2 max-h-64 overflow-auto">{years}</div>
         </details>
       ) : null}
-      {advanced}
+      {missing ? null : advanced}
     </article>
   );
 }

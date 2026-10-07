@@ -9,9 +9,11 @@ export function WorkOptionalPage() {
   const yearly = g.facts.typicalSpendMonthly.value != null ? g.facts.typicalSpendMonthly.value * 12 : g.book.activeMonths > 0 ? (g.book.expenses / g.book.activeMonths) * 12 : 0;
   const rate = g.facts.savingsRate != null ? Math.max(0, g.facts.savingsRate) : Math.max(0, g.book.savingsRate);
   const withdrawal = g.facts.withdrawal.value ?? 0.04;
-  const real = Math.max(0, (g.facts.returns.expected || 0.05) - (g.inflationRate || g.facts.inflation.value || 0.02));
+  // A typed 0% inflation stays 0%, and a real return of 0 stays 0. Only a blank box falls back.
+  const inflation = g.inflationIn != null ? Math.max(0, g.inflationIn / 100) : (g.facts.inflation.value ?? 0.02);
+  const real = Math.max(0, (g.facts.returns.expected ?? 0.05) - inflation);
   const yearsLeft = g.facts.age.value != null && g.facts.retireAge.value != null ? Math.max(0, g.facts.retireAge.value - g.facts.age.value) : null;
-  const fi = fiNumbers({ yearlySpend: yearly, withdrawal, savingsRate: rate, realReturn: real || 0.05, yearsLeft });
+  const fi = fiNumbers({ yearlySpend: yearly, withdrawal, savingsRate: rate, realReturn: real, yearsLeft });
   const saved = g.facts.saved.value ?? 0;
   const result = yearly > 0
     ? `Work is optional around ${formatMoney(fi.fi ?? 0)}, in ${fi.years == null ? "an unknown number of" : fi.years} years.`
@@ -59,7 +61,7 @@ export function WorkOptionalPage() {
           <Sensitivity
             rows={sensitivityOf(
               (next) => fiNumbers({ yearlySpend: yearly, withdrawal, savingsRate: rate, realReturn: Math.max(0, next), yearsLeft }).years ?? 0,
-              real || 0.05,
+              real,
               0,
             ).map((row) => ({ label: row.label, value: `${row.value} years` }))}
           />

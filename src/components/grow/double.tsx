@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { needsPrompt, readNumber } from "@/lib/budget/calc-input";
 import { monthsToTarget, yearsToDouble } from "@/lib/budget/grow-math";
 import { sensitivityOf } from "@/lib/budget/grow-tables";
 import { formatMoney } from "@/lib/budget/money";
@@ -31,16 +32,22 @@ export function DoublePage() {
     if (g.facts.incomeWantedYearly.value != null) setTarget(String(Math.round(g.facts.incomeWantedYearly.value)));
     else if (g.facts.typicalSpendMonthly.value != null) setTarget(String(Math.round(g.facts.typicalSpendMonthly.value * 12)));
   }, [g.facts]);
+  // A blank rate or target is "not entered". A blank target used to read as $0 and say "Already there".
+  const missing = needsPrompt([{ label: "a yearly rate", value: readNumber(rate) }], "how long it takes");
+  const targetIn = readNumber(target);
+  const hasTarget = targetIn != null && targetIn > 0;
   const years = yearsToDouble(Number(rate) || 0);
   const pile = Number(amount) || 0;
   const doubled = years == null ? 0 : pile * 2;
-  const months = monthsToTarget({ principal: g.principalN, monthly: Number(monthly) || 0, apr: Number(rate) || 0, target: Number(target) || 0 });
-  const reach = months == null ? "Not within 50 years" : months === 0 ? "Already there" : spanLabel(months);
+  const months = hasTarget ? monthsToTarget({ principal: g.principalN, monthly: Number(monthly) || 0, apr: Number(rate) || 0, target: targetIn ?? 0 }) : null;
+  const reach = !hasTarget ? "Enter a target" : months == null ? "Not within 50 years" : months === 0 ? "Already there" : spanLabel(months);
+  const reachSentence = hasTarget ? ` Reaching the target takes ${reach}.` : " Enter a target to see how long reaching it takes.";
   const amountTag = g.facts.saved.value != null ? tagOf(g.facts.saved.source) : tagOf(g.facts.cashSavings.source);
   return (
     <CalcFrame
       question="How long to double, or to reach a number?"
-      result={years == null ? "The rate has to be above zero." : `${formatMoney(pile)} doubles in about ${years} years. Reaching the target takes ${reach}.`}
+      result={years == null ? "The rate has to be above zero." : `${readNumber(amount) == null ? "Money" : formatMoney(pile)} doubles in about ${years} years.${reachSentence}`}
+      missing={missing}
       topic="double"
       facts={g.tipFacts}
       assumptionIds={["market-expected"]}
@@ -95,7 +102,7 @@ export function DoublePage() {
         />
       }
       advanced={
-        g.nerd ? (
+        g.nerd && hasTarget ? (
           <Sensitivity
             rows={sensitivityOf(
               (next, add) => monthsToTarget({ principal: g.principalN, monthly: add, apr: next * 100, target: Number(target) || 0 }) ?? 0,

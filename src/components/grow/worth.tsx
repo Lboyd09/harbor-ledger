@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { readNumber } from "@/lib/budget/calc-input";
 import { netWorthSeries } from "@/lib/budget/grow-tables";
 import { formatMoney } from "@/lib/budget/money";
 import { useBudgetStore } from "@/store/budget-store";
@@ -35,9 +36,11 @@ export function WorthPage() {
           </div>
           <Button
             size="sm"
-            disabled={!/^\d{4}-\d{2}-\d{2}$/.test(date)}
+            disabled={!/^\d{4}-\d{2}-\d{2}$/.test(date) || readNumber(worth) == null}
             onClick={() => {
-              addNetWorth({ date, amount: Number(worth) || 0, note });
+              const amount = readNumber(worth);
+              if (amount == null) return;
+              addNetWorth({ date, amount, note });
               setDate("");
               setWorth("");
               setNote("");

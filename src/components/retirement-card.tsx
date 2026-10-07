@@ -1,21 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
 import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { factNote, readNumber } from "@/lib/budget/calc-input";
 import { formatMoney } from "@/lib/budget/money";
 import { figureLine, FIGURES } from "@/lib/budget/reference";
-import { projectRetirement, retirementMonteCarlo, retirementSensitivity, type RetirementInput } from "@/lib/budget/retirement";
+import { projectRetirement, retirementInputFrom, retirementMonteCarlo, retirementSensitivity } from "@/lib/budget/retirement";
 import { useBudgetStore } from "@/store/budget-store";
 import { useLivelyMotion } from "./use-lively-motion";
 import { usePlannerFacts } from "./use-planner-facts";
 import { ProgressRing } from "./visuals/progress-ring";
 import { Input } from "./ui/field";
 
-function num(value: string) {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
 function money(value: string) {
-  return formatMoney(num(value));
+  return formatMoney(Math.max(0, readNumber(value) ?? 0));
 }
 
 export function RetirementCard() {
@@ -59,45 +55,45 @@ export function RetirementCard() {
     set(value);
   }
 
-  const input: RetirementInput = {
-    age: num(age),
-    retireAge: num(retire) || 67,
-    saved: Math.max(0, num(saved)),
-    monthlySaving: Math.max(0, num(monthly)),
-    employerMatchPercent: Math.max(0, num(match)),
-    returns: { conservative: num(low) / 100, expected: num(mid) / 100, optimistic: num(high) / 100 },
-    inflation: num(inflation) / 100,
-    incomeWantedYearly: Math.max(0, num(wanted)),
-    socialSecurityMonthly: Math.max(0, num(social)),
-    withdrawalRate: num(withdrawal) / 100,
-  };
-  const result = projectRetirement(input);
-  const expected = result.paths[1];
-  const chart = expected.points.map((point) => ({
-    age: point.age,
-    Low: result.paths[0].points.find((row) => row.age === point.age)?.real ?? null,
-    Likely: point.real,
-    High: result.paths[2].points.find((row) => row.age === point.age)?.real ?? null,
-  }));
-  const sense = nerd ? retirementSensitivity(input) : [];
+  // A blank box is "not entered", never 0. Without an age there is no estimate at all.
+  const read = useMemo(
+    () =>
+      retirementInputFrom({
+        age,
+        retireAge: retire,
+        saved,
+        monthlySaving: monthly,
+        employerMatchPercent: match,
+        low,
+        mid,
+        high,
+        inflation,
+        incomeWantedYearly: wanted,
+        socialSecurityMonthly: social,
+        withdrawal,
+      }),
+    [age, retire, saved, monthly, match, low, mid, high, inflation, wanted, social, withdrawal],
+  );
+  const input = read.ok ? read.input : null;
+  const result = input ? projectRetirement(input) : null;
+  const expected = result ? result.paths[1] : null;
+  const chart =
+    result && expected
+      ? expected.points.map((point) => ({
+          age: point.age,
+          Low: result.paths[0].points.find((row) => row.age === point.age)?.real ?? null,
+          Likely: point.real,
+          High: result.paths[2].points.find((row) => row.age === point.age)?.real ?? null,
+        }))
+      : [];
+  const sense = nerd && input ? retirementSensitivity(input) : [];
+  const meanN = readNumber(mean);
+  const spreadN = readNumber(spread);
   const monte = useMemo(() => {
-    if (!nerd) return null;
-    return retirementMonteCarlo(
-      {
-        age: num(age),
-        retireAge: num(retire) || 67,
-        saved: Math.max(0, num(saved)),
-        monthlySaving: Math.max(0, num(monthly)),
-        employerMatchPercent: Math.max(0, num(match)),
-        returns: { conservative: num(low) / 100, expected: num(mid) / 100, optimistic: num(high) / 100 },
-        inflation: num(inflation) / 100,
-        incomeWantedYearly: Math.max(0, num(wanted)),
-        socialSecurityMonthly: Math.max(0, num(social)),
-        withdrawalRate: num(withdrawal) / 100,
-      },
-      { mean: num(mean) / 100, spread: num(spread) / 100, seed: 20261004, runs: 1000 },
-    );
-  }, [nerd, age, retire, saved, monthly, match, low, mid, high, inflation, wanted, social, withdrawal, mean, spread]);
+    if (!nerd || !input || meanN == null || spreadN == null) return null;
+    return retirementMonteCarlo(input, { mean: meanN / 100, spread: spreadN / 100, seed: 20261004, runs: 1000 });
+  }, [nerd, input, meanN, spreadN]);
+  const wantedKnown = Boolean(input && input.incomeWantedYearly > 0);
 
   const assumptions = ["inflation", "withdrawal", "market-conservative", "market-expected", "market-optimistic", "ss-full"].map((id) => {
     const figure = FIGURES.find((row) => row.id === id);
@@ -107,74 +103,88 @@ export function RetirementCard() {
   return (
     <section className="space-y-4 rounded-lg border border-border bg-surface p-4">
       <h2 className="font-display text-xl font-semibold">Will I be able to retire?</h2>
-      <p className="text-sm">{result.sentence}</p>
-      <ProgressRing
-        pct={Math.max(0, Math.min(100, result.coveredPercent))}
-        tone={result.coveredPercent >= 100 ? "good" : "primary"}
-        label={`${result.coveredPercent} percent of the income you want`}
-      />
-      <div className="chart-rise h-56 w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={chart}>
-            <CartesianGrid stroke="var(--color-border)" vertical={false} />
-            <XAxis dataKey="age" type="number" domain={["dataMin", "dataMax"]} tick={{ fontSize: 12, fill: "var(--color-muted)" }} />
-            <YAxis tick={{ fontSize: 11, fill: "var(--color-muted)" }} width={48} />
-            <Tooltip formatter={(value) => formatMoney(Number(Array.isArray(value) ? value[0] : value))} />
-            <ReferenceLine x={result.retireAge} stroke="var(--color-warn)" label={{ value: "Retire", fontSize: 11, fill: "var(--color-muted)" }} />
-            <Line type="monotone" dataKey="Low" stroke="var(--color-muted)" dot={false} isAnimationActive={lively} />
-            <Line type="monotone" dataKey="Likely" stroke="var(--color-primary)" strokeWidth={2} dot={false} isAnimationActive={lively} />
-            <Line type="monotone" dataKey="High" stroke="var(--color-good)" dot={false} isAnimationActive={lively} />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
-      <p className="text-sm">
-        {result.gapYearly <= 0
-          ? "The likely path covers what you want."
-          : `The gap is ${formatMoney(result.gapYearly)} a year.`}
-        {result.extraPerMonth != null && result.extraPerMonth > 0 ? ` Save ${formatMoney(result.extraPerMonth)} more each month` : ""}
-        {result.extraYears != null && result.extraYears > 0 ? `${result.extraPerMonth ? ", or" : ""} work about ${result.extraYears.toFixed(1)} more years` : ""}
-        {result.gapYearly > 0 ? "." : ""}
-      </p>
+      {result ? (
+        <>
+          <p className="text-sm">{result.sentence}</p>
+          {wantedKnown ? (
+            <ProgressRing
+              pct={Math.max(0, Math.min(100, result.coveredPercent))}
+              tone={result.coveredPercent >= 100 ? "good" : "primary"}
+              label={`${result.coveredPercent} percent of the income you want`}
+            />
+          ) : null}
+          <div className="chart-rise h-56 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chart}>
+                <CartesianGrid stroke="var(--color-border)" vertical={false} />
+                <XAxis dataKey="age" type="number" domain={["dataMin", "dataMax"]} tick={{ fontSize: 12, fill: "var(--color-muted)" }} />
+                <YAxis tick={{ fontSize: 11, fill: "var(--color-muted)" }} width={48} />
+                <Tooltip formatter={(value) => formatMoney(Number(Array.isArray(value) ? value[0] : value))} />
+                <ReferenceLine x={result.retireAge} stroke="var(--color-warn)" label={{ value: "Retire", fontSize: 11, fill: "var(--color-muted)" }} />
+                <Line type="monotone" dataKey="Low" stroke="var(--color-muted)" dot={false} isAnimationActive={lively} />
+                <Line type="monotone" dataKey="Likely" stroke="var(--color-primary)" strokeWidth={2} dot={false} isAnimationActive={lively} />
+                <Line type="monotone" dataKey="High" stroke="var(--color-good)" dot={false} isAnimationActive={lively} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+          {wantedKnown ? (
+            <p className="text-sm">
+              {result.gapYearly <= 0
+                ? "The likely path covers what you want."
+                : `The gap is ${formatMoney(result.gapYearly)} a year.`}
+              {result.extraPerMonth != null && result.extraPerMonth > 0 ? ` Save ${formatMoney(result.extraPerMonth)} more each month` : ""}
+              {result.extraYears != null && result.extraYears > 0 ? `${result.extraPerMonth ? ", or" : ""} work about ${result.extraYears.toFixed(1)} more years` : ""}
+              {result.gapYearly > 0 ? "." : ""}
+            </p>
+          ) : (
+            <p className="text-sm text-muted">Enter the yearly income you want to see how much of it this covers.</p>
+          )}
+        </>
+      ) : (
+        <p className="rounded-md border border-dashed border-border p-3 text-sm" role="status">
+          {read.ok ? null : read.message}
+        </p>
+      )}
       <div className="grid gap-2 sm:grid-cols-2">
         <label className="text-xs text-muted">
           Age
           <Input className="mt-1" inputMode="numeric" aria-label="Age" value={age} onChange={(e) => edit(setAge, e.target.value)} />
-          <span className="mt-1 block">{facts.age.note} {facts.age.source}.</span>
+          <span className="mt-1 block">{factNote(facts.age)}</span>
         </label>
         <label className="text-xs text-muted">
           Retire at
           <Input className="mt-1" inputMode="numeric" aria-label="Retire at" value={retire} onChange={(e) => edit(setRetire, e.target.value)} />
-          <span className="mt-1 block">{facts.retireAge.note}</span>
+          <span className="mt-1 block">{factNote(facts.retireAge)}</span>
         </label>
         <label className="text-xs text-muted">
           Saved so far
           <Input className="mt-1" inputMode="decimal" aria-label="Saved so far" value={saved} onChange={(e) => edit(setSaved, e.target.value)} />
-          <span className="mt-1 block">{facts.saved.source}. {facts.saved.note}</span>
+          <span className="mt-1 block">{factNote(facts.saved)}</span>
         </label>
         <label className="text-xs text-muted">
           Saving each month
           <Input className="mt-1" inputMode="decimal" aria-label="Saving each month" value={monthly} onChange={(e) => edit(setMonthly, e.target.value)} />
-          <span className="mt-1 block">{facts.monthlySaving.source}. {facts.monthlySaving.note}</span>
+          <span className="mt-1 block">{factNote(facts.monthlySaving)}</span>
         </label>
         <label className="text-xs text-muted">
           Employer match, percent of what you save
           <Input className="mt-1" inputMode="decimal" aria-label="Employer match percent" value={match} onChange={(e) => edit(setMatch, e.target.value)} />
-          <span className="mt-1 block">Typed. 50 means the employer adds half of your monthly saving, not half of your pay.</span>
+          <span className="mt-1 block">50 means the employer adds half of your monthly saving, not half of your pay.</span>
         </label>
         <label className="text-xs text-muted">
           Income wanted each year, today's dollars
           <Input className="mt-1" inputMode="decimal" aria-label="Income wanted" value={wanted} onChange={(e) => edit(setWanted, e.target.value)} />
-          <span className="mt-1 block">{facts.incomeWantedYearly.source}. {facts.incomeWantedYearly.note}</span>
+          <span className="mt-1 block">{factNote(facts.incomeWantedYearly)}</span>
         </label>
         <label className="text-xs text-muted">
           Social Security each month
           <Input className="mt-1" inputMode="decimal" aria-label="Social Security monthly" value={social} onChange={(e) => edit(setSocial, e.target.value)} placeholder="Blank counts as zero" />
-          <span className="mt-1 block">Typed. Blank counts as zero.</span>
+          <span className="mt-1 block">Blank counts as zero.</span>
         </label>
         <label className="text-xs text-muted">
           Expected return %
           <Input className="mt-1" inputMode="decimal" aria-label="Expected return" value={mid} onChange={(e) => edit(setMid, e.target.value)} />
-          <span className="mt-1 block">{facts.returns.note}</span>
+          <span className="mt-1 block">{factNote(facts.returns)}</span>
         </label>
         <label className="text-xs text-muted">
           Low return %
@@ -187,19 +197,21 @@ export function RetirementCard() {
         <label className="text-xs text-muted">
           Inflation %
           <Input className="mt-1" inputMode="decimal" aria-label="Inflation" value={inflation} onChange={(e) => edit(setInflation, e.target.value)} />
-          <span className="mt-1 block">{facts.inflation.note}</span>
+          <span className="mt-1 block">{factNote(facts.inflation)}</span>
         </label>
         <label className="text-xs text-muted">
           Withdrawal %
           <Input className="mt-1" inputMode="decimal" aria-label="Withdrawal rate" value={withdrawal} onChange={(e) => edit(setWithdrawal, e.target.value)} />
-          <span className="mt-1 block">{facts.withdrawal.note} This is a 1994 study, not a current IRS rate.</span>
+          <span className="mt-1 block">{factNote(facts.withdrawal)}</span>
         </label>
       </div>
       <p className="text-xs text-muted">Full Social Security age of 67 is for a birth year of 1960 or later. An earlier birth year has a lower full age. {money(saved)} saved is what the chart starts from.</p>
-      <button type="button" className="min-h-11 text-sm font-medium text-primary" onClick={() => setNumbers((open) => !open)}>
-        {numbers ? "Hide the numbers" : "Show as numbers"}
-      </button>
-      {numbers ? (
+      {expected ? (
+        <button type="button" className="min-h-11 text-sm font-medium text-primary" onClick={() => setNumbers((open) => !open)}>
+          {numbers ? "Hide the numbers" : "Show as numbers"}
+        </button>
+      ) : null}
+      {numbers && expected ? (
         <div className="max-h-64 overflow-auto">
           <table className="w-full text-left text-xs">
             <thead>
@@ -230,14 +242,18 @@ export function RetirementCard() {
       </ul>
       {nerd ? (
         <div className="space-y-3">
-          <h3 className="text-sm font-medium">If a number moves</h3>
-          <ul className="space-y-1 text-xs text-muted">
-            {sense.map((row) => (
-              <li key={row.label}>
-                {row.label}: {formatMoney(row.real)}, {row.coveredPercent} percent covered
-              </li>
-            ))}
-          </ul>
+          {sense.length ? (
+            <>
+              <h3 className="text-sm font-medium">If a number moves</h3>
+              <ul className="space-y-1 text-xs text-muted">
+                {sense.map((row) => (
+                  <li key={row.label}>
+                    {row.label}: {formatMoney(row.real)}, {row.coveredPercent} percent covered
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : null}
           <h3 className="text-sm font-medium">A thousand tries</h3>
           <p className="text-xs text-muted">
             Each year draws a return around {mean || 0}% with a spread of {spread || 0} points. Same seed, same result. After the retire age, spending rises with inflation. This is not a promise.

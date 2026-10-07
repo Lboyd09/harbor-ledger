@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { amortizationSchedule } from "@/lib/budget/grow-tables";
+import { readLoan } from "@/lib/budget/calc-input";
 import { loanCompare } from "@/lib/budget/grow-math";
 import { formatMoney } from "@/lib/budget/money";
 import { Input } from "../ui/field";
@@ -19,10 +20,12 @@ export function LoanPage() {
     started.current = true;
     setBalance(String(Math.round(g.facts.creditOwed.value)));
   }, [g.facts]);
-  const balanceN = Number(balance) || 0;
-  const aprN = Number(apr) || 0;
-  const yearsN = Number(years) || 1;
-  const extraN = Number(extra) || 0;
+  // A blank rate is not 0%. Nothing is shown until the balance, rate, and years are entered.
+  const read = readLoan({ balance, apr, years, extra });
+  const balanceN = read.ok ? read.balance : 0;
+  const aprN = read.ok ? read.apr : 0;
+  const yearsN = read.ok ? read.years : 1;
+  const extraN = read.ok ? read.extra : 0;
   const result = loanCompare({ balance: balanceN, apr: aprN, years: yearsN, extra: extraN });
   const table = amortizationSchedule({ balance: balanceN, aprPercent: aprN, years: yearsN, extra: extraN });
   const sentence = result.unfinished
@@ -32,6 +35,7 @@ export function LoanPage() {
     <CalcFrame
       question="What does an extra payment save?"
       result={sentence}
+      missing={read.ok ? null : read.prompt}
       topic="loan"
       facts={g.tipFacts}
       assumptionIds={[]}
