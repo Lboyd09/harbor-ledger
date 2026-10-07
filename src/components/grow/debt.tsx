@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { debtTimeline, sensitivityOf } from "@/lib/budget/grow-tables";
+import { debtTimeline } from "@/lib/budget/grow-tables";
 import { firstMissing, readNumber } from "@/lib/budget/calc-input";
-import { payoffPlan } from "@/lib/budget/grow-math";
+import { debtWhatIfs, extraNeeded, paymentBelowInterest, simulatePayoff } from "@/lib/budget/grow-math";
 import { formatMoney } from "@/lib/budget/money";
+import { currentMonthKey, monthShort, shiftMonth } from "@/lib/budget/parse-date";
 import { PayoffRace } from "../grow-pictures";
 import { useBudgetStore } from "@/store/budget-store";
 import { Button } from "../ui/button";
@@ -37,14 +38,31 @@ export function DebtPage() {
     { label: "the minimum payment (0 is fine)", value: minimumIn, min: 0 },
   ]);
   const typing = Boolean(name.trim() || balance.trim() || apr.trim() || minimum.trim());
-  const snow = payoffPlan(g.debts, extraN, "snowball");
-  const ava = payoffPlan(g.debts, extraN, "avalanche");
+  const snow = simulatePayoff(g.debts, extraN, "snowball");
+  const ava = simulatePayoff(g.debts, extraN, "avalanche");
   const line = g.debts.length ? debtTimeline(g.debts, extraN) : null;
-  const result = g.debts.length
-    ? `Highest interest first finishes in ${ava.unfinished ? "more than 50 years" : `${ava.months} months`} and costs ${formatMoney(ava.interest)} in interest.`
-    : g.facts.creditOwed.value != null
+  const single = g.debts.length === 1;
+  const now = currentMonthKey();
+  const when = (months: number) => {
+    const ym = shiftMonth(now, months);
+    return `${months} month${months === 1 ? "" : "s"} (${monthShort(ym)} ${ym.slice(0, 4)})`;
+  };
+  const monthlyTotal = g.debts.reduce((sum, debt) => sum + Math.max(0, debt.minimum), 0) + extraN;
+  const add = ava.unfinished ? extraNeeded(g.debts, extraN) : 0;
+  const neverText = ava.unfinished
+    ? paymentBelowInterest(g.debts, extraN)
+      ? `This payment never pays it off, because it doesn't cover the interest. Add at least ${formatMoney(add)} a month.`
+      : `At this payment it takes more than 50 years. Add at least ${formatMoney(add)} a month to finish within 50 years.`
+    : null;
+  const result = !g.debts.length
+    ? g.facts.creditOwed.value != null
       ? `Cards total ${formatMoney(g.facts.creditOwed.value)}. Type the rate and the minimum, then add the debt.`
-      : "Type each card or loan. The payoff shows once a debt is added.";
+      : "Type each card or loan. The payoff shows once a debt is added."
+    : neverText
+      ? neverText
+      : single
+        ? `Paying ${formatMoney(monthlyTotal)} a month, ${g.debts[0].name} is paid off in ${when(ava.months)} with ${formatMoney(ava.interest)} in interest.`
+        : `Paying highest interest first, you're debt-free in ${when(ava.months)} and pay ${formatMoney(ava.interest)} in interest.`;
   return (
     <CalcFrame
       question="How long to pay off a debt?"
@@ -52,7 +70,10 @@ export function DebtPage() {
       topic="debt"
       facts={g.tipFacts}
       assumptionIds={[]}
-      extraAssumptions={["Highest interest is paid first. The month count is from now."]}
+      extraAssumptions={[
+        "Each month, interest is added first. Then every debt gets its minimum, and the rest goes to the highest rate. A paid-off debt's minimum moves to the next one.",
+        "Month counts start from this month.",
+      ]}
       numbers={
         <div className="space-y-2">
           <Field label="Extra payment each month" tag="typed">
@@ -94,15 +115,43 @@ export function DebtPage() {
           </Button>
         </div>
       }
-      picture={g.debts.length ? <PayoffRace snowMonths={snow.months} avaMonths={ava.months} snowInterest={snow.interest} avaInterest={ava.interest} /> : <p className="text-sm text-muted">No debts yet.</p>}
-      keyNumbers={[
-        { label: "Highest rate", value: ava.unfinished ? "50+ years" : `${ava.months} months` },
-        { label: "Interest", value: formatMoney(ava.interest) },
-        { label: "Smallest balance", value: snow.unfinished ? "50+ years" : `${snow.months} months` },
-        { label: "That interest", value: formatMoney(snow.interest) },
-        { label: "Extra", value: formatMoney(extraN) },
-        { label: "Debts", value: String(g.debts.length) },
-      ]}
+      picture={
+        g.debts.length ? (
+          <div className="space-y-3">
+            {!single ? (
+              <ul className="space-y-1 text-sm" aria-label="When each debt is paid off">
+                {ava.payoffs.map((debt) => (
+                  <li key={debt.id}>
+                    {debt.month == null ? `${debt.name} is not paid off within 50 years.` : `${debt.name} paid off in ${when(debt.month)}.`}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            {!single && !ava.unfinished && !snow.unfinished ? (
+              <PayoffRace snowMonths={snow.months} avaMonths={ava.months} snowInterest={snow.interest} avaInterest={ava.interest} />
+            ) : null}
+          </div>
+        ) : (
+          <p className="text-sm text-muted">No debts yet.</p>
+        )
+      }
+      keyNumbers={
+        single
+          ? [
+              { label: "Paid off in", value: ava.unfinished ? "50+ years" : `${ava.months} months` },
+              { label: "Interest", value: formatMoney(ava.interest) },
+              { label: "Paying each month", value: formatMoney(monthlyTotal) },
+              { label: "Extra", value: formatMoney(extraN) },
+            ]
+          : [
+              { label: "Highest rate first", value: ava.unfinished ? "50+ years" : `${ava.months} months` },
+              { label: "Interest, highest rate first", value: formatMoney(ava.interest) },
+              { label: "Smallest balance first", value: snow.unfinished ? "50+ years" : `${snow.months} months` },
+              { label: "Interest, smallest balance first", value: formatMoney(snow.interest) },
+              { label: "Paying each month", value: formatMoney(monthlyTotal) },
+              { label: "Debts", value: String(g.debts.length) },
+            ]
+      }
       years={
         line ? (
           <YearTable
@@ -117,11 +166,10 @@ export function DebtPage() {
       advanced={
         g.nerd && g.debts.length ? (
           <Sensitivity
-            rows={sensitivityOf(
-              (_rate, add) => payoffPlan(g.debts, add, "avalanche").months,
-              0,
-              extraN,
-            ).map((row) => ({ label: row.label, value: `${row.value} months` }))}
+            rows={debtWhatIfs(g.debts, extraN).map((row) => ({
+              label: row.label,
+              value: row.unfinished ? "Not within 50 years" : `${row.months} months, ${formatMoney(row.interest)} interest`,
+            }))}
           />
         ) : null
       }

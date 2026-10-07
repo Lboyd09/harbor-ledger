@@ -173,47 +173,122 @@ export function iraLimitCheck(annual: number, taxNow: number, limit: number): Li
 
 export type Payoff = { months: number; interest: number; unfinished: boolean };
 
-function stepDebts(debts: { balance: number; apr: number; minimum: number }[], extra: number, order: number[]) {
-  const next = debts.map((d) => ({ ...d }));
-  let pool = extra;
-  for (const i of order) {
-    if (next[i].balance <= 0) continue;
-    const pay = Math.min(next[i].balance, next[i].minimum + pool);
-    const extraUsed = Math.max(0, pay - next[i].minimum);
-    pool -= extraUsed;
-    next[i].balance = roundMoney(next[i].balance - pay);
+export type DebtMethod = "snowball" | "avalanche";
+export type DebtPayoffMonth = { id: string; name: string; month: number | null };
+export type PayoffSim = Payoff & {
+  /** Everything paid, which is the starting balance plus interest when it finishes. */
+  paid: number;
+  /** The month each debt reaches $0, or null if it doesn't within 50 years. */
+  payoffs: DebtPayoffMonth[];
+  /** Total still owed after each month. Index 0 is today. */
+  remaining: number[];
+};
+
+const cents = (n: number) => Math.round(n * 100) / 100;
+
+/**
+ * Month-by-month payoff, the usual way a card or loan works:
+ * 1. Each debt is charged a month of interest on its opening balance (APR / 12), rounded to the cent.
+ * 2. Every debt still owed gets its minimum, never more than it owes.
+ * 3. The rest of the monthly budget goes to the target debt (highest rate first, or smallest balance first).
+ * The budget is every original minimum plus the extra, so a paid-off debt's minimum rolls into the next one.
+ */
+export function simulatePayoff(debts: DebtItem[], extra: number, method: DebtMethod): PayoffSim {
+  const rows = debts
+    .filter((d) => d.balance > 0)
+    .map((d) => ({ id: d.id, name: d.name, balance: cents(d.balance), apr: Math.max(0, d.apr), minimum: Math.max(0, d.minimum), month: null as number | null }));
+  if (!rows.length) return { months: 0, interest: 0, paid: 0, unfinished: false, payoffs: [], remaining: [0] };
+  const budget = rows.reduce((sum, d) => sum + d.minimum, 0) + Math.max(0, extra);
+  const owed = () => cents(rows.reduce((sum, d) => sum + Math.max(0, d.balance), 0));
+  const remaining = [owed()];
+  let interest = 0;
+  let paid = 0;
+  const finish = (months: number, unfinished: boolean): PayoffSim => ({
+    months,
+    interest: cents(interest),
+    paid: cents(paid),
+    unfinished,
+    payoffs: rows.map((d) => ({ id: d.id, name: d.name, month: d.month })),
+    remaining,
+  });
+  for (let month = 1; month <= 600; month++) {
+    const live = rows.filter((d) => d.balance > 0.005);
+    for (const d of live) {
+      const charge = cents((d.balance * d.apr) / 100 / 12);
+      d.balance = cents(d.balance + charge);
+      interest += charge;
+    }
+    const order = [...live].sort((a, b) =>
+      method === "snowball" ? a.balance - b.balance || b.apr - a.apr : b.apr - a.apr || a.balance - b.balance,
+    );
+    let pool = budget;
+    for (const d of live) {
+      const pay = Math.min(d.balance, d.minimum, Math.max(0, pool));
+      d.balance = cents(d.balance - pay);
+      pool = cents(pool - pay);
+      paid += pay;
+    }
+    for (const d of order) {
+      if (pool <= 0) break;
+      if (d.balance <= 0.005) continue;
+      const pay = Math.min(d.balance, pool);
+      d.balance = cents(d.balance - pay);
+      pool = cents(pool - pay);
+      paid += pay;
+    }
+    for (const d of rows) if (d.month == null && d.balance <= 0.005) d.month = month;
+    remaining.push(owed());
+    if (rows.every((d) => d.balance <= 0.005)) return finish(month, false);
   }
-  for (const d of next) {
-    if (d.balance <= 0) continue;
-    d.balance = roundMoney(d.balance * (1 + d.apr / 100 / 12));
-  }
-  return next;
+  return finish(600, true);
 }
 
-export function payoffPlan(debts: DebtItem[], extra: number, method: "snowball" | "avalanche"): Payoff {
-  let rows = debts
-    .filter((d) => d.balance > 0)
-    .map((d) => ({ balance: d.balance, apr: Math.max(0, d.apr), minimum: Math.max(0, d.minimum) }));
-  if (!rows.length) return { months: 0, interest: 0, unfinished: false };
-  const start = rows.reduce((s, d) => s + d.balance, 0);
-  let paid = 0;
-  for (let month = 1; month <= 600; month++) {
-    const order = rows
-      .map((d, i) => ({ i, d }))
-      .filter((x) => x.d.balance > 0)
-      .sort((a, b) =>
-        method === "snowball" ? a.d.balance - b.d.balance || b.d.apr - a.d.apr : b.d.apr - a.d.apr || a.d.balance - b.d.balance,
-      )
-      .map((x) => x.i);
-    const due = rows.reduce((s, d) => s + (d.balance > 0 ? Math.min(d.balance, d.minimum) : 0), 0) + extra;
-    paid += due;
-    rows = stepDebts(rows, Math.max(0, extra), order);
-    if (rows.every((d) => d.balance <= 0.5)) {
-      return { months: month, interest: roundMoney(Math.max(0, paid - start)), unfinished: false };
-    }
+export function payoffPlan(debts: DebtItem[], extra: number, method: DebtMethod): Payoff {
+  const sim = simulatePayoff(debts, extra, method);
+  return { months: sim.months, interest: sim.interest, unfinished: sim.unfinished };
+}
+
+/**
+ * Smallest whole-dollar amount to add each month so the debts are paid off within 50 years.
+ * 0 when the current payment already does it.
+ */
+export function extraNeeded(debts: DebtItem[], extra: number, method: DebtMethod = "avalanche"): number {
+  if (!simulatePayoff(debts, extra, method).unfinished) return 0;
+  let low = 0;
+  let high = Math.max(1, Math.ceil(debts.reduce((sum, d) => sum + Math.max(0, d.balance), 0)) + 1);
+  while (simulatePayoff(debts, extra + high, method).unfinished) high *= 2;
+  while (high - low > 1) {
+    const mid = Math.floor((low + high) / 2);
+    if (simulatePayoff(debts, extra + mid, method).unfinished) low = mid;
+    else high = mid;
   }
-  const left = rows.reduce((s, d) => s + d.balance, 0);
-  return { months: 600, interest: roundMoney(Math.max(0, paid - start + left)), unfinished: true };
+  return high;
+}
+
+/** True when the monthly budget doesn't even cover the first month's interest. */
+export function paymentBelowInterest(debts: DebtItem[], extra: number): boolean {
+  const live = debts.filter((d) => d.balance > 0);
+  if (!live.length) return false;
+  const budget = live.reduce((sum, d) => sum + Math.max(0, d.minimum), 0) + Math.max(0, extra);
+  const charge = live.reduce((sum, d) => sum + cents((d.balance * Math.max(0, d.apr)) / 100 / 12), 0);
+  return budget <= charge;
+}
+
+export type DebtWhatIf = { label: string; months: number; interest: number; unfinished: boolean };
+
+/** What-if rows that each change the extra payment, the one number this calculator is about. */
+export function debtWhatIfs(debts: DebtItem[], extra: number, method: DebtMethod = "avalanche"): DebtWhatIf[] {
+  const base = Math.max(0, extra);
+  const row = (label: string, add: number): DebtWhatIf => {
+    const plan = payoffPlan(debts, add, method);
+    return { label, months: plan.months, interest: plan.interest, unfinished: plan.unfinished };
+  };
+  const rows = [row("No extra", 0)];
+  if (base >= 50 + 0.005) rows.push(row("$50 less a month", base - 50));
+  if (base > 0) rows.push(row("As entered", base));
+  rows.push(row("$50 more a month", base + 50));
+  rows.push(row("$100 more a month", base + 100));
+  return rows;
 }
 
 /** Years until investments can cover spending at a 4% withdrawal, given the savings rate. */
