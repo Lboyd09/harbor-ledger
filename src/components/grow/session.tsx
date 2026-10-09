@@ -3,6 +3,7 @@ import { createContext, useContext } from "react";
 import { latestBalance } from "@/lib/budget/accounts";
 import { bucketBalance } from "@/lib/budget/buckets";
 import { monthlyPath, projectBoth, rothVsTraditional } from "@/lib/budget/grow-math";
+import { moneyPicture } from "@/lib/budget/picture";
 import { DEFAULT_IRA, iraLimit, rothRoom } from "@/lib/budget/ira";
 import { readNumber } from "@/lib/budget/calc-input";
 import { buildYearWorkbook } from "@/lib/budget/year";
@@ -81,8 +82,8 @@ function useGrowState() {
     );
   }, [bucketList, moveList, ym, transactions, categories, book.net]);
 
-  const [page, setPage] = useState<GrowPage>("overview");
-  const [principal, setPrincipal] = useState(() => String(Math.max(0, Math.round(surplus.balance))));
+  const [page, setPage] = useState<GrowPage>("retire");
+  const [principal, setPrincipal] = useState("");
   const [years, setYears] = useState("10");
   const [monthly, setMonthly] = useState("200");
   const [rate, setRate] = useState("7");
@@ -142,8 +143,24 @@ function useGrowState() {
   const limit = iraLimit(ira, age50);
   const room = rothRoom(ira, Math.max(0, Number(magi) || 0), joint);
 
+  const picture = useMemo(
+    () =>
+      moneyPicture({
+        accounts,
+        balances,
+        debts,
+        funds: bucketList ?? [],
+        transactions,
+        categories,
+        moves: moveList ?? [],
+        ym,
+        bills: facts.typicalFixed.value ?? facts.typicalSpendMonthly.value,
+      }),
+    [accounts, balances, debts, bucketList, transactions, categories, moveList, ym, facts],
+  );
+
   const tipFacts: TipFacts = {
-    cushionMonths: facts.typicalSpendMonthly.value ? cashSaved / facts.typicalSpendMonthly.value : null,
+    cushionMonths: picture.cushionMonths,
     cardApr: debts.length ? Math.max(...debts.map((debt) => debt.apr)) : null,
     employerMatch: null,
     savingsRate: facts.savingsRate,
@@ -157,7 +174,7 @@ function useGrowState() {
     annual, setAnnual, today, setToday, inflation, setInflation, age50, setAge50, joint, setJoint, magi, setMagi,
     inflationRate, yearCount, principalN, monthlyN, taxNowN, taxLaterN, market, annualN,
     yearsIn, rateIn, inflationIn, principalIn, monthlyIn, taxNowIn, taxLaterIn, annualIn,
-    path, both, compare, limit, room, tipFacts,
+    path, both, compare, limit, room, tipFacts, picture,
   };
 }
 

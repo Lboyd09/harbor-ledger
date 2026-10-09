@@ -8,8 +8,8 @@ import { useGrow } from "./session";
 export function CushionPage() {
   const g = useGrow();
   const [months, setMonths] = useState(3);
-  const monthly = g.facts.typicalSpendMonthly.value ?? (g.book.activeMonths > 0 ? g.book.expenses / g.book.activeMonths : 0);
-  const saved = g.facts.cashSavings.value ?? g.savingsOnly;
+  const monthly = g.picture.bills ?? 0;
+  const saved = g.picture.cushionCash;
   const target = monthly * months;
   const pct = target > 0 ? Math.min(100, (saved / target) * 100) : 0;
   const covered = monthly > 0 ? saved / monthly : 0;

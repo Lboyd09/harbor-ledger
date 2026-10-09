@@ -20,6 +20,8 @@ export type BudgetLead = {
   sentence: string;
   cover: string | null;
   incomeMissing: boolean;
+  /** True when the plan is far above a typical month. That is a warning, not "Fine". */
+  warn: boolean;
 };
 
 /** The sentence above Budget. Thin income is named instead of invented. */
@@ -28,17 +30,16 @@ export function budgetLead(input: { plannedSpend: number; usualIncome: number; t
   const sentence = incomeMissing
     ? `Planned spending is ${formatMoney(input.plannedSpend)}. Income is not entered yet.`
     : `Planned ${formatMoney(input.plannedSpend)} of about ${formatMoney(input.usualIncome)} usual income.`;
-  const cover =
-    input.typicalSpend != null && input.typicalSpend > 0 && input.typicalMonths >= 3
-      ? (() => {
-          const pct = Math.round((input.plannedSpend / input.typicalSpend) * 100);
-          if (pct > 400) {
-            return `A typical month in this file is ${formatMoney(input.typicalSpend)}. The plan is about ${pct} percent of that.`;
-          }
-          return `Plan covers ${pct} percent of a typical month's spending.`;
-        })()
-      : null;
-  return { sentence, cover, incomeMissing };
+  let cover: string | null = null;
+  let warn = false;
+  if (input.typicalSpend != null && input.typicalSpend > 0 && input.typicalMonths >= 3) {
+    const pct = Math.round((input.plannedSpend / input.typicalSpend) * 100);
+    warn = pct > 150;
+    cover = warn
+      ? `A typical month in this file is ${formatMoney(input.typicalSpend)}. The plan is ${pct} percent of that. That is far off, so treat it as a warning.`
+      : `Plan covers ${pct} percent of a typical month's spending.`;
+  }
+  return { sentence, cover, incomeMissing, warn };
 }
 
 export type SpendRank = {

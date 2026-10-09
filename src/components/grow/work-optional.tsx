@@ -23,7 +23,7 @@ export function WorkOptionalPage() {
   const spend = spendTyped ?? asText(spendDefault);
   const rateSeen = g.facts.savingsRate ?? (g.book.activeMonths > 0 ? g.book.savingsRate : null);
   const saveFromRate = spendDefault != null && rateSeen != null ? savingFromRate(spendDefault, Math.max(0, rateSeen)) : null;
-  const saveDefault = saveFromRate ?? g.facts.monthlySaving.value;
+  const saveDefault = g.facts.monthlySaving.value ?? saveFromRate;
   const save = saveTyped ?? asText(saveDefault);
   // No retirement or investment balance in your accounts shows as 0, with a tag that says so.
   const investedDefault = g.facts.saved.value ?? 0;

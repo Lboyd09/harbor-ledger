@@ -223,6 +223,9 @@ export function safeToSpend(input: {
   buckets: MoneyBucket[];
   moves: BucketMove[];
   setAsides?: import("./types.ts").SetAside[];
+  style?: import("./types.ts").BudgetStyle;
+  carryStartMonth?: string | null;
+  profile?: import("./types.ts").Profile;
 }): { amount: number; funding: number; moved: number; spent: number; plans: number; income: number } {
   return safeFromLedger(
     {
@@ -232,7 +235,9 @@ export function safeToSpend(input: {
       buckets: input.buckets,
       moves: input.moves,
       setAsides: input.setAsides,
-      style: "monthly",
+      style: input.style === "buckets" ? "buckets" : "monthly",
+      carryStartMonth: input.carryStartMonth,
+      profile: input.profile,
     },
     input.ym,
   );
