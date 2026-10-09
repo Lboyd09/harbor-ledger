@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { SectionTabs } from "../page-menu";
 import { CushionPage } from "./cushion";
 import { DebtPage } from "./debt";
@@ -37,8 +38,51 @@ export function GrowView() {
   );
 }
 
+const PAGE_IDS = new Set<GrowPage>([
+  "retire",
+  "free",
+  "debt",
+  "loan",
+  "goal",
+  "cushion",
+  "work",
+  "monthly",
+  "double",
+  "inflation",
+  "roth",
+]);
+
+function pageFromUrl(): GrowPage | null {
+  if (typeof window === "undefined") return null;
+  const q = new URLSearchParams(window.location.search).get("q");
+  return q && PAGE_IDS.has(q as GrowPage) ? (q as GrowPage) : null;
+}
+
+function rememberPage(next: GrowPage) {
+  if (typeof window === "undefined") return;
+  const url = new URL(window.location.href);
+  url.searchParams.set("q", next);
+  window.history.replaceState(null, "", `${url.pathname}${url.search}`);
+}
+
 function GrowShell() {
   const { page, setPage } = useGrow();
+  useEffect(() => {
+    const initial = pageFromUrl();
+    if (initial && initial !== page) setPage(initial);
+    function onPop() {
+      const next = pageFromUrl();
+      if (next) setPage(next);
+    }
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+    // Read the URL once on open. Later changes go through open().
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [setPage]);
+  function open(next: GrowPage) {
+    setPage(next);
+    rememberPage(next);
+  }
   const group = family(page);
   const more: { id: GrowPage; label: string }[] =
     group === "retire"
@@ -73,18 +117,21 @@ function GrowShell() {
           items={QUESTIONS.map((item) => ({
             label: item.label,
             current: group === item.id,
-            onSelect: () => setPage(item.id),
+            onSelect: () => open(item.id),
           }))}
         />
-        {more.length ? (
-          <SectionTabs
-            label="This question"
-            items={more.map((item) => ({
-              label: item.label,
-              current: page === item.id,
-              onSelect: () => setPage(item.id),
-            }))}
-          />
+        {more.length > 1 ? (
+          <details>
+            <summary className="min-h-11 cursor-pointer text-sm text-muted">Fine-tune this question</summary>
+            <SectionTabs
+              label="This question"
+              items={more.map((item) => ({
+                label: item.label,
+                current: page === item.id,
+                onSelect: () => open(item.id),
+              }))}
+            />
+          </details>
         ) : null}
       </div>
       <GrowPageBody page={page === "overview" ? "retire" : page} />

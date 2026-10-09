@@ -10,8 +10,8 @@ export const ACCOUNT_KIND_OPTIONS: { id: AccountKind; label: string }[] = [
   { id: "savings", label: "Savings" },
   { id: "cash", label: "Cash" },
   { id: "credit", label: "Credit card" },
-  { id: "retirement", label: "Roth IRA or other retirement" },
-  { id: "investment", label: "Investments" },
+  { id: "retirement", label: "Retirement" },
+  { id: "investment", label: "Brokerage" },
   { id: "other", label: "Other" },
 ];
 
@@ -127,7 +127,7 @@ const ACCOUNT_GROUP_ORDER: AccountGroupId[] = ["bank", "savings", "investing", "
 const ACCOUNT_GROUP_LABEL: Record<AccountGroupId, string> = {
   bank: "Bank and cash",
   savings: "Savings",
-  investing: "Investments and retirement",
+  investing: "Investments",
   owed: "Cards and loans",
 };
 

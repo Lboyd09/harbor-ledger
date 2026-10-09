@@ -65,7 +65,11 @@ export function plannerFacts(input: {
   const series = savingsRateSeries(input.transactions, input.categories);
   const savingsRate = series?.length ? median(series.map((point) => point.rate)) : null;
   const income = profile.monthlyIncome > 0 ? profile.monthlyIncome : (typical?.moneyIn ?? 0);
-  const monthly = savingsRate != null && income > 0 ? roundMoney(Math.max(0, savingsRate * income)) : null;
+  const kept =
+    typical && typical.months >= 2 && typical.moneyIn > 0
+      ? roundMoney(Math.max(0, typical.moneyIn - typical.moneyOut))
+      : null;
+  const monthly = kept ?? (savingsRate != null && income > 0 ? roundMoney(Math.max(0, savingsRate * income)) : null);
   const wanted = typical && typical.moneyOut > 0 ? roundMoney(typical.moneyOut * 12 * 0.8) : null;
   const fixed = typical ? roundMoney(typical.fixed.reduce((sum, row) => sum + row.typical, 0)) : null;
 
@@ -116,7 +120,11 @@ export function plannerFacts(input: {
       : { value: null, source: "typed", note: "No card balance yet." },
     monthlySaving:
       monthly != null
-        ? { value: monthly, source: "from your income", note: "Median of monthly savings rates, times monthly income." }
+        ? {
+            value: monthly,
+            source: kept != null ? "from your income" : "from your income",
+            note: kept != null ? "A typical month of income, minus a typical month of spending." : "Median savings rate, times monthly income.",
+          }
         : { value: null, source: "typed", note: "Not enough history to guess monthly saving." },
     incomeWantedYearly:
       wanted != null

@@ -1,16 +1,14 @@
 import { useMemo, useState } from "react";
-import { monthEndForecast } from "@/lib/budget/analytics";
 import { recurringBills } from "@/lib/budget/analytics-depth";
 import { monthLedger } from "@/lib/budget/ledger-month";
 import { formatMoney } from "@/lib/budget/money";
 import { monthLabel } from "@/lib/budget/parse-date";
-import { comingUp, monthStrip, paceSentence } from "@/lib/budget/screen-plan";
+import { comingUp } from "@/lib/budget/screen-plan";
 import { useBudgetStore } from "@/store/budget-store";
 import { AmountsPage } from "./budget-amounts";
 import { TransactionsPage } from "./budget-transactions";
 import { LeftoversCard } from "./category-panel";
 import { BudgetMenu } from "./page-menu";
-import { CarryStartControl } from "./carry-start";
 import { CategorizeCoach } from "./categorize-coach";
 import { MonthSwitcher } from "./month-switcher";
 import { Button } from "./ui/button";
@@ -56,11 +54,6 @@ export function BudgetView({ page }: { page: "month" | "amounts" | "transactions
       ),
     [transactions, categories, budgets, buckets, moves, setAsides, style, carryStartMonth, profile, ym],
   );
-  const forecast = useMemo(
-    () => monthEndForecast({ transactions, categories, ym, today: todayIso(), budgets: budgets ?? [] }),
-    [transactions, categories, ym, budgets],
-  );
-  const strip = monthStrip({ forecast, incomeSoFar: ledger.totals.received, incomeStill: null });
   const today = todayIso();
   const stillComing =
     page === "month"
@@ -107,8 +100,6 @@ export function BudgetView({ page }: { page: "month" | "amounts" | "transactions
         <p className="text-sm text-muted">{formatMoney(ledger.fundMoves)} moved between funds, not counted as new savings.</p>
       ) : null}
       {page === "month" ? <LeftoversCard /> : null}
-      {strip.ready ? <p className="text-sm text-muted">{paceSentence(forecast)}</p> : null}
-      <CarryStartControl />
       {page === "month" && stillComing.length ? (
         <section className="rounded-lg border border-border bg-surface p-4">
           <h2 className="font-display text-lg font-semibold">Still coming this month</h2>

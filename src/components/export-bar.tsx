@@ -26,6 +26,7 @@ export function ExportBar() {
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [armReset, setArmReset] = useState(false);
+  const [resetWord, setResetWord] = useState("");
   const [ready, setReady] = useState<{ name: string; href: string } | null>(null);
 
   function publish(filename: string, bytes: Uint8Array, type: string) {
@@ -184,12 +185,18 @@ export function ExportBar() {
             />
           </label>
           {armReset ? (
-            <span className="inline-flex flex-wrap items-center gap-2">
-              <span className="text-sm text-muted">Erase the ledger on this device? Your bank is not touched.</span>
+            <span className="inline-flex flex-wrap items-center gap-2 rounded-md border border-danger/40 bg-danger/10 p-2">
+              <span className="text-sm">Type RESET to erase this device. Your bank is not touched.</span>
+              <input
+                aria-label="Type RESET to confirm"
+                className="min-h-11 rounded-md border border-border bg-surface px-2 text-sm"
+                value={resetWord}
+                onChange={(e) => setResetWord(e.target.value)}
+              />
               <Button
                 variant="danger"
                 size="sm"
-                disabled={busy}
+                disabled={busy || resetWord !== "RESET"}
                 onClick={() => {
                   setBusy(true);
                   setNote(null);
@@ -211,7 +218,7 @@ export function ExportBar() {
               </Button>
             </span>
           ) : (
-            <Button variant="ghost" size="sm" onClick={() => setArmReset(true)}>
+            <Button variant="danger" size="sm" onClick={() => setArmReset(true)}>
               Reset this device
             </Button>
           )}

@@ -61,6 +61,9 @@ export function PutToWork() {
           <Field label="Years" tag="typed">
             <Input className="mt-1" inputMode="decimal" aria-label="Years" value={g.years} onChange={(e) => g.setYears(e.target.value)} />
           </Field>
+          <Field label="Yearly return %" tag="typed">
+            <Input className="mt-1" inputMode="decimal" aria-label="Yearly return" value={g.rate} onChange={(e) => g.setRate(e.target.value)} />
+          </Field>
           <Field label="Tax on the gain %" tag="when you sell, in a taxable account">
             <Input className="mt-1" inputMode="decimal" aria-label="Tax on the gain" value={g.gainTax} onChange={(e) => g.setGainTax(e.target.value)} />
           </Field>

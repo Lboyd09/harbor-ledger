@@ -4,9 +4,9 @@ Newest first. If this file conflicts with earlier chat, this file wins.
 
 ## Current rules
 
-Harbor is a private ledger. Nothing connects to a bank.
-Five tabs: Home, Budget, Funds, Grow, and Account. Each title opens its own pages. There is no second tab row.
-Home is the year. Budget is the month. Funds are extra savings for one purchase, not the budget.
+BudgetFlow is a private ledger. Nothing connects to a bank.
+Four areas: Today, Budget, Money, and Plan. Settings is a gear, not a fifth tab.
+Today is what you can spend. Budget is the month. Money is goals, accounts, and net worth. Plan is five questions.
 One calculation makes each month. Every screen and the workbook read it. They do not add their own totals.
 A month is money in, money spent, money saved to funds, and what is left. Those four add up.
 Leftovers start at the first month of the first imported file. The person can start from the present month instead.

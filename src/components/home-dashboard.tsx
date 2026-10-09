@@ -4,6 +4,8 @@ import { recurringBills } from "@/lib/budget/analytics-depth";
 import { safeToSpend } from "@/lib/budget/buckets";
 import { monthLedger } from "@/lib/budget/ledger-month";
 import { formatMoney } from "@/lib/budget/money";
+import { moneyPicture } from "@/lib/budget/picture";
+import { plannerFacts } from "@/lib/budget/planner";
 import { isDemoLedger } from "@/lib/budget/onboarding-plan";
 import { coverSentence, queueStats, reviewQueue } from "@/lib/budget/review-queue";
 import { comingUp } from "@/lib/budget/screen-plan";
@@ -37,12 +39,29 @@ export function HomeDashboard() {
   const debts = useBudgetStore((s) => s.debts);
   const netWorth = useBudgetStore((s) => s.netWorth);
   const imports = useBudgetStore((s) => s.imports);
+  const accounts = useBudgetStore((s) => s.accounts ?? []);
+  const balances = useBudgetStore((s) => s.balances ?? []);
   const reopenSetup = useBudgetStore((s) => s.reopenSetup);
   const [coach, setCoach] = useState(false);
   const [why, setWhy] = useState(false);
   const style = profile.budgetStyle === "buckets" ? "buckets" : "monthly";
   const today = todayIso();
 
+  const facts = useMemo(
+    () => plannerFacts({ profile, accounts, balances, transactions, categories, year: Number(ym.slice(0, 4)) }),
+    [profile, accounts, balances, transactions, categories, ym],
+  );
+  const picture = moneyPicture({
+    accounts,
+    balances,
+    debts: debts ?? [],
+    funds: buckets ?? [],
+    transactions,
+    categories,
+    moves: moves ?? [],
+    ym,
+    bills: facts.typicalFixed.value ?? facts.typicalSpendMonthly.value,
+  });
   const safe = safeToSpend({
     ym,
     transactions,
@@ -51,6 +70,9 @@ export function HomeDashboard() {
     buckets: buckets ?? [],
     moves: moves ?? [],
     setAsides: setAsides ?? [],
+    style,
+    carryStartMonth: profile.carryStartMonth,
+    profile,
   });
   const ledger = useMemo(
     () =>
@@ -100,6 +122,21 @@ export function HomeDashboard() {
   return (
     <div className="mx-auto max-w-xl space-y-4">
       <h1 className="font-display text-2xl font-semibold md:text-3xl">Today</h1>
+      <p className="text-sm text-muted">What you can spend, what needs you, and the bills that are coming.</p>
+      <section className="grid grid-cols-3 gap-2 text-sm" aria-label="Your numbers">
+        <Link to="/grow" className="rounded-lg border border-border bg-surface p-3">
+          <p className="text-xs text-muted">Cushion</p>
+          <p className="font-display text-lg tabular">{picture.cushionMonths == null ? "—" : `${picture.cushionMonths} mo`}</p>
+        </Link>
+        <Link to="/grow" className="rounded-lg border border-border bg-surface p-3">
+          <p className="text-xs text-muted">Saving</p>
+          <p className="font-display text-lg tabular">{facts.savingsRate == null ? "—" : `${Math.round(facts.savingsRate * 100)}%`}</p>
+        </Link>
+        <Link to="/funds" className="rounded-lg border border-border bg-surface p-3">
+          <p className="text-xs text-muted">Net worth</p>
+          <p className="font-display text-lg tabular">{formatMoney(picture.net, { signed: true })}</p>
+        </Link>
+      </section>
       {sample ? (
         <section className="rounded-lg border border-border bg-surface p-4">
           <p className="text-sm">This is the sample budget. Starting your own replaces it.</p>

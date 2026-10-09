@@ -153,19 +153,27 @@ export function BudgetMenu({
   return (
     <div className="min-w-0 space-y-2">
       <h1 className="font-display text-2xl font-semibold md:text-3xl">Budget</h1>
+      <p className="text-sm text-muted">This month, the charges, and a bank file.</p>
       <SectionTabs
         label="Budget"
         items={[
-          { to: "/budget", label: "This month", current: page === "month" },
-          { to: "/budget", search: { page: "amounts" }, label: "Amounts", current: page === "amounts" },
+          { to: "/budget", label: "This month", current: page === "month" || page === "amounts" },
           { to: "/budget", search: { page: "transactions" }, label: "Transactions", current: page === "transactions" },
           { to: "/import", label: "Import", current: page === "import" },
-          { to: "/year", label: "Year", current: page === "year" },
-          { to: "/rules", label: "Sorting", current: page === "rules" },
-          { to: "/imports", label: "Past imports", current: page === "imports" },
           ...(onAccounts ? [{ label: "Accounts", current: false, onSelect: onAccounts }] : []),
         ]}
       />
+      <details>
+        <summary className="min-h-11 cursor-pointer text-sm text-muted">More: year, sorting, past imports</summary>
+        <SectionTabs
+          label="More budget pages"
+          items={[
+            { to: "/year", label: "Year", current: page === "year" },
+            { to: "/rules", label: "Sorting", current: page === "rules" },
+            { to: "/imports", label: "Past imports", current: page === "imports" },
+          ]}
+        />
+      </details>
     </div>
   );
 }

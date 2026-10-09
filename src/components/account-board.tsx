@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { Banknote, CreditCard, Landmark, LineChart, PiggyBank, Wallet } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import {
+  ACCOUNT_KIND_OPTIONS,
   accountAcceptsFile,
   accountGrowth,
   accountKindLabel,
@@ -10,7 +11,9 @@ import {
   type InvestmentPick,
 } from "@/lib/budget/accounts";
 import { accountRows, staleLabel } from "@/lib/budget/dashboard";
+import { readNumber } from "@/lib/budget/calc-input";
 import { formatMoney } from "@/lib/budget/money";
+import { moneyPicture } from "@/lib/budget/picture";
 import { PLANNING_MARKET } from "@/lib/budget/reference";
 import type { Account, AccountKind, DebtItem, GrowthBand } from "@/lib/budget/types";
 import { useBudgetStore } from "@/store/budget-store";
@@ -75,25 +78,39 @@ export function AccountBoard() {
   const balances = useBudgetStore((s) => s.balances ?? []);
   const debts = useBudgetStore((s) => s.debts ?? []);
   const addBalance = useBudgetStore((s) => s.addBalance);
+  const addAccount = useBudgetStore((s) => s.addAccount);
+  const addDebt = useBudgetStore((s) => s.addDebt);
   const updateAccount = useBudgetStore((s) => s.updateAccount);
   const retireAge = useBudgetStore((s) => s.profile.retireAge);
   const birthYear = useBudgetStore((s) => s.profile.birthYear);
   const today = todayIso();
   const rows = useMemo(() => accountRows(accounts, balances, today).rows, [accounts, balances, today]);
   const groups = useMemo(() => groupAccounts(rows), [rows]);
-  const net = useMemo(
-    () => Math.round(accounts.reduce((sum, account) => sum + shownBalance(account, balances, today), 0) * 100) / 100,
-    [accounts, balances, today],
+  const picture = useMemo(
+    () => moneyPicture({ accounts, balances, debts }),
+    [accounts, balances, debts],
   );
+  const net = picture.net;
   const [balanceId, setBalanceId] = useState<string | null>(null);
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState(today);
+  const [adding, setAdding] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newKind, setNewKind] = useState<AccountKind>("checking");
+  const [newBalance, setNewBalance] = useState("");
+  const [loanName, setLoanName] = useState("");
+  const [loanBalance, setLoanBalance] = useState("");
+  const [loanApr, setLoanApr] = useState("");
+  const [loanMin, setLoanMin] = useState("");
   const yearsToRetire = birthYear && retireAge ? retireAge - (Number(today.slice(0, 4)) - birthYear) : null;
 
   return (
     <section id="accounts" className="rounded-lg border border-border bg-surface p-4">
       <div className="flex flex-wrap items-end justify-between gap-2">
-        <h2 className="font-display text-xl font-semibold">Your accounts</h2>
+        <div>
+          <h2 className="font-display text-xl font-semibold">Your accounts</h2>
+          <p className="text-sm text-muted">Net {formatMoney(net, { signed: true })}. Loans of {formatMoney(picture.loans)} are subtracted. Cards are already part of the account balances.</p>
+        </div>
         <div className="flex gap-2">
           <Button size="sm" variant="outline" onClick={() => openQuickAdd("cash")}>
             Add cash
@@ -101,8 +118,83 @@ export function AccountBoard() {
           <Button size="sm" variant="outline" onClick={() => openQuickAdd("investment")}>
             Add an investment
           </Button>
+          <Button size="sm" onClick={() => setAdding((open) => !open)}>
+            Add account
+          </Button>
         </div>
       </div>
+      {adding ? (
+        <form
+          className="mt-3 grid gap-2 sm:grid-cols-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            const id = addAccount({ name: newName.trim() || "Account", kind: newKind });
+            const value = readNumber(newBalance);
+            if (id && value != null) {
+              const stored = newKind === "credit" ? -Math.abs(value) : value;
+              addBalance(id, stored, date);
+            }
+            setNewName("");
+            setNewBalance("");
+            setAdding(false);
+          }}
+        >
+          <Field label="Name">
+            <Input aria-label="Account name" value={newName} onChange={(e) => setNewName(e.target.value)} />
+          </Field>
+          <Field label="Type">
+            <Select aria-label="Account type" value={newKind} onChange={(e) => setNewKind(e.target.value as AccountKind)}>
+              {ACCOUNT_KIND_OPTIONS.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.label}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Balance today">
+            <Input inputMode="decimal" aria-label="Starting balance" value={newBalance} onChange={(e) => setNewBalance(e.target.value)} />
+          </Field>
+          <Field label="Date">
+            <Input type="date" aria-label="Balance date" value={date} onChange={(e) => setDate(e.target.value)} />
+          </Field>
+          <div className="sm:col-span-2">
+            <Button type="submit" size="sm">Save account</Button>
+          </div>
+        </form>
+      ) : null}
+      <form
+        className="mt-4 grid gap-2 border-t border-border pt-4 sm:grid-cols-4"
+        onSubmit={(event) => {
+          event.preventDefault();
+          const balance = readNumber(loanBalance);
+          const apr = readNumber(loanApr);
+          const minimum = loanMin.trim() ? readNumber(loanMin) : 0;
+          if (!loanName.trim() || balance == null || balance <= 0 || apr == null || apr < 0 || minimum == null || minimum < 0) return;
+          addDebt({ name: loanName.trim(), balance, apr, minimum });
+          setLoanName("");
+          setLoanBalance("");
+          setLoanApr("");
+          setLoanMin("");
+        }}
+      >
+        <p className="sm:col-span-4 text-sm font-medium">Add a loan</p>
+        <Input aria-label="Loan name" placeholder="Car loan" value={loanName} onChange={(e) => setLoanName(e.target.value)} />
+        <Input inputMode="decimal" aria-label="Loan balance" placeholder="Balance" value={loanBalance} onChange={(e) => setLoanBalance(e.target.value)} />
+        <Input inputMode="decimal" aria-label="Interest rate" placeholder="Rate %" value={loanApr} onChange={(e) => setLoanApr(e.target.value)} />
+        <Input inputMode="decimal" aria-label="Minimum payment" placeholder="Minimum" value={loanMin} onChange={(e) => setLoanMin(e.target.value)} />
+        <div className="sm:col-span-4">
+          <Button type="submit" size="sm" variant="outline">Save loan</Button>
+        </div>
+      </form>
+      {debts.length ? (
+        <ul className="mt-2 space-y-1 text-sm">
+          {debts.map((debt) => (
+            <li key={debt.id}>
+              {debt.name}: {formatMoney(debt.balance)} at {debt.apr}% · minimum {formatMoney(debt.minimum)}
+            </li>
+          ))}
+        </ul>
+      ) : null}
       {groups.length === 0 ? (
         <p className="mt-3 text-sm">
           {debts.length

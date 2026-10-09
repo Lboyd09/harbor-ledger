@@ -10,7 +10,9 @@ dist
 *.log
 artifacts
 screenshots
-.grok
+.grok/*
+!.grok/agents/
+!.grok/agents/**
 .DS_Store
 coverage
 .turbo

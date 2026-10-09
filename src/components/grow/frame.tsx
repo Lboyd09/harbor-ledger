@@ -55,7 +55,7 @@ export function CalcFrame({
         <>
           <p className="text-sm">{result}</p>
           {picture}
-          <section>
+          {keyNumbers.length ? <section>
             <h3 className="text-sm font-medium">Key numbers</h3>
             <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
               {keyNumbers.map((row) => (
@@ -65,7 +65,7 @@ export function CalcFrame({
                 </div>
               ))}
             </dl>
-          </section>
+          </section> : null}
         </>
       )}
       <section>

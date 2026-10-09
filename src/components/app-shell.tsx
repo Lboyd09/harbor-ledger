@@ -8,6 +8,7 @@ import { useBudgetStore } from "@/store/budget-store";
 import { HarborMark } from "./harbor-mark";
 import { CategoryPanelHost } from "./category-panel";
 import { QuickAddHost } from "./account-board";
+import { AddCharge } from "./add-charge";
 import { Onboarding } from "./onboarding";
 import { WelcomeGate } from "./welcome-gate";
 
@@ -33,6 +34,23 @@ function sectionLabel(path: string) {
   if (path === "/grow") return "Plan";
   if (path === "/settings") return "Settings";
   return "BudgetFlow";
+}
+
+function AddButton() {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button
+        type="button"
+        className="fixed bottom-20 right-4 z-20 inline-flex size-14 items-center justify-center rounded-full bg-primary text-3xl text-primary-fg shadow-lg md:bottom-8"
+        aria-label="Add a transaction"
+        onClick={() => setOpen(true)}
+      >
+        +
+      </button>
+      {open ? <AddCharge onClose={() => setOpen(false)} /> : null}
+    </>
+  );
 }
 
 function AuthSlot() {
@@ -236,6 +254,7 @@ export function AppShell() {
           );
         })}
       </nav>
+      <AddButton />
       <CategoryPanelHost />
       <QuickAddHost />
     </div>

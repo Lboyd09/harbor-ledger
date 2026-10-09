@@ -3,6 +3,8 @@ import { bucketBalance, categorySpend, DEFAULT_FUND_VIEW, fundWindow, fullLineOf
 import { monthLedger } from "@/lib/budget/ledger-month";
 import { displayMerchant } from "@/lib/budget/merchant";
 import { formatMoney } from "@/lib/budget/money";
+import { moneyPicture } from "@/lib/budget/picture";
+import { plannerFacts } from "@/lib/budget/planner";
 import { monthKeyFromDate, monthLabel, monthShort, shiftMonth } from "@/lib/budget/parse-date";
 import { piecesOf } from "@/lib/budget/splits";
 import type { MoneyBucket, Transaction } from "@/lib/budget/types";
@@ -32,6 +34,9 @@ export function FundsView() {
   const style = useBudgetStore((s) => (s.profile.budgetStyle === "buckets" ? "buckets" : "monthly"));
   const carryStartMonth = useBudgetStore((s) => s.profile.carryStartMonth);
   const profile = useBudgetStore((s) => s.profile);
+  const accounts = useBudgetStore((s) => s.accounts ?? []);
+  const balances = useBudgetStore((s) => s.balances ?? []);
+  const debts = useBudgetStore((s) => s.debts ?? []);
   const [wizard, setWizard] = useState(false);
   const [linked, setLinked] = useState<string | null>(null);
   const [section, setSection] = useState<"goals" | "accounts" | "worth">("goals");
@@ -60,11 +65,27 @@ export function FundsView() {
     ym,
   );
   const used = ledger.funds.reduce((sum, fund) => sum + fund.spent, 0);
+  const facts = plannerFacts({ profile, accounts, balances, transactions, categories, year: Number(ym.slice(0, 4)) });
+  const picture = moneyPicture({
+    accounts,
+    balances,
+    debts,
+    funds,
+    transactions,
+    categories,
+    moves,
+    ym,
+    bills: facts.typicalFixed.value ?? facts.typicalSpendMonthly.value,
+  });
 
   return (
     <div className="space-y-4">
       <div className="space-y-2">
         <h1 className="font-display text-2xl font-semibold md:text-3xl">Money</h1>
+        <p className="text-sm text-muted">Goals, accounts, and what you own minus what you owe.</p>
+        <p className="text-sm">
+          Cash {formatMoney(picture.cash)} · Brokerage {formatMoney(picture.brokerage)} · Retirement {formatMoney(picture.retirement)} · Debts {formatMoney(-picture.debts, { signed: true })} · Net {formatMoney(picture.net, { signed: true })}
+        </p>
         <SectionTabs
           label="Money"
           items={[
