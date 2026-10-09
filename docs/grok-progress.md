@@ -19,9 +19,9 @@
 
 - [x] 0.1 · Verify the baseline · Done (2b1622d). On main at ed22bea: typecheck pass, lint 0 errors and 11 warnings, app tests 264/264, vite build pass, npm test failed 15 template-script tests.
 - [x] 0.0 · Understanding gate · Done (2b1622d)
-- [x] 0.2 · #244 · Fix AGENTS.md · Done (pending)
-- [x] 0.3 · #245 · Clear eslint warnings · Done (pending)
-- [x] 0.4 · #207 · Make npm test run cleanly · Done (pending)
+- [x] 0.2 · #244 · Fix AGENTS.md · Done (3c4ef75)
+- [x] 0.3 · #245 · Clear eslint warnings · Done (3c4ef75)
+- [x] 0.4 · #207 · Make npm test run cleanly · Done (3c4ef75)
 - [ ] 1.1 · #214 #83 #167 #168 #131 · Debt calculator must not change net worth
 - [ ] 1.2 · #225 #33 #136 #84 #85 #167 #169 #81 #173 · One calculation for all of Money's totals
 - [ ] 1.3 · #223 #61 · Safe to spend and Left agree or explain
