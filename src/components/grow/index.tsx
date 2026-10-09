@@ -10,7 +10,9 @@ import { MonthlyPage } from "./monthly";
 import { PutToWork } from "./put-to-work";
 import { RetirementPage } from "./retirement";
 import { RothPage } from "./roth";
-import { GrowProvider, useGrow, type GrowPage } from "./session";
+import { GrowProvider } from "./session";
+import { useGrow } from "./grow-context";
+import type { GrowPage } from "./session-state";
 import { WorkOptionalPage } from "./work-optional";
 import { WorthPage } from "./worth";
 

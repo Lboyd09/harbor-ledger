@@ -4,8 +4,9 @@ import { sensitivityOf, yearRows } from "@/lib/budget/grow-tables";
 import { formatMoney } from "@/lib/budget/money";
 import { Input } from "../ui/field";
 import { SharedRates } from "./editors";
-import { CalcFrame, Field, Sensitivity, YearTable, tagOf } from "./frame";
-import { useGrow } from "./session";
+import { CalcFrame, Field, Sensitivity, YearTable } from "./frame";
+import { tagOf } from "./source-tag";
+import { useGrow } from "./grow-context";
 
 export function MonthlyPage() {
   const g = useGrow();

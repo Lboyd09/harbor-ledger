@@ -2,7 +2,9 @@
 
 Current work order: docs/BudgetFlow_Grok_Prompt.md — read it fully before starting.
 
-Personal budgeting app with four areas: Today, Budget, Money, and Plan. Settings is a gear, not a fifth tab. Deployed on Vercel. Every push to `main` goes live in production.
+Personal budgeting app with four areas: Today, Budget, Money, and Plan. Settings is a gear, not a fifth tab. Deployed on Vercel. Pushes to `main` build and deploy to production only when the commit message contains the deploy tag (a Vercel Ignored Build Step skips all other builds). Only add that tag when told to.
+
+Current work order: docs/BudgetFlow_Grok_Prompt.md
 
 Nothing connects to a bank. Import a CSV, sort the charges, and keep the ledger on this device until sign-in. A signed-in ledger is one JSON payload per user in Postgres.
 
@@ -13,7 +15,7 @@ Nothing connects to a bank. Import a CSV, sort the charges, and keep the ledger 
 - React 19, TypeScript, Vite 8, TanStack Start, TanStack Router
 - Tailwind CSS 4
 - Zustand for the ledger, Zod, Better Auth
-- Postgres: Neon when `DATABASE_URL` is set, otherwise in-memory PGLite
+- Postgres: Supabase (transaction pooler) when `DATABASE_URL` is set, otherwise in-memory PGLite
 - Production build uses Nitro with `preset: "vercel"` in `vite.config.ts`
 - Tests use Node's built-in runner (`node --test`)
 
@@ -25,8 +27,9 @@ Copied from `package.json`. Run these. Do not invent replacements.
 - Dev: `npm run dev` — `node scripts/with-app-env.mjs vite dev --host 0.0.0.0 --port 8080`
 - Type-check: `npm run typecheck` — `tsc --noEmit`
 - Lint: `npm run lint` — `eslint .`
-- Test: `npm test` — `node --test 'scripts/**/*.test.mjs' && node --experimental-strip-types --test` and the `src/lib/**/*.test.ts` files named in the `test` script
-- Build: `npm run build` — `node scripts/with-app-env.mjs vite build && npm run db:migrate`
+- Test: `npm test` runs the app tests, then the template script tests when `.grok/skills/og/*` and the app-env fixtures are present. The `scripts/**/*.test.mjs` half needs those files and is skipped without them (until that fixture set is in the checkout). New test files must be added to the `test` script's file list.
+- Build: `npm run build` — `node scripts/with-app-env.mjs vite build && npm run db:migrate`. `npm run build` also runs `db:migrate`. To check that the app builds, use `npx vite build`.
+- A production build runs `npm run build`, which runs database migrations. Don't add migrations without Liam's OK.
 
 Dev listens on `0.0.0.0:8080`. Leave that host and port alone.
 
@@ -51,11 +54,11 @@ Keep money math in its own functions under `src/lib/budget/`, not inside compone
 
 ## Done
 
-`npm run typecheck` and `npm run build` both pass. List every file you changed, and anything to test by hand.
+`npm run typecheck` and `npx vite build` both pass. List every file you changed, and anything to test by hand.
 
 ## Workflow
 
-One task per session. Make a new git branch for that task, commit, and push it. Never commit straight to `main`.
+Work on a short-lived branch, then merge into `main` and push when typecheck, lint, the app tests and `npx vite build` pass.
 
 For a large feature, show a short plan before coding.
 

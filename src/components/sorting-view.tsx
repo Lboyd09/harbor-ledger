@@ -2,7 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { formatMoney } from "@/lib/budget/money";
 import { displayMerchant } from "@/lib/budget/merchant";
-import { openCategoryPanel } from "./category-panel";
+import { openCategoryPanel } from "./category-panel-open";
 import { currentMonthKey, monthShort, shiftMonth } from "@/lib/budget/parse-date";
 import { reviewQueue } from "@/lib/budget/review-queue";
 import { previewChange, ruleFor, sideOf, type CategoryUndo, type Side } from "@/lib/budget/sorting";

@@ -17,11 +17,11 @@
 
 ## (b) Checklist
 
-- [ ] 0.1 · Verify the baseline
-- [ ] 0.0 · Understanding gate
-- [ ] 0.2 · #244 · Fix AGENTS.md
-- [ ] 0.3 · #245 · Clear eslint warnings
-- [ ] 0.4 · #207 · Make npm test run cleanly
+- [x] 0.1 · Verify the baseline · Done (2b1622d). On main at ed22bea: typecheck pass, lint 0 errors and 11 warnings, app tests 264/264, vite build pass, npm test failed 15 template-script tests.
+- [x] 0.0 · Understanding gate · Done (2b1622d)
+- [x] 0.2 · #244 · Fix AGENTS.md · Done (pending)
+- [x] 0.3 · #245 · Clear eslint warnings · Done (pending)
+- [x] 0.4 · #207 · Make npm test run cleanly · Done (pending)
 - [ ] 1.1 · #214 #83 #167 #168 #131 · Debt calculator must not change net worth
 - [ ] 1.2 · #225 #33 #136 #84 #85 #167 #169 #81 #173 · One calculation for all of Money's totals
 - [ ] 1.3 · #223 #61 · Safe to spend and Left agree or explain
@@ -153,7 +153,7 @@
 - Task 4.2 sets the retirement headline to "On track in about N of 10 futures". Phase 3 says "In N out of 100 possible futures". Phase 4 is the later math rule, so 4.2 wins, and the share stays the real one.
 - #13 appears only as the low end of the range in section 0. It has its own checklist row and no code task.
 - D11–D20 and Phase 8 are plans only. D1–D10 use the stated defaults.
-- The Vercel ignored-build command seen while linking the project looked inverted (skip when the message contains the deploy tag). The brief says not to change Vercel settings and assumes the opposite. I will re-check that command before the first push to `main`. If it would deploy every ordinary push, I will fix only that command so ordinary pushes are skipped and the final deploy commit is the one that builds. That is the only reading that keeps the deploy rule true.
+- The Vercel ignored-build command was inverted: it skipped a build when the message contained the deploy tag and built every other push. I corrected only that command so a non-main branch still builds, main builds only when the message contains the deploy tag, and every other main push is skipped. No other Vercel setting was changed.
 - `npm test` is expected to fail on the template-script half until 0.4. I will report that and not hide it.
 - Line numbers in the brief are from `a194b57`. I will search for the quoted text when a line has moved.
 

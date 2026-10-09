@@ -178,7 +178,6 @@ export function buildYearWorkbook(
 ): YearWorkbook {
   const months = monthsOfYear(year);
   const yearTx = transactions.filter((t) => inYear(t, year));
-  const planIncomeUser = categories.filter((c) => c.kind === "income").reduce((s, c) => s + c.plannedMonthly, 0);
   const planExpensesUser = categories.filter((c) => c.kind === "expense").reduce((s, c) => s + c.plannedMonthly, 0);
 
   const incomeRows = categories

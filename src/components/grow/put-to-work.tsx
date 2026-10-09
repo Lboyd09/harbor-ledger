@@ -4,8 +4,9 @@ import { formatMoney } from "@/lib/budget/money";
 import { GrowthArea, PlaceMap } from "../grow-pictures";
 import { Input } from "../ui/field";
 import { SharedRates } from "./editors";
-import { CalcFrame, Field, Sensitivity, YearTable, tagOf } from "./frame";
-import { useGrow } from "./session";
+import { CalcFrame, Field, Sensitivity, YearTable } from "./frame";
+import { tagOf } from "./source-tag";
+import { useGrow } from "./grow-context";
 
 const pct = (n: number) => `${Math.round(n * 10000) / 100}%`;
 

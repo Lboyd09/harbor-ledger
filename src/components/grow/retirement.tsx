@@ -1,7 +1,7 @@
 import { assumptionLines } from "@/lib/budget/reference";
 import { tipsFor } from "@/lib/budget/tips";
 import { RetirementCard } from "../retirement-card";
-import { useGrow } from "./session";
+import { useGrow } from "./grow-context";
 
 export function RetirementPage() {
   const { tipFacts } = useGrow();

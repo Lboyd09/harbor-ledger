@@ -9,8 +9,9 @@ import { monthKeyFromDate, monthLabel, monthShort, shiftMonth } from "@/lib/budg
 import { piecesOf } from "@/lib/budget/splits";
 import type { MoneyBucket, Transaction } from "@/lib/budget/types";
 import { useBudgetStore } from "@/store/budget-store";
-import { FUND_LINK_KEY, FundWizard } from "./fund-wizard";
-import { openCategoryPanel } from "./category-panel";
+import { FundWizard } from "./fund-wizard";
+import { FUND_LINK_KEY } from "./fund-wizard-queue";
+import { openCategoryPanel } from "./category-panel-open";
 import { FillJar } from "./money-visual";
 import { AccountBoard } from "./account-board";
 import { SectionTabs } from "./page-menu";

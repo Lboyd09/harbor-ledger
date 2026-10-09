@@ -7,7 +7,7 @@ import { useBudgetStore } from "@/store/budget-store";
 import { Button } from "../ui/button";
 import { Input } from "../ui/field";
 import { CalcFrame, YearTable } from "./frame";
-import { useGrow } from "./session";
+import { useGrow } from "./grow-context";
 
 export function WorthPage() {
   const g = useGrow();
