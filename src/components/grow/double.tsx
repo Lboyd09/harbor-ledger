@@ -4,8 +4,9 @@ import { monthsToTarget, yearsToDouble } from "@/lib/budget/grow-math";
 import { formatMoney } from "@/lib/budget/money";
 import { useBudgetStore } from "@/store/budget-store";
 import { Input } from "../ui/field";
-import { CalcFrame, Field, Sensitivity, YearTable, tagOf } from "./frame";
-import { useGrow } from "./session";
+import { CalcFrame, Field, Sensitivity, YearTable } from "./frame";
+import { tagOf } from "./source-tag";
+import { useGrow } from "./grow-context";
 
 function spanLabel(months: number) {
   const years = Math.floor(months / 12);

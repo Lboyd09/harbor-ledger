@@ -3,7 +3,7 @@ import type { IraRules } from "@/lib/budget/types";
 import { useBudgetStore } from "@/store/budget-store";
 import { Input } from "../ui/field";
 import { Field } from "./frame";
-import { useGrow } from "./session";
+import { useGrow } from "./grow-context";
 
 export function SharedRates() {
   const g = useGrow();

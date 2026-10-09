@@ -2,7 +2,8 @@ import { YourMoney } from "../grow-pictures";
 import { EmptyArt } from "../visuals/empty-art";
 import { Button } from "../ui/button";
 import { Link } from "@tanstack/react-router";
-import { GROW_PAGES, useGrow, type GrowPage } from "./session";
+import { useGrow } from "./grow-context";
+import { GROW_PAGES, type GrowPage } from "./session-state";
 
 const TILES: { id: GrowPage; label: string; hint: string }[] = [
   { id: "retire", label: "Plan for retirement", hint: "Where you stand, and the gap." },

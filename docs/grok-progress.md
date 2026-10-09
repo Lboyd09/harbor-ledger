@@ -1,0 +1,164 @@
+# Grok progress
+
+## (a) Rules, in your own words
+
+- Money math stays in `src/lib/budget/` with a unit test. Round to cents only for display, except `simulatePayoff` interest.
+- A blank box is missing, never $0. A typed 0 stays 0. Never use `Number(x) || 0` on a user input.
+- Never rename storage keys, migrations, `HARBOR_FROM_EMAIL`, backup-code parsing, the repo, the URL, or internal `harbor` identifiers. Only user-visible text changes.
+- Do not delete or rewrite saved data. New persisted fields are optional, with a default in `normalize.ts`. Stop for anything marked ask Liam first.
+- One short-lived branch per phase, then merge into `main` and push after the checks pass. No force-push. No pull requests.
+- Never write `[deploy]` in a commit message, except the single final deploy commit.
+- Before each phase merge: typecheck, lint with no new warnings, app tests, and `npx vite build`. Do not run `npm run build` locally. Node 22.
+- No new dependencies unless there is no reasonable way without one. Reference numbers in the existing tests stay exactly the same.
+- User-visible words stay short. The areas are Today, Budget, Money, and Plan, plus Settings. Call the data "your budget" and a CSV a "bank file".
+- Tap targets at least 44px, contrast at least 4.5:1, keyboard focus visible, and pressable things look like buttons.
+- Do not touch production data, secrets, or `.env` files. Do not print secrets. The database is Supabase when `DATABASE_URL` is set, otherwise in-memory PGLite.
+- This brief approves Phases 0–7 as written. Run `math-checker` on Phases 1 and 4, and `reviewer` on each phase diff, before merging.
+
+## (b) Checklist
+
+- [x] 0.1 · Verify the baseline · Done (2b1622d). On main at ed22bea: typecheck pass, lint 0 errors and 11 warnings, app tests 264/264, vite build pass, npm test failed 15 template-script tests.
+- [x] 0.0 · Understanding gate · Done (2b1622d)
+- [x] 0.2 · #244 · Fix AGENTS.md · Done (3c4ef75)
+- [x] 0.3 · #245 · Clear eslint warnings · Done (3c4ef75)
+- [x] 0.4 · #207 · Make npm test run cleanly · Done (3c4ef75)
+- [ ] 1.1 · #214 #83 #167 #168 #131 · Debt calculator must not change net worth
+- [ ] 1.2 · #225 #33 #136 #84 #85 #167 #169 #81 #173 · One calculation for all of Money's totals
+- [ ] 1.3 · #223 #61 · Safe to spend and Left agree or explain
+- [ ] 1.4 · #224 #64 #189 · Label carried-over overspending
+- [ ] 1.5 · #65 #216 #250 #221 #139 · Leftover suggestions only when the month is positive
+- [ ] 1.6 · #229 #26 · Blank boxes must not count as 0
+- [ ] 1.7 · #227 · Today's weekly line
+- [ ] 1.8 · #226 · Fund balance vs category left
+- [ ] 1.9 · #178 · Budget Spent mismatch
+- [ ] 1.10 · #19 #58 #69 · Month-end forecast sentence
+- [ ] 1.11 · #59 #241 · Still coming this month
+- [ ] 1.12 · #18 #161 · One plan total
+- [ ] 1.13 · #230 · Debt calculator empty default
+- [ ] 1.14 · #71 · Demo leftovers in real budgets
+- [ ] 2.1 · #228 #48 #55 #98 #127 · Nothing overflows or hides behind the tab bar
+- [ ] 2.2 · #60 · Device banner shows once
+- [ ] 2.3 · #97 · Text-size setting
+- [ ] 2.4 · #99 · Category names wrap; panel is a sheet
+- [ ] 2.5 · #100 #103 #101 · Contrast, tap targets, pressable buttons
+- [ ] 2.6 · #233 · Fine-tune row does not jump
+- [ ] 3.1 · #187 #120 #247 #248 #253 #43 #44 #41 #246 #251 #249 #250 #40 #39 #220 · Shared InfoTip, footnotes, calculator frame
+- [ ] 3.2 · #111 #112 #113 #114 #115 #116 #117 #118 #119 #107 #121 #122 #184 #238 #240 · Wording overrides
+- [ ] 3.3 · #232 #129 · Plan text
+- [ ] 3.4 · #242 #249 #74 #129 · Today, Budget, Transactions, Year, Sorting text
+- [ ] 3.5 · #239 #251 #252 #254 #129 · Money, Settings, Import, Setup, Sign-in text
+- [ ] 4.1 · #150 #162 #17 #35 #36 · Shared my-numbers and household fixture
+- [ ] 4.2 · #20 #132 #133 #232 · Retirement answer in today's dollars
+- [ ] 4.3 · #45 #154 · Readable money chart axes
+- [ ] 4.4 · #31 #46 #86 · Goal month count and fund creation
+- [ ] 4.5 · #32 #135 #89 · One cushion definition
+- [ ] 4.6 · #34 #87 · Fund pace means pace
+- [ ] 4.7 · #37 #149 · Hide what-if rows that change nothing
+- [ ] 4.8 · #130 #131 · Investing readiness order
+- [ ] 4.9 · #137 · Extra payment interest savings
+- [ ] 4.10 · #138 #195 · Savings rate on Today
+- [ ] 4.11 · #140 · Default return 6%
+- [ ] 4.12 · #156 · Label compounding conventions
+- [ ] 4.13 · #203 #236 · Retirement on CalcFrame; inputs only on Plan
+- [ ] 4.14 · #217 · Cash above cushion chip
+- [ ] 4.15 · #30 · Inflation plain sentences
+- [ ] 4.16 · #67 · Fund-linked category is not also a suggestion
+- [ ] 4.17 · #219 · Escape in the amount editor
+- [ ] 4.18 · #234 · Loan years box starts empty
+- [ ] 4.19 · #148 #27 #29 · Named reference tests
+- [ ] 5.1 · #105 · Reset this device in Danger zone
+- [ ] 5.2 · #176 · Confirm account removal; archive; undo
+- [ ] 5.3 · #235 · Settings link works on first click
+- [ ] 5.4 · #237 #106 · Simple is the default
+- [ ] 5.5 · #126 · Motion defaults to Calm
+- [ ] 5.6 · #66 #109 #108 · One roll-over setting in Settings
+- [ ] 5.7 · #181 · Settings in four sections
+- [ ] 5.8 · #125 · Undo after every change
+- [ ] 5.9 · #50 #52 #53 #177 · Calculator URLs and nav highlight
+- [ ] 5.10 · #54 · Week view verify
+- [ ] 5.11 · #62 #63 · Edit amounts in the row
+- [ ] 5.12 · #70 #72 #74 #75 · Import happy path
+- [ ] 5.13 · #73 #202 · Better category guesses
+- [ ] 5.14 · #76 #77 #153 · Add a transaction; no future dates
+- [ ] 5.15 · #78 #166 · Add cash asks for a name
+- [ ] 5.16 · #79 · Dates read Oct 19
+- [ ] 5.17 · #175 · Account column and filter
+- [ ] 5.18 · #165 #81 #82 · Account type groups
+- [ ] 5.19 · #174 · Match transfers between accounts
+- [ ] 5.20 · #88 · Link funds to Goal and Cushion
+- [ ] 5.21 · #96 · Year review uses monthly income
+- [ ] 6.1 · #231 · Welcome route and friendly 404
+- [ ] 6.2 · #243 #265 · Installed app named BudgetFlow
+- [ ] 6.3 · #256 #254 · Privacy pitch and /privacy
+- [ ] 6.4 · #90 · One clear start
+- [ ] 6.5 · #257 #91 #183 #92 #93 #94 #95 #155 · Four-screen setup and file-first path
+- [ ] 6.6 · #182 · Get started checklist
+- [ ] 6.7 · #258 · Demo that sells
+- [ ] 6.8 · #143 · Backup reminder
+- [ ] 6.9 · #144 #252 · Bank file help page
+- [ ] 6.10 · #104 #188 · Friendly empty and error states
+- [ ] 6.11 · #179 · Faster loads
+- [ ] 7.1 · #259 · Share cards without amounts
+- [ ] 7.2 · #262 #50 · Public calculator pages
+- [ ] 7.3 · #264 #145 · Privacy-safe funnel events
+- [ ] 7.4 · #265 · Add to Home Screen prompt
+- [ ] 7.5 · #260 · Send a copy to a partner
+- [ ] 7.6 · #261 · Monthly recap nudge
+- [ ] 8.1 · #261 · Plan: recap emails
+- [ ] 8.2 · #260 · Plan: shared household
+- [ ] 8.3 · #263 · Plan: pricing
+- [ ] 8.4 · #172 #171 #196 #170 · Plan: investments
+- [ ] 8.5 · #144 · Plan: bank sync
+- [ ] 8.6 · #190 · Plan: released money
+- [ ] 8.7 · #264 · Plan: event storage
+- [ ] 8.8 · #265 · Plan: offline and app stores
+- [ ] #13 · Only the low end of the '#13 … #265' range in section 0. No separate task.
+- [ ] #42 · D20 ask Liam first. Not built.
+- [ ] #102 · Later: one screen, one question, one answer. Backlog.
+- [ ] #124 · Later: one green/amber/red rule. Backlog.
+- [ ] #128 · Later: one big number per card. Backlog.
+- [ ] #141 · D19 ask Liam first. Nothing removed.
+- [ ] #142 · D19 ask Liam first. Calculators stay.
+- [ ] #146 · For Liam, not code: test with real people. Backlog.
+- [ ] #147 · Later: automated end-to-end tests. Backlog.
+- [ ] #163 · Verify only: accounts live on Money. Check in 5.9.
+- [ ] #180 · Verify only: old Home layout replaced by Today.
+- [ ] #185 · Later: category change live preview. Backlog.
+- [ ] #186 · Later: waterfall behind Safe to spend. Backlog.
+- [ ] #191 · Later: 90-day cash calendar. Backlog.
+- [ ] #192 · Later: bills and subscriptions page. Backlog.
+- [ ] #193 · Later: merchant explorer. Backlog.
+- [ ] #194 · Later: category analytics. Backlog.
+- [ ] #197 · Later: debt from loan payments. Backlog.
+- [ ] #198 · Later: goal chance of hitting the date. Backlog.
+- [ ] #199 · Later: what-if sandbox. Backlog.
+- [ ] #200 · Later: paycheck planner. Backlog.
+- [ ] #201 · Later: import gap detection. Backlog.
+- [ ] #204 · Later: take-home calculator and year review. Backlog.
+- [ ] #205 · Later: open workbook in LibreOffice. Backlog.
+- [ ] #206 · Later: production preview PGLite file. Backlog.
+- [ ] #208 · Later: end-to-end tests. Backlog.
+- [ ] #209 · Later: keyboard and screen-reader pass. Backlog.
+- [ ] #210 · Later: split oversized files. Backlog.
+- [ ] #211 · Later: shrink DECISIONS.md and update README. Backlog.
+- [ ] #222 · Verify only: Harbor theme label now reads Light.
+- [ ] #255 · Mentioned in the brief outside a task header. See the prompt.
+
+## (c) Questions and contradictions
+
+- AGENTS.md still says Neon, "every push to main goes live", and "never commit straight to main". Rule 13 and task 0.2 override that for this run. AGENTS.md will be corrected in 0.2, and the deploy tag will be written there as "the deploy tag", not the literal bracket text.
+- The Overrides list renames "Put leftovers to work" to "Extra money this month" (#107). A later table row says KEEP "Put leftovers to work". The overrides win.
+- Task 1.10 asks for "Spending on pace for $X" plus a leftover sentence. The Phase 3 table shortens the forecast to a chip. I will keep 1.10's meaning and stay inside two short lines.
+- Task 1.7 says "≈ $X a week until month end". The Phase 3 table says "≈ {weekly} a week". I will use the 1.7 sentence.
+- Task 4.2 sets the retirement headline to "On track in about N of 10 futures". Phase 3 says "In N out of 100 possible futures". Phase 4 is the later math rule, so 4.2 wins, and the share stays the real one.
+- #13 appears only as the low end of the range in section 0. It has its own checklist row and no code task.
+- D11–D20 and Phase 8 are plans only. D1–D10 use the stated defaults.
+- The Vercel ignored-build command was inverted: it skipped a build when the message contained the deploy tag and built every other push. I corrected only that command so a non-main branch still builds, main builds only when the message contains the deploy tag, and every other main push is skipped. No other Vercel setting was changed.
+- `npm test` is expected to fail on the template-script half until 0.4. I will report that and not hide it.
+- Line numbers in the brief are from `a194b57`. I will search for the quoted text when a line has moved.
+
+## Phase 0 plan
+
+Tasks: 0.1 baseline checks, 0.0 this file, 0.2 AGENTS.md, 0.3 eslint warnings, 0.4 npm test skips missing og fixtures.
+Files: `docs/grok-progress.md`, `AGENTS.md`, `package.json`, the files `npm run lint` names, `scripts/**/*.test.mjs`.
+Tests: existing app tests stay green; template tests skip when `.grok/skills/og` is missing.

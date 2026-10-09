@@ -15,8 +15,9 @@ import { useBudgetStore } from "@/store/budget-store";
 import { EmptyArt } from "./visuals/empty-art";
 import { AmountField } from "./amount-field";
 import { FillJar, SpendMeter } from "./money-visual";
-import { openCategoryPanel } from "./category-panel";
-import { SideSwitch, useMoneySide } from "./side-switch";
+import { openCategoryPanel } from "./category-panel-open";
+import { SideSwitch } from "./side-switch";
+import { useMoneySide } from "./use-money-side";
 import { Button } from "./ui/button";
 import { Input } from "./ui/field";
 

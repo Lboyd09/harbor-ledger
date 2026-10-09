@@ -8,20 +8,10 @@ import { FillJar } from "./money-visual";
 import { Button } from "./ui/button";
 import { Input } from "./ui/field";
 
+import { FUND_PREFILL_KEY } from "./fund-wizard-queue";
+
 const NAMES = ["Vacation", "Emergency fund", "Car", "Groceries", "Gifts", "Something else"];
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-
-export const FUND_LINK_KEY = "harbor-fund-link";
-export const FUND_PREFILL_KEY = "harbor-fund-prefill";
-
-export const queueFundWizard = (categoryId?: string) => {
-  sessionStorage.setItem(FUND_LINK_KEY, categoryId ?? "");
-};
-
-export function queueFundFromGoal(prefill: { name: string; target: number; by: string | null; monthly: number }) {
-  sessionStorage.setItem(FUND_PREFILL_KEY, JSON.stringify(prefill));
-  sessionStorage.setItem(FUND_LINK_KEY, "");
-}
 
 function readFundPrefill() {
   try {

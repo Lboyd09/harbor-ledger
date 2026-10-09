@@ -4,7 +4,7 @@ import { fiPath, fiWhatIfs, planFi, readFi, savingFromRate, yearsText } from "@/
 import { Input } from "../ui/field";
 import { ProgressRing } from "../visuals/progress-ring";
 import { CalcFrame, Field, Sensitivity, YearTable } from "./frame";
-import { useGrow } from "./session";
+import { useGrow } from "./grow-context";
 
 const pct = (n: number) => `${Math.round(n * 10000) / 100}%`;
 const asText = (n: number | null | undefined) => (n == null || !Number.isFinite(n) ? "" : String(Math.round(n * 100) / 100));

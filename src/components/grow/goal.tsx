@@ -7,9 +7,10 @@ import { shiftMonth } from "@/lib/budget/parse-date";
 import { FillJar } from "../money-visual";
 import { Button } from "../ui/button";
 import { Input } from "../ui/field";
-import { queueFundFromGoal } from "../fund-wizard";
-import { CalcFrame, Field, Sensitivity, YearTable, tagOf } from "./frame";
-import { useGrow } from "./session";
+import { queueFundFromGoal } from "../fund-wizard-queue";
+import { CalcFrame, Field, Sensitivity, YearTable } from "./frame";
+import { tagOf } from "./source-tag";
+import { useGrow } from "./grow-context";
 
 export function GoalPage() {
   const g = useGrow();

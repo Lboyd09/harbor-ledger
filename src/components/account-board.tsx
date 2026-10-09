@@ -57,7 +57,7 @@ function prettyDate(iso: string) {
 type Sheet = "choose" | "cash" | "investment" | null;
 let listener: ((sheet: Sheet) => void) | null = null;
 
-export function openQuickAdd(sheet: Sheet = "choose") {
+function openQuickAdd(sheet: Sheet = "choose") {
   listener?.(sheet);
 }
 

@@ -386,16 +386,6 @@ function YearNerd({
   );
 }
 
-function Stat({ label, value, hint, warn }: { label: string; value: string; hint: string; warn?: boolean }) {
-  return (
-    <div className="rounded-lg border border-border bg-surface p-4">
-      <div className="text-xs font-medium uppercase tracking-wide text-muted">{label}</div>
-      <div className={cn("mt-1 font-display text-2xl font-semibold tabular", warn && "text-danger")}>{value}</div>
-      <div className="mt-1 text-xs text-muted">{hint}</div>
-    </div>
-  );
-}
-
 function List({ title, hint, children }: { title: string; hint: string; children: ReactNode }) {
   return (
     <section className="overflow-hidden rounded-lg border border-border bg-surface">

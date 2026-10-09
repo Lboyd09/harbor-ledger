@@ -5,7 +5,7 @@ import { RothBars } from "../grow-pictures";
 import { Input } from "../ui/field";
 import { IraEditors, SharedRates } from "./editors";
 import { CalcFrame, Field, Sensitivity, YearTable } from "./frame";
-import { useGrow } from "./session";
+import { useGrow } from "./grow-context";
 
 const ROOM_TEXT = {
   full: "Your income allows the full Roth amount.",

@@ -5,7 +5,7 @@ import { amortizationSchedule } from "@/lib/budget/grow-tables";
 import { formatMoney } from "@/lib/budget/money";
 import { Input } from "../ui/field";
 import { CalcFrame, Field, Sensitivity, YearTable } from "./frame";
-import { useGrow } from "./session";
+import { useGrow } from "./grow-context";
 
 function termLabel(months: number) {
   if (!Number.isFinite(months) || months <= 0) return "—";

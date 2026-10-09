@@ -8,8 +8,9 @@ import { PayoffRace } from "../grow-pictures";
 import { useBudgetStore } from "@/store/budget-store";
 import { Button } from "../ui/button";
 import { Input } from "../ui/field";
-import { CalcFrame, Field, Sensitivity, YearTable, tagOf } from "./frame";
-import { useGrow } from "./session";
+import { CalcFrame, Field, Sensitivity, YearTable } from "./frame";
+import { tagOf } from "./source-tag";
+import { useGrow } from "./grow-context";
 
 export function DebtPage() {
   const g = useGrow();

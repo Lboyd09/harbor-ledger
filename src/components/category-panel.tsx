@@ -12,7 +12,7 @@ import { categoryCarries } from "@/lib/budget/style";
 import { monthSeries } from "@/lib/budget/visual-data";
 import type { Category, Transaction } from "@/lib/budget/types";
 import { useBudgetStore } from "@/store/budget-store";
-import { queueFundWizard } from "./fund-wizard";
+import { queueFundWizard } from "./fund-wizard-queue";
 import { AmountField } from "./amount-field";
 import { FillJar, SpendMeter } from "./money-visual";
 import { CategoryChange, RowTools } from "./month-parts";
@@ -20,21 +20,11 @@ import { MiniBars } from "./visuals/mini-bars";
 import { Button } from "./ui/button";
 import { Input, Select } from "./ui/field";
 
-type OpenRequest = { categoryId: string; ym?: string } | null;
-let listener: ((request: OpenRequest) => void) | null = null;
-
-export function openCategoryPanel(categoryId: string, ym?: string) {
-  listener?.({ categoryId, ym });
-}
+import { takeCategoryPanelListener, type OpenRequest } from "./category-panel-open";
 
 export function CategoryPanelHost() {
   const [request, setRequest] = useState<OpenRequest>(null);
-  useEffect(() => {
-    listener = setRequest;
-    return () => {
-      listener = null;
-    };
-  }, []);
+  useEffect(() => takeCategoryPanelListener(setRequest), []);
   if (!request) return null;
   return <CategoryPanel categoryId={request.categoryId} initialYm={request.ym} onClose={() => setRequest(null)} />;
 }

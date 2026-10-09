@@ -2,12 +2,6 @@ import type { ReactNode } from "react";
 import { tipsFor, type TipFacts } from "@/lib/budget/tips";
 import { assumptionLines } from "@/lib/budget/reference";
 
-export function tagOf(source: string) {
-  if (source.includes("account")) return "from your accounts";
-  if (source.includes("spending") || source.includes("income")) return source.includes("income") ? "from your income" : "from your spending";
-  return "typed";
-}
-
 export function CalcFrame({
   question,
   numbers,

@@ -3,7 +3,7 @@ import { formatMoney } from "@/lib/budget/money";
 import { FillJar } from "../money-visual";
 import { ProgressRing } from "../visuals/progress-ring";
 import { CalcFrame, Sensitivity, YearTable } from "./frame";
-import { useGrow } from "./session";
+import { useGrow } from "./grow-context";
 
 export function CushionPage() {
   const g = useGrow();

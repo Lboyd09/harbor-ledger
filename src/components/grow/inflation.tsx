@@ -3,8 +3,9 @@ import { needsPrompt, readNumber } from "@/lib/budget/calc-input";
 import { inflated } from "@/lib/budget/grow-math";
 import { formatMoney } from "@/lib/budget/money";
 import { Input } from "../ui/field";
-import { CalcFrame, Field, Sensitivity, YearTable, tagOf } from "./frame";
-import { useGrow } from "./session";
+import { CalcFrame, Field, Sensitivity, YearTable } from "./frame";
+import { tagOf } from "./source-tag";
+import { useGrow } from "./grow-context";
 
 export function InflationPage() {
   const g = useGrow();
