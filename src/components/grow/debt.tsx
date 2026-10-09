@@ -1,11 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { debtTimeline } from "@/lib/budget/grow-tables";
 import { firstMissing, readNumber } from "@/lib/budget/calc-input";
 import { debtWhatIfs, extraNeeded, paymentBelowInterest, simulatePayoff } from "@/lib/budget/grow-math";
 import { formatMoney } from "@/lib/budget/money";
 import { currentMonthKey, monthShort, shiftMonth } from "@/lib/budget/parse-date";
+import { calculatorDebts } from "@/lib/budget/real-debts";
+import type { DebtItem } from "@/lib/budget/types";
 import { PayoffRace } from "../grow-pictures";
-import { useBudgetStore } from "@/store/budget-store";
 import { Button } from "../ui/button";
 import { Input } from "../ui/field";
 import { CalcFrame, Field, Sensitivity, YearTable } from "./frame";
@@ -14,20 +15,17 @@ import { useGrow } from "./grow-context";
 
 export function DebtPage() {
   const g = useGrow();
-  const addDebt = useBudgetStore((s) => s.addDebt);
-  const removeDebt = useBudgetStore((s) => s.removeDebt);
+  const fromAccounts = useMemo(
+    () => calculatorDebts(g.accounts, g.balances, g.debts),
+    [g.accounts, g.balances, g.debts],
+  );
+  const [rows, setRows] = useState<DebtItem[] | null>(null);
+  const working = rows ?? fromAccounts;
   const [name, setName] = useState("");
   const [balance, setBalance] = useState("");
   const [apr, setApr] = useState("");
   const [minimum, setMinimum] = useState("");
   const [extra, setExtra] = useState("50");
-  const started = useRef(false);
-  useEffect(() => {
-    if (started.current || g.debts.length) return;
-    if (g.facts.creditOwed.value == null) return;
-    started.current = true;
-    setBalance(String(Math.round(g.facts.creditOwed.value)));
-  }, [g.debts.length, g.facts]);
   const extraN = Math.max(0, Number(extra) || 0);
   // A blank rate or minimum is not 0. Typing 0 on purpose is fine.
   const balanceIn = readNumber(balance);
@@ -39,30 +37,28 @@ export function DebtPage() {
     { label: "the minimum payment (0 is fine)", value: minimumIn, min: 0 },
   ]);
   const typing = Boolean(name.trim() || balance.trim() || apr.trim() || minimum.trim());
-  const snow = simulatePayoff(g.debts, extraN, "snowball");
-  const ava = simulatePayoff(g.debts, extraN, "avalanche");
-  const line = g.debts.length ? debtTimeline(g.debts, extraN) : null;
-  const single = g.debts.length === 1;
+  const snow = simulatePayoff(working, extraN, "snowball");
+  const ava = simulatePayoff(working, extraN, "avalanche");
+  const line = working.length ? debtTimeline(working, extraN) : null;
+  const single = working.length === 1;
   const now = currentMonthKey();
   const when = (months: number) => {
     const ym = shiftMonth(now, months);
     return `${months} month${months === 1 ? "" : "s"} (${monthShort(ym)} ${ym.slice(0, 4)})`;
   };
-  const monthlyTotal = g.debts.reduce((sum, debt) => sum + Math.max(0, debt.minimum), 0) + extraN;
-  const add = ava.unfinished ? extraNeeded(g.debts, extraN) : 0;
+  const monthlyTotal = working.reduce((sum, debt) => sum + Math.max(0, debt.minimum), 0) + extraN;
+  const add = ava.unfinished ? extraNeeded(working, extraN) : 0;
   const neverText = ava.unfinished
-    ? paymentBelowInterest(g.debts, extraN)
+    ? paymentBelowInterest(working, extraN)
       ? `This payment never pays it off, because it doesn't cover the interest. Add at least ${formatMoney(add)} a month.`
       : `At this payment it takes more than 50 years. Add at least ${formatMoney(add)} a month to finish within 50 years.`
     : null;
-  const result = !g.debts.length
-    ? g.facts.creditOwed.value != null
-      ? `Cards total ${formatMoney(g.facts.creditOwed.value)}. Type the rate and the minimum, then add the debt.`
-      : "Type each card or loan. The payoff shows once a debt is added."
+  const result = !working.length
+    ? "Add a card or loan."
     : neverText
       ? neverText
       : single
-        ? `Paying ${formatMoney(monthlyTotal)} a month, ${g.debts[0].name} is paid off in ${when(ava.months)} with ${formatMoney(ava.interest)} in interest.`
+        ? `Paying ${formatMoney(monthlyTotal)} a month, ${working[0].name} is paid off in ${when(ava.months)} with ${formatMoney(ava.interest)} in interest.`
         : `Paying highest interest first, you're debt-free in ${when(ava.months)} and pay ${formatMoney(ava.interest)} in interest.`;
   return (
     <CalcFrame
@@ -81,13 +77,21 @@ export function DebtPage() {
             <Input className="mt-1 max-w-xs" inputMode="decimal" aria-label="Extra payment" value={extra} onChange={(e) => setExtra(e.target.value)} />
           </Field>
           <ul className="space-y-1 text-sm">
-            {g.debts.map((debt) => (
+            {working.map((debt) => (
               <li key={debt.id} className="flex items-center justify-between gap-2">
-                <span>{debt.name} · {formatMoney(debt.balance)} · {debt.apr}%</span>
-                <button type="button" className="min-h-11 text-xs text-muted" onClick={() => removeDebt(debt.id)}>Remove</button>
+                <span>
+                  {debt.name} · {formatMoney(debt.balance)} · {debt.apr}%
+                  {debt.origin === "plan" || debt.origin === "money" ? " · from your accounts" : ""}
+                </span>
+                <button type="button" className="min-h-11 text-xs text-muted" onClick={() => setRows(working.filter((row) => row.id !== debt.id))}>
+                  Remove
+                </button>
               </li>
             ))}
           </ul>
+          <Button size="sm" variant="outline" onClick={() => setRows(fromAccounts)}>
+            Reset to my accounts
+          </Button>
           <div className="grid gap-2 sm:grid-cols-4">
             <Input aria-label="Debt name" placeholder="Card or loan" value={name} onChange={(e) => setName(e.target.value)} />
             <Input aria-label="Balance" inputMode="decimal" placeholder="Balance" value={balance} onChange={(e) => setBalance(e.target.value)} />
@@ -105,7 +109,10 @@ export function DebtPage() {
             disabled={!name.trim() || debtNeeds != null}
             onClick={() => {
               if (balanceIn == null || aprIn == null || minimumIn == null) return;
-              addDebt({ name, balance: balanceIn, apr: aprIn, minimum: minimumIn });
+              setRows([
+                ...working,
+                { id: `plan_${Date.now()}`, name, balance: balanceIn, apr: aprIn, minimum: minimumIn, origin: "plan" },
+              ]);
               setName("");
               setBalance("");
               setApr("");
@@ -117,7 +124,7 @@ export function DebtPage() {
         </div>
       }
       picture={
-        g.debts.length ? (
+        working.length ? (
           <div className="space-y-3">
             {!single ? (
               <ul className="space-y-1 text-sm" aria-label="When each debt is paid off">
@@ -150,7 +157,7 @@ export function DebtPage() {
               { label: "Smallest balance first", value: snow.unfinished ? "—" : `${snow.months} months` },
               { label: "Interest, smallest balance first", value: snow.unfinished ? "—" : formatMoney(snow.interest) },
               { label: "Paying each month", value: formatMoney(monthlyTotal) },
-              { label: "Debts", value: String(g.debts.length) },
+              { label: "Debts", value: String(working.length) },
             ]
       }
       years={
@@ -165,9 +172,9 @@ export function DebtPage() {
         ) : null
       }
       advanced={
-        g.nerd && g.debts.length ? (
+        g.nerd && working.length ? (
           <Sensitivity
-            rows={debtWhatIfs(g.debts, extraN).map((row) => ({
+            rows={debtWhatIfs(working, extraN).map((row) => ({
               label: row.label,
               value: row.unfinished ? "Not within 50 years" : `${row.months} months, ${formatMoney(row.interest)} interest`,
             }))}

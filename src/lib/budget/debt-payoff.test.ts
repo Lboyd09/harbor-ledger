@@ -151,6 +151,13 @@ test("a payment that never covers the interest is caught, with the amount to add
   assert.equal(paymentBelowInterest(scenarioB, 150), false);
 });
 
+test("a zero minimum asks for at least the first month of interest, rounded up", () => {
+  const card: DebtItem[] = [{ id: "c", name: "Card", balance: 5000, apr: 24, minimum: 0 }];
+  const add = extraNeeded(card, 0);
+  assert.ok(add >= 100.01);
+  assert.equal(add, 101);
+});
+
 test("at 0% interest the months are the balance over the payment", () => {
   const debts: DebtItem[] = [{ id: "z", name: "Zero", balance: 1000, apr: 0, minimum: 100 }];
   const sim = simulatePayoff(debts, 0, "avalanche");

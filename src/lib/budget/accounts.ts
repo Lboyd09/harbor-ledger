@@ -3,7 +3,25 @@ import { PLANNING_MARKET } from "./reference.ts";
 import { roundMoney } from "./money.ts";
 import type { Account, AccountGrowth, AccountKind, BalancePoint, GrowthBand, ImportBatch, Transaction } from "./types.ts";
 
-const KINDS: AccountKind[] = ["checking", "savings", "credit", "cash", "investment", "retirement", "other"];
+const KINDS: AccountKind[] = [
+  "checking",
+  "savings",
+  "credit",
+  "cash",
+  "investment",
+  "retirement",
+  "other",
+  "car_loan",
+  "student_loan",
+  "mortgage",
+  "personal_loan",
+];
+
+export const LOAN_KINDS: readonly AccountKind[] = ["car_loan", "student_loan", "mortgage", "personal_loan"];
+
+export function isLoanKind(kind: AccountKind): boolean {
+  return LOAN_KINDS.includes(kind);
+}
 
 export const ACCOUNT_KIND_OPTIONS: { id: AccountKind; label: string }[] = [
   { id: "checking", label: "Checking" },
@@ -13,6 +31,10 @@ export const ACCOUNT_KIND_OPTIONS: { id: AccountKind; label: string }[] = [
   { id: "retirement", label: "Retirement" },
   { id: "investment", label: "Brokerage" },
   { id: "other", label: "Other" },
+  { id: "car_loan", label: "Car loan" },
+  { id: "student_loan", label: "Student loan" },
+  { id: "mortgage", label: "Mortgage" },
+  { id: "personal_loan", label: "Personal loan" },
 ];
 
 export function isAccountKind(value: string): value is AccountKind {
@@ -134,7 +156,7 @@ const ACCOUNT_GROUP_LABEL: Record<AccountGroupId, string> = {
 function accountGroup(kind: AccountKind): AccountGroupId {
   if (kind === "savings") return "savings";
   if (kind === "investment" || kind === "retirement") return "investing";
-  if (kind === "credit") return "owed";
+  if (kind === "credit" || isLoanKind(kind)) return "owed";
   return "bank";
 }
 

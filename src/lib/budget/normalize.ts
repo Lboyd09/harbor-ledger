@@ -527,6 +527,7 @@ function normalizeDebts(raw: unknown): DebtItem[] {
         balance: Math.max(0, balance),
         apr: Math.max(0, asNumber(d.apr, 0)),
         minimum: Math.max(0, asNumber(d.minimum, 0)),
+        ...(d.origin === "money" || d.origin === "plan" ? { origin: d.origin } : {}),
       },
     ];
   });

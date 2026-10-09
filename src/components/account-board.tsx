@@ -28,6 +28,10 @@ const ICONS: Record<AccountKind, typeof Landmark> = {
   investment: LineChart,
   retirement: Landmark,
   other: Wallet,
+  car_loan: Landmark,
+  student_loan: Landmark,
+  mortgage: Landmark,
+  personal_loan: Wallet,
 };
 
 const PICKS: { id: InvestmentPick; label: string }[] = [
@@ -170,7 +174,7 @@ export function AccountBoard() {
           const apr = readNumber(loanApr);
           const minimum = loanMin.trim() ? readNumber(loanMin) : 0;
           if (!loanName.trim() || balance == null || balance <= 0 || apr == null || apr < 0 || minimum == null || minimum < 0) return;
-          addDebt({ name: loanName.trim(), balance, apr, minimum });
+          addDebt({ name: loanName.trim(), balance, apr, minimum, origin: "money" });
           setLoanName("");
           setLoanBalance("");
           setLoanApr("");

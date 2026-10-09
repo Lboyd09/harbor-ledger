@@ -1,0 +1,47 @@
+import { isLoanKind, latestBalance } from "./accounts.ts";
+import type { Account, BalancePoint, DebtItem } from "./types.ts";
+
+function owed(account: Account, balances: BalancePoint[]): number {
+  const amount = latestBalance(account.id, balances)?.amount ?? 0;
+  if (account.kind === "credit") return Math.max(0, -amount);
+  if (isLoanKind(account.kind) || (account.kind === "other" && amount < 0)) return Math.abs(amount);
+  return 0;
+}
+
+function matchesCard(debt: DebtItem, accounts: Account[], balances: BalancePoint[]): boolean {
+  const name = debt.name.trim().toLowerCase();
+  return accounts.some((account) => {
+    if (account.kind !== "credit") return false;
+    const cardOwed = owed(account, balances);
+    if (cardOwed <= 0) return false;
+    if (account.name.trim().toLowerCase() === name) return true;
+    return Math.abs(debt.balance - cardOwed) <= 1;
+  });
+}
+
+/** Money loans and loan accounts. Calculator copies and card duplicates stay out. */
+export function debtsInNetWorth(debts: DebtItem[], accounts: Account[], balances: BalancePoint[]): DebtItem[] {
+  return debts.filter((debt) => {
+    if (debt.origin === "plan") return false;
+    if (matchesCard(debt, accounts, balances)) return false;
+    return true;
+  });
+}
+
+/** Rows the debt calculator starts from. Edits stay on the copy. */
+export function calculatorDebts(accounts: Account[], balances: BalancePoint[], debts: DebtItem[]): DebtItem[] {
+  const rows: DebtItem[] = [];
+  for (const account of accounts) {
+    const balance = owed(account, balances);
+    if (account.kind === "credit" && balance > 0) {
+      rows.push({ id: `plan_${account.id}`, name: account.name, balance, apr: 0, minimum: 0, origin: "plan" });
+    }
+    if (isLoanKind(account.kind) && balance > 0) {
+      rows.push({ id: `plan_${account.id}`, name: account.name, balance, apr: 0, minimum: 0, origin: "plan" });
+    }
+  }
+  for (const debt of debtsInNetWorth(debts, accounts, balances)) {
+    rows.push({ ...debt, origin: "money" });
+  }
+  return rows;
+}

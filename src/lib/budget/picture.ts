@@ -1,6 +1,7 @@
-import { latestBalance } from "./accounts.ts";
+import { isLoanKind, latestBalance } from "./accounts.ts";
 import { bucketBalance } from "./buckets.ts";
 import { roundMoney } from "./money.ts";
+import { debtsInNetWorth } from "./real-debts.ts";
 import type { Account, BalancePoint, BucketMove, Category, DebtItem, MoneyBucket, Transaction } from "./types.ts";
 
 /** A cushion of three to six months of bills is the usual range. */
@@ -48,16 +49,20 @@ export function moneyPicture(input: {
   let brokerage = 0;
   let retirement = 0;
   let cards = 0;
-  let accountsNet = 0;
+  let loanAccounts = 0;
   for (const account of input.accounts) {
     const amount = latestBalance(account.id, input.balances)?.amount ?? 0;
-    accountsNet += amount;
     if (account.kind === "checking" || account.kind === "savings" || account.kind === "cash") cash += Math.max(0, amount);
     if (account.kind === "investment") brokerage += Math.max(0, amount);
     if (account.kind === "retirement") retirement += Math.max(0, amount);
-    if (account.kind === "credit") cards += Math.abs(amount);
+    if (account.kind === "credit") cards += Math.max(0, -amount);
+    if (isLoanKind(account.kind) || (account.kind === "other" && amount < 0)) loanAccounts += Math.abs(amount);
   }
-  const loans = (input.debts ?? []).reduce((sum, debt) => sum + Math.max(0, debt.balance), 0);
+  const moneyLoans = debtsInNetWorth(input.debts ?? [], input.accounts, input.balances).reduce(
+    (sum, debt) => sum + Math.max(0, debt.balance),
+    0,
+  );
+  const loans = loanAccounts + moneyLoans;
   let cushionCash = 0;
   for (const account of input.accounts) {
     if (account.kind !== "savings" && account.kind !== "cash") continue;
@@ -79,7 +84,7 @@ export function moneyPicture(input: {
     cards: roundMoney(cards),
     loans: roundMoney(loans),
     debts: roundMoney(cards + loans),
-    net: roundMoney(accountsNet - loans),
+    net: roundMoney(cash + brokerage + retirement - (cards + loans)),
     cushionCash: roundMoney(cushionCash),
     bills: bills == null ? null : roundMoney(bills),
     cushionMonths,

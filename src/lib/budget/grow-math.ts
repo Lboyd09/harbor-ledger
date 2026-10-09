@@ -227,7 +227,11 @@ export function payoffPlan(debts: DebtItem[], extra: number, method: DebtMethod)
  * 0 when the current payment already does it.
  */
 export function extraNeeded(debts: DebtItem[], extra: number, method: DebtMethod = "avalanche"): number {
-  if (!simulatePayoff(debts, extra, method).unfinished) return 0;
+  const interestFloor = debts
+    .filter((debt) => debt.balance > 0 && debt.minimum <= 0)
+    .reduce((sum, debt) => sum + cents((debt.balance * Math.max(0, debt.apr)) / 100 / 12), 0);
+  const floor = interestFloor > 0 ? Math.ceil(interestFloor + 0.01) : 0;
+  if (!simulatePayoff(debts, extra, method).unfinished) return floor > extra ? floor : 0;
   let low = 0;
   let high = Math.max(1, Math.ceil(debts.reduce((sum, d) => sum + Math.max(0, d.balance), 0)) + 1);
   while (simulatePayoff(debts, extra + high, method).unfinished) high *= 2;
@@ -236,7 +240,7 @@ export function extraNeeded(debts: DebtItem[], extra: number, method: DebtMethod
     if (simulatePayoff(debts, extra + mid, method).unfinished) low = mid;
     else high = mid;
   }
-  return high;
+  return Math.max(high, floor);
 }
 
 /** True when the monthly budget doesn't even cover the first month's interest. */

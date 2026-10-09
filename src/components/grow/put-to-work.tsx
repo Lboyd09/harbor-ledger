@@ -1,5 +1,6 @@
 import { yearRows } from "@/lib/budget/grow-tables";
 import { debtFirstNote, growLump, lumpPath, lumpWhatIfs, readLump } from "@/lib/budget/lump";
+import { debtsInNetWorth } from "@/lib/budget/real-debts";
 import { formatMoney } from "@/lib/budget/money";
 import { GrowthArea, PlaceMap } from "../grow-pictures";
 import { Input } from "../ui/field";
@@ -38,7 +39,7 @@ export function PutToWork() {
       }
     }
   }
-  const debtNote = input ? debtFirstNote(g.debts, input.rate) : null;
+  const debtNote = input ? debtFirstNote(debtsInNetWorth(g.debts, g.accounts, g.balances), input.rate) : null;
   const rows = input ? yearRows({ principal: input.amount, monthly: 0, years: input.years, rate: input.rate, inflation: input.inflation, today: input.today }) : [];
   return (
     <CalcFrame
