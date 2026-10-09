@@ -1,5 +1,7 @@
 # BudgetFlow
 
+Current work order: docs/BudgetFlow_Grok_Prompt.md — read it fully before starting.
+
 Personal budgeting app with four areas: Today, Budget, Money, and Plan. Settings is a gear, not a fifth tab. Deployed on Vercel. Every push to `main` goes live in production.
 
 Nothing connects to a bank. Import a CSV, sort the charges, and keep the ledger on this device until sign-in. A signed-in ledger is one JSON payload per user in Postgres.
