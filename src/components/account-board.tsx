@@ -88,11 +88,12 @@ export function AccountBoard() {
   const retireAge = useBudgetStore((s) => s.profile.retireAge);
   const birthYear = useBudgetStore((s) => s.profile.birthYear);
   const today = todayIso();
-  const rows = useMemo(() => accountRows(accounts, balances, today).rows, [accounts, balances, today]);
+  const liveAccounts = accounts.filter((account) => !account.archived);
+  const rows = useMemo(() => accountRows(liveAccounts, balances, today).rows, [liveAccounts, balances, today]);
   const groups = useMemo(() => groupAccounts(rows), [rows]);
   const picture = useMemo(
-    () => moneyPicture({ accounts, balances, debts }),
-    [accounts, balances, debts],
+    () => moneyPicture({ accounts: liveAccounts, balances, debts }),
+    [liveAccounts, balances, debts],
   );
   const net = picture.net;
   const [balanceId, setBalanceId] = useState<string | null>(null);
@@ -209,14 +210,14 @@ export function AccountBoard() {
         groups.map((group) => (
           <div key={group.id} className="mt-4">
             <h3 className="text-sm font-medium">{group.label}</h3>
-            <ul className={`mt-2 space-y-3 ${group.id === "bank" ? "" : ""}`}>
+            <ul className="mt-2 space-y-3">
               {group.rows.map((row) => {
                 const account = accounts.find((item) => item.id === row.id);
                 if (!account) return null;
                 const Icon = ICONS[row.kind];
                 const grown = account.kind === "investment" || account.kind === "retirement" ? accountGrowth(account, balances, today, { yearsToRetire }) : null;
                 const show = shownBalance(account, balances, today);
-                const large = group.id === "bank";
+                const large = group.id === "cash";
                 return (
                   <li key={row.id} className={`rounded-md border border-border px-3 py-3 ${large ? "md:p-4" : ""}`}>
                     <div className="flex items-start gap-3">
@@ -430,7 +431,7 @@ function QuickAdd({ sheet, onClose }: { sheet: Exclude<Sheet, null>; onClose: ()
   function saveCash() {
     const next = Number(amount);
     if (!Number.isFinite(next)) return;
-    addCash(next, todayIso());
+    addCash(next, todayIso(), name.trim() || "Cash in wallet");
     onClose();
   }
 
@@ -465,6 +466,9 @@ function QuickAdd({ sheet, onClose }: { sheet: Exclude<Sheet, null>; onClose: ()
             }}
           >
             <h2 className="font-display text-xl font-semibold">Add cash</h2>
+            <Field label="Name">
+              <Input aria-label="Cash account name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Cash in wallet" />
+            </Field>
             <Field label="Amount">
               <Input autoFocus inputMode="decimal" aria-label="Cash amount" value={amount} onChange={(e) => setAmount(e.target.value)} />
             </Field>

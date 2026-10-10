@@ -13,6 +13,9 @@ import { plannerFacts } from "@/lib/budget/planner";
 import { isDemoLedger } from "@/lib/budget/onboarding-plan";
 import { coverSentence, queueStats, reviewQueue } from "@/lib/budget/review-queue";
 import { comingUp } from "@/lib/budget/screen-plan";
+import { checklistOpen, startedChecklist } from "@/lib/budget/checklist";
+import { shouldRemindBackup } from "@/lib/budget/backup-reminder";
+import { importIsStale, importStreak, monthRecap } from "@/lib/budget/recap";
 import { useBudgetStore } from "@/store/budget-store";
 import { CategorizeCoach } from "./categorize-coach";
 import { Button } from "./ui/button";
@@ -184,6 +187,50 @@ export function HomeDashboard() {
         </Link>
       </section>
       {ready.step === "ready" ? null : <p className="text-sm">{ready.sentence}</p>}
+      {(() => {
+        const items = startedChecklist({
+          hasImport: (imports ?? []).length > 0,
+          unsorted: stats.charges,
+          hasPlan: categories.some((category) => category.kind === "expense" && category.plannedMonthly > 0),
+          hasBalance: (balances ?? []).length > 0,
+          hasGoal: (buckets ?? []).some((fund) => Boolean(fund.target)),
+        });
+        if (!checklistOpen(items, false)) return null;
+        return (
+          <section className="rounded-lg border border-border bg-surface p-4">
+            <h2 className="font-display text-lg font-semibold">Get started</h2>
+            <ul className="mt-2 space-y-1 text-sm">
+              {items.map((item) => (
+                <li key={item.id}>{item.done ? "✓" : "○"} {item.label}</li>
+              ))}
+            </ul>
+          </section>
+        );
+      })()}
+      {shouldRemindBackup({
+        signedIn: false,
+        hasImport: (imports ?? []).length > 0,
+        lastDismiss: typeof localStorage === "undefined" ? null : localStorage.getItem("harbor-backup-remind"),
+        today,
+      }) ? (
+        <section className="rounded-lg border border-border bg-surface p-4">
+          <p className="text-sm">Your budget lives only in this browser.</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <Link to="/settings"><Button size="sm">Download backup</Button></Link>
+            <Link to="/login"><Button size="sm" variant="outline">Create free account</Button></Link>
+            <Button size="sm" variant="ghost" onClick={() => localStorage.setItem("harbor-backup-remind", today)}>
+              Not now
+            </Button>
+          </div>
+        </section>
+      ) : null}
+      {importIsStale(imports?.[0]?.importedAt ?? null, today) ? (
+        <p className="text-sm">Time to add this month's bank file.</p>
+      ) : null}
+      {importStreak((imports ?? []).map((row) => row.importedAt), ym) > 1 ? (
+        <p className="text-sm">{importStreak((imports ?? []).map((row) => row.importedAt), ym)} months in a row</p>
+      ) : null}
+      <p className="sr-only">{monthRecap({ onPlan: ledger.spending.filter((line) => line.left >= -0.5).length, categories: ledger.spending.length, savingsRate: facts.savingsRate, biggest: null })}</p>
       {sample ? (
         <section className="rounded-lg border border-border bg-surface p-4">
           <p className="text-sm">Sample budget. Start yours anytime.</p>

@@ -51,6 +51,7 @@ export const SPEND_BUCKETS: SpendBucket[] = [
   { slug: "debt", label: "Debt payments", hint: "Loans, cards, buy-now-pay-later", kind: "expense", rate: 0.12, floor: 150 },
   { slug: "savings", label: "Savings transfers", hint: "What you move aside on purpose", kind: "expense", rate: 0.12, floor: 100 },
   { slug: "transfers-out", label: "Transfers out", hint: "Venmo, Zelle, cash to other people", kind: "expense", rate: 0.04, floor: 40 },
+  { slug: "cash", label: "Cash", hint: "ATM withdrawals", kind: "expense", rate: 0.02, floor: 20 },
 ];
 
 export function defaultBuckets(profile: Pick<Profile, "housing" | "hasVehicle" | "usesTransit" | "hasPets" | "lifeStage" | "dependents" | "goals">): string[] {

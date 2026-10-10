@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { guessAccountKind, inferIncomeStreams, monthEndBalances } from "./file-inference.ts";
+import { fileCounts, guessAccountKind, inferIncomeStreams, monthEndBalances } from "./file-inference.ts";
 import type { ParsePreviewRow, Profile } from "./types.ts";
 
 const profile: Pick<Profile, "incomeStreams"> = { incomeStreams: [] };
@@ -124,4 +124,16 @@ test("month-end balances are the same newest-first and oldest-first", () => {
   );
   assert.equal(a[0].amount, 95);
   assert.equal(a[1].amount, 115);
+});
+
+test("deposit and payment counts add up to the total", () => {
+  const counts = fileCounts([
+    { amount: 100 },
+    { amount: -20 },
+    { amount: -5 },
+    { amount: 0 },
+  ]);
+  assert.equal(counts.total, 3);
+  assert.equal(counts.deposits, 1);
+  assert.equal(counts.payments, 2);
 });

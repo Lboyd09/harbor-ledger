@@ -326,6 +326,11 @@ export const KEYWORD_RULES: KeywordRule[] = [
 
   { pattern: "NAVIENT", slug: "debt" },
   { pattern: "MOHELA", slug: "debt" },
+  { pattern: "AIDVANTAGE", slug: "debt" },
+  { pattern: "GREAT LAKES", slug: "debt" },
+  { pattern: "CARD PAYMENT", slug: "debt" },
+  { pattern: "PAYMENT THANK YOU", slug: "debt" },
+  { pattern: "AUTOPAY", slug: "debt" },
   { pattern: "STUDENT LOAN", slug: "debt" },
   { pattern: "LOAN PAYMENT", slug: "debt" },
   { pattern: "CREDIT CARD PAYMENT", slug: "debt" },

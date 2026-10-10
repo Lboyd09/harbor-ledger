@@ -2,6 +2,13 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { matchKeywordSlug } from "./keywords.ts";
 
+test("loan servicers, card payments, and ATM cash", () => {
+  assert.equal(matchKeywordSlug("NELNET LOAN"), "debt");
+  assert.equal(matchKeywordSlug("AIDVANTAGE"), "debt");
+  assert.equal(matchKeywordSlug("VISA CARD PAYMENT"), "debt");
+  assert.equal(matchKeywordSlug("PAYMENT THANK YOU"), "debt");
+});
+
 test("specific merchants beat shorter words", () => {
   assert.equal(matchKeywordSlug("Zelle payment to LAKESIDE PROPERTY MGMT"), "housing");
   assert.equal(matchKeywordSlug("VALLEY METRO LIGHT RAIL"), "transport");

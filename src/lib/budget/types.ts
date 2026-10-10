@@ -322,6 +322,7 @@ export type Account = {
   institution?: string | null;
   createdAt: string;
   growth?: AccountGrowth | null;
+  archived?: boolean;
 };
 
 /** A balance for one account. Investment and retirement accounts can live on these alone. */

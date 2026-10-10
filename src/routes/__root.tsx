@@ -22,6 +22,11 @@ export const Route = createRootRoute({
       { title: APP_NAME },
       { name: "description", content: "A private budget from your bank's download. No bank login." },
       { name: "theme-color", content: "#1f4d38" },
+      { name: "apple-mobile-web-app-title", content: "BudgetFlow" },
+      { property: "og:title", content: "BudgetFlow" },
+      { property: "og:description", content: "A private budget from your bank's download. No bank login." },
+      { property: "og:image", content: "/og.png" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
     links: [
       { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },

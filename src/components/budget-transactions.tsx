@@ -6,7 +6,7 @@ import { formatMoney } from "@/lib/budget/money";
 import { monthLedger } from "@/lib/budget/ledger-month";
 import { stillComingThisMonth, yearlyComingLine } from "@/lib/budget/screen-plan";
 import { groupMonth } from "@/lib/budget/month-view";
-import { monthKeyFromDate, monthLabel } from "@/lib/budget/parse-date";
+import { formatDay, monthKeyFromDate, monthLabel } from "@/lib/budget/parse-date";
 import type { CategoryUndo } from "@/lib/budget/sorting";
 import { useBudgetStore } from "@/store/budget-store";
 import { CategorizeCoach } from "./categorize-coach";
@@ -23,8 +23,7 @@ function todayIso() {
 }
 
 function dayLabel(iso: string) {
-  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  return `${months[Number(iso.slice(5, 7)) - 1] ?? ""} ${Number(iso.slice(8, 10))}`;
+  return formatDay(iso);
 }
 
 export function TransactionsPage() {
@@ -75,7 +74,9 @@ export function TransactionsPage() {
     () => monthLedger({ transactions, categories, budgets, buckets: buckets ?? [], moves: moves ?? [], setAsides: setAsides ?? [], style, carryStartMonth: carryStart }, ym),
     [transactions, categories, budgets, buckets, moves, setAsides, style, carryStart, ym],
   );
-  const inMonth = transactions.filter((t) => monthKeyFromDate(t.date) === ym);
+  const accounts = useBudgetStore((s) => s.accounts ?? []);
+  const [accountFilter, setAccountFilter] = useState("all");
+  const inMonth = transactions.filter((t) => monthKeyFromDate(t.date) === ym && (accountFilter === "all" || t.accountId === accountFilter));
   const hiddenDeposits = layout.aside.filter((t) => t.amount > 0);
   const hiddenOut = layout.aside.filter((t) => t.amount <= 0);
 
@@ -105,6 +106,19 @@ export function TransactionsPage() {
       <p className="text-sm text-muted">
         {formatMoney(ledger.totals.received)} received · {formatMoney(ledger.totals.spent)} spent · {formatMoney(ledger.totals.savedToFunds)} saved to funds · {formatMoney(ledger.totals.leftOver, { signed: true })} left
       </p>
+      {accounts.length > 1 ? (
+        <label className="block text-sm text-muted">
+          Account
+          <select className="ml-2 min-h-11 rounded-md border border-border bg-surface px-2" value={accountFilter} onChange={(e) => setAccountFilter(e.target.value)} aria-label="Account filter">
+            <option value="all">All</option>
+            {accounts.filter((account) => !account.archived).map((account) => (
+              <option key={account.id} value={account.id}>
+                {account.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
       {stillComing && stillComing.length ? (
         <section className="rounded-lg border border-border bg-surface p-4">
           <h2 className="font-display text-lg font-semibold">Still coming this month</h2>

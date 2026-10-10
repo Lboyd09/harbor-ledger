@@ -12,16 +12,22 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as BudgetRouteImport } from './routes/budget'
 import { Route as ConfirmRouteImport } from './routes/confirm'
+import { Route as DemoRouteImport } from './routes/demo'
 import { Route as FundsRouteImport } from './routes/funds'
 import { Route as GrowRouteImport } from './routes/grow'
 import { Route as HelpRouteImport } from './routes/help'
 import { Route as ImportRouteImport } from './routes/import'
 import { Route as ImportsRouteImport } from './routes/imports'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as ResetRouteImport } from './routes/reset'
 import { Route as RulesRouteImport } from './routes/rules'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as WelcomeRouteImport } from './routes/welcome'
 import { Route as YearRouteImport } from './routes/year'
+import { Route as CalculatorsIndexRouteImport } from './routes/calculators.index'
+import { Route as CalculatorsNameRouteImport } from './routes/calculators.$name'
+import { Route as GrowQuestionRouteImport } from './routes/grow.$question'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 
 const IndexRoute = IndexRouteImport.update({
@@ -37,6 +43,11 @@ const BudgetRoute = BudgetRouteImport.update({
 const ConfirmRoute = ConfirmRouteImport.update({
   id: '/confirm',
   path: '/confirm',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DemoRoute = DemoRouteImport.update({
+  id: '/demo',
+  path: '/demo',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FundsRoute = FundsRouteImport.update({
@@ -69,6 +80,11 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ResetRoute = ResetRouteImport.update({
   id: '/reset',
   path: '/reset',
@@ -84,10 +100,30 @@ const SettingsRoute = SettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
+const WelcomeRoute = WelcomeRouteImport.update({
+  id: '/welcome',
+  path: '/welcome',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const YearRoute = YearRouteImport.update({
   id: '/year',
   path: '/year',
   getParentRoute: () => rootRouteImport,
+} as any)
+const CalculatorsIndexRoute = CalculatorsIndexRouteImport.update({
+  id: '/calculators/',
+  path: '/calculators/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CalculatorsNameRoute = CalculatorsNameRouteImport.update({
+  id: '/calculators/$name',
+  path: '/calculators/$name',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GrowQuestionRoute = GrowQuestionRouteImport.update({
+  id: '/$question',
+  path: '/$question',
+  getParentRoute: () => GrowRoute,
 } as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
@@ -99,32 +135,44 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/budget': typeof BudgetRoute
   '/confirm': typeof ConfirmRoute
+  '/demo': typeof DemoRoute
   '/funds': typeof FundsRoute
-  '/grow': typeof GrowRoute
+  '/grow': typeof GrowRouteWithChildren
   '/help': typeof HelpRoute
   '/import': typeof ImportRoute
   '/imports': typeof ImportsRoute
   '/login': typeof LoginRoute
+  '/privacy': typeof PrivacyRoute
   '/reset': typeof ResetRoute
   '/rules': typeof RulesRoute
   '/settings': typeof SettingsRoute
+  '/welcome': typeof WelcomeRoute
   '/year': typeof YearRoute
+  '/calculators/$name': typeof CalculatorsNameRoute
+  '/grow/$question': typeof GrowQuestionRoute
+  '/calculators/': typeof CalculatorsIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/budget': typeof BudgetRoute
   '/confirm': typeof ConfirmRoute
+  '/demo': typeof DemoRoute
   '/funds': typeof FundsRoute
-  '/grow': typeof GrowRoute
+  '/grow': typeof GrowRouteWithChildren
   '/help': typeof HelpRoute
   '/import': typeof ImportRoute
   '/imports': typeof ImportsRoute
   '/login': typeof LoginRoute
+  '/privacy': typeof PrivacyRoute
   '/reset': typeof ResetRoute
   '/rules': typeof RulesRoute
   '/settings': typeof SettingsRoute
+  '/welcome': typeof WelcomeRoute
   '/year': typeof YearRoute
+  '/calculators/$name': typeof CalculatorsNameRoute
+  '/grow/$question': typeof GrowQuestionRoute
+  '/calculators': typeof CalculatorsIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesById {
@@ -132,16 +180,22 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/budget': typeof BudgetRoute
   '/confirm': typeof ConfirmRoute
+  '/demo': typeof DemoRoute
   '/funds': typeof FundsRoute
-  '/grow': typeof GrowRoute
+  '/grow': typeof GrowRouteWithChildren
   '/help': typeof HelpRoute
   '/import': typeof ImportRoute
   '/imports': typeof ImportsRoute
   '/login': typeof LoginRoute
+  '/privacy': typeof PrivacyRoute
   '/reset': typeof ResetRoute
   '/rules': typeof RulesRoute
   '/settings': typeof SettingsRoute
+  '/welcome': typeof WelcomeRoute
   '/year': typeof YearRoute
+  '/calculators/$name': typeof CalculatorsNameRoute
+  '/grow/$question': typeof GrowQuestionRoute
+  '/calculators/': typeof CalculatorsIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRouteTypes {
@@ -150,48 +204,66 @@ export interface FileRouteTypes {
     | '/'
     | '/budget'
     | '/confirm'
+    | '/demo'
     | '/funds'
     | '/grow'
     | '/help'
     | '/import'
     | '/imports'
     | '/login'
+    | '/privacy'
     | '/reset'
     | '/rules'
     | '/settings'
+    | '/welcome'
     | '/year'
+    | '/calculators/$name'
+    | '/grow/$question'
+    | '/calculators/'
     | '/api/auth/$'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/budget'
     | '/confirm'
+    | '/demo'
     | '/funds'
     | '/grow'
     | '/help'
     | '/import'
     | '/imports'
     | '/login'
+    | '/privacy'
     | '/reset'
     | '/rules'
     | '/settings'
+    | '/welcome'
     | '/year'
+    | '/calculators/$name'
+    | '/grow/$question'
+    | '/calculators'
     | '/api/auth/$'
   id:
     | '__root__'
     | '/'
     | '/budget'
     | '/confirm'
+    | '/demo'
     | '/funds'
     | '/grow'
     | '/help'
     | '/import'
     | '/imports'
     | '/login'
+    | '/privacy'
     | '/reset'
     | '/rules'
     | '/settings'
+    | '/welcome'
     | '/year'
+    | '/calculators/$name'
+    | '/grow/$question'
+    | '/calculators/'
     | '/api/auth/$'
   fileRoutesById: FileRoutesById
 }
@@ -199,16 +271,21 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   BudgetRoute: typeof BudgetRoute
   ConfirmRoute: typeof ConfirmRoute
+  DemoRoute: typeof DemoRoute
   FundsRoute: typeof FundsRoute
-  GrowRoute: typeof GrowRoute
+  GrowRoute: typeof GrowRouteWithChildren
   HelpRoute: typeof HelpRoute
   ImportRoute: typeof ImportRoute
   ImportsRoute: typeof ImportsRoute
   LoginRoute: typeof LoginRoute
+  PrivacyRoute: typeof PrivacyRoute
   ResetRoute: typeof ResetRoute
   RulesRoute: typeof RulesRoute
   SettingsRoute: typeof SettingsRoute
+  WelcomeRoute: typeof WelcomeRoute
   YearRoute: typeof YearRoute
+  CalculatorsNameRoute: typeof CalculatorsNameRoute
+  CalculatorsIndexRoute: typeof CalculatorsIndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
 
@@ -233,6 +310,13 @@ declare module '@tanstack/react-router' {
       path: '/confirm'
       fullPath: '/confirm'
       preLoaderRoute: typeof ConfirmRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/demo': {
+      id: '/demo'
+      path: '/demo'
+      fullPath: '/demo'
+      preLoaderRoute: typeof DemoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/funds': {
@@ -277,6 +361,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/reset': {
       id: '/reset'
       path: '/reset'
@@ -298,12 +389,40 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/welcome': {
+      id: '/welcome'
+      path: '/welcome'
+      fullPath: '/welcome'
+      preLoaderRoute: typeof WelcomeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/year': {
       id: '/year'
       path: '/year'
       fullPath: '/year'
       preLoaderRoute: typeof YearRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/calculators/': {
+      id: '/calculators/'
+      path: '/calculators'
+      fullPath: '/calculators/'
+      preLoaderRoute: typeof CalculatorsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/calculators/$name': {
+      id: '/calculators/$name'
+      path: '/calculators/$name'
+      fullPath: '/calculators/$name'
+      preLoaderRoute: typeof CalculatorsNameRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/grow/$question': {
+      id: '/grow/$question'
+      path: '/$question'
+      fullPath: '/grow/$question'
+      preLoaderRoute: typeof GrowQuestionRouteImport
+      parentRoute: typeof GrowRoute
     }
     '/api/auth/$': {
       id: '/api/auth/$'
@@ -315,20 +434,35 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface GrowRouteChildren {
+  GrowQuestionRoute: typeof GrowQuestionRoute
+}
+
+const GrowRouteChildren: GrowRouteChildren = {
+  GrowQuestionRoute: GrowQuestionRoute,
+}
+
+const GrowRouteWithChildren = GrowRoute._addFileChildren(GrowRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   BudgetRoute: BudgetRoute,
   ConfirmRoute: ConfirmRoute,
+  DemoRoute: DemoRoute,
   FundsRoute: FundsRoute,
-  GrowRoute: GrowRoute,
+  GrowRoute: GrowRouteWithChildren,
   HelpRoute: HelpRoute,
   ImportRoute: ImportRoute,
   ImportsRoute: ImportsRoute,
   LoginRoute: LoginRoute,
+  PrivacyRoute: PrivacyRoute,
   ResetRoute: ResetRoute,
   RulesRoute: RulesRoute,
   SettingsRoute: SettingsRoute,
+  WelcomeRoute: WelcomeRoute,
   YearRoute: YearRoute,
+  CalculatorsNameRoute: CalculatorsNameRoute,
+  CalculatorsIndexRoute: CalculatorsIndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
 }
 export const routeTree = rootRouteImport

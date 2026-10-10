@@ -251,6 +251,16 @@ function FundCard({ fund }: { fund: MoneyBucket }) {
             }
           />
           {gap ? <p className="mt-2 text-sm">{gap.sentence}</p> : null}
+          <p className="mt-2 flex flex-wrap gap-3 text-sm">
+            <a className="font-medium text-primary" href={`/grow/goal?target=${fund.target ?? ""}&have=${Math.round(balance)}&by=${fund.by ?? ""}`}>
+              Plan it
+            </a>
+            {fund.isCushion ? (
+              <a className="font-medium text-primary" href="/grow/cushion">
+                Check cushion
+              </a>
+            ) : null}
+          </p>
         </div>
       ) : null}
       {showNudge ? (

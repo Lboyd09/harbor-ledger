@@ -215,7 +215,7 @@ function decide(
   }
 
   const hit = matchKeyword(text);
-  if (hit && !hit.weak) {
+  if (hit && !hit.weak && !(hit.slug === "food" && amount <= -1000) && !(hit.slug === "food" && CARD_PAY.test(text))) {
     const cat = resolveSlug(hit.slug, categories);
     if (!cat) {
       const other = categories.find((c) => c.slug === "other");
@@ -310,7 +310,7 @@ function decide(
   }
 
   if (CASH_OUT.test(text)) {
-    const cat = resolveSlug("other", categories) ?? resolveSlug("personal", categories);
+    const cat = resolveSlug("cash", categories) ?? resolveSlug("other", categories) ?? resolveSlug("personal", categories);
     if (cat) return { source: "cash", confidence: "sure", suggestedCategoryId: cat.id, reason: "This looks like cash taken out." };
   }
 

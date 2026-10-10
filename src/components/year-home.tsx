@@ -218,7 +218,7 @@ export function YearHome() {
       <div className="grid gap-6 lg:grid-cols-2">
         <List title="Income" hint="">
           {income.map((r) => (
-            <Row key={r.id} name={r.name} amount={formatMoney(r.yearTotal)} note={`${formatMoney(r.typical)} typical / mo`} onClick={() => setPicked(r.id)} />
+            <Row key={r.id} name={r.name} amount={formatMoney(r.yearTotal)} note={`${formatMoney(r.typical)} a month`} onClick={() => setPicked(r.id)} />
           ))}
           <Row name="Total income" amount={formatMoney(book.income)} strong />
           {income.length === 0 ? <p className="px-4 py-4 text-sm text-muted">No income categorized yet.</p> : null}

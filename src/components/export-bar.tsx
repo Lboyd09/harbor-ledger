@@ -168,6 +168,44 @@ export function ExportBar() {
           >
             Download backup
           </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              downloadText(
+                "budgetflow-backup.json",
+                JSON.stringify(
+                  ledgerBackup({
+                    profile,
+                    categories,
+                    transactions,
+                    merchantRules,
+                    monthBudgets,
+                    savingsGoals,
+                    moneyBuckets,
+                    bucketMoves,
+                    netWorth,
+                    debts,
+                    ira,
+                    accounts,
+                    balances,
+                    setAsides,
+                    imports: [],
+                    activeMonth: "",
+                    activeWeek: "",
+                  }),
+                  null,
+                  2,
+                ),
+                "application/json",
+              );
+              const text = "A copy of my BudgetFlow backup. It is a copy, not a shared budget. https://harbor-ledger-nine.vercel.app";
+              if (navigator.share) void navigator.share({ title: "BudgetFlow copy", text });
+              else window.location.href = `mailto:?subject=BudgetFlow%20copy&body=${encodeURIComponent(text)}`;
+            }}
+          >
+            Send a copy
+          </Button>
           <label className="inline-flex min-h-9 cursor-pointer items-center rounded-md border border-border bg-surface px-3 text-sm font-medium hover:bg-chip">
             Restore backup
             <input

@@ -7,23 +7,10 @@ import { Button } from "./ui/button";
 
 export function WelcomeGate() {
   const loadSample = useBudgetStore((s) => s.loadSample);
-  const restoreBackup = useBudgetStore((s) => s.restoreBackup);
   const navigate = useNavigate();
   const [started, setStarted] = useState(false);
-  const [restoreError, setRestoreError] = useState<string | null>(null);
 
   if (started) return <Onboarding onExit={() => setStarted(false)} />;
-
-  async function onRestore(file: File) {
-    setRestoreError(null);
-    try {
-      const raw = JSON.parse(await file.text()) as unknown;
-      const result = restoreBackup(raw);
-      if (!result.ok) setRestoreError(result.error);
-    } catch {
-      setRestoreError("That file is not valid JSON.");
-    }
-  }
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-xl flex-col px-5 py-8 md:py-12">
@@ -31,36 +18,29 @@ export function WelcomeGate() {
         <HarborMark className="size-5 text-primary" />
         <p className="text-sm font-medium uppercase tracking-widest text-muted">BudgetFlow</p>
       </div>
-      <h1 className="mt-4 font-display text-3xl font-semibold md:text-4xl">Let's set up your budget</h1>
-      <p className="mt-3 text-muted">
-        5 minutes. No bank login.
+      <div className="ml-auto">
+        <button type="button" className="min-h-11 text-sm text-muted" onClick={() => void navigate({ to: "/login" })}>
+          Sign in
+        </button>
+      </div>
+      <h1 className="mt-4 font-display text-3xl font-semibold md:text-4xl">Know what's safe to spend. No bank login.</h1>
+      <p className="mt-3 flex flex-wrap gap-2 text-sm">
+        <span className="rounded-full border border-border px-3 py-1">No bank login</span>
+        <span className="rounded-full border border-border px-3 py-1">Works with any bank's file</span>
+        <span className="rounded-full border border-border px-3 py-1">Delete anytime</span>
       </p>
       <div className="mt-8">
         <Button className="w-full" onClick={() => setStarted(true)}>
-          Get started
+          Start my budget
         </Button>
       </div>
       <div className="mt-6 flex flex-col items-start gap-2 text-sm">
         <button type="button" className="min-h-11 text-muted underline-offset-2 hover:underline" onClick={() => loadSample()}>
-          Try the demo
+          Just look around with sample data
         </button>
-        <button type="button" className="min-h-11 text-muted underline-offset-2 hover:underline" onClick={() => void navigate({ to: "/login" })}>
-          Sign in
-        </button>
-        <label className="flex min-h-11 cursor-pointer items-center text-muted underline-offset-2 hover:underline">
-          Restore a backup
-          <input
-            type="file"
-            accept="application/json,.json"
-            className="sr-only"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) void onRestore(f);
-              e.target.value = "";
-            }}
-          />
-        </label>
-        {restoreError ? <p className="text-sm text-danger">{restoreError}</p> : null}
+        <a href="/privacy" className="min-h-11 text-muted underline-offset-2 hover:underline">
+          Privacy
+        </a>
       </div>
     </div>
   );

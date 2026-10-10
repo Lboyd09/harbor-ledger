@@ -142,22 +142,20 @@ export function totalBalance(accounts: Account[], balances: BalancePoint[], kind
   return Math.round(sum * 100) / 100;
 }
 
-export type AccountGroupId = "bank" | "savings" | "investing" | "owed";
+export type AccountGroupId = "cash" | "investing" | "owed";
 
-const ACCOUNT_GROUP_ORDER: AccountGroupId[] = ["bank", "savings", "investing", "owed"];
+const ACCOUNT_GROUP_ORDER: AccountGroupId[] = ["cash", "investing", "owed"];
 
 const ACCOUNT_GROUP_LABEL: Record<AccountGroupId, string> = {
-  bank: "Bank and cash",
-  savings: "Savings",
+  cash: "Cash",
   investing: "Investments",
-  owed: "Cards and loans",
+  owed: "Debts",
 };
 
-function accountGroup(kind: AccountKind): AccountGroupId {
-  if (kind === "savings") return "savings";
+export function accountGroup(kind: AccountKind): AccountGroupId {
   if (kind === "investment" || kind === "retirement") return "investing";
   if (kind === "credit" || isLoanKind(kind)) return "owed";
-  return "bank";
+  return "cash";
 }
 
 /** Home order: bank and cash, savings, investments, then what is owed. Empty groups are left out. */
@@ -210,10 +208,11 @@ export function quickCash(
   balances: BalancePoint[],
   amount: number,
   today: string,
+  name = "Cash in wallet",
 ): { accounts: Account[]; balances: BalancePoint[] } | null {
   if (!Number.isFinite(amount) || !/^\d{4}-\d{2}-\d{2}$/.test(today)) return null;
   const existing = accounts.find((account) => account.kind === "cash");
-  const account = existing ?? createAccount(accounts, { name: "Cash", kind: "cash" }, `${today}T00:00:00.000Z`);
+  const account = existing ?? createAccount(accounts, { name: name.trim() || "Cash in wallet", kind: "cash" }, `${today}T00:00:00.000Z`);
   if (!account) return null;
   const nextAccounts = existing ? accounts : [...accounts, account];
   const point: BalancePoint = {
