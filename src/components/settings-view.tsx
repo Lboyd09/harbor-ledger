@@ -5,9 +5,7 @@ import { useCurrentUser } from "@/lib/auth/use-current-user";
 import { emailStatus, sendConfirmationEmail, sendOwnResetLink } from "@/lib/budget/email-links";
 import { deleteAccount, issueRecoveryCode } from "@/lib/budget/persist";
 import { HOUSEHOLD_LABELS, HOUSING_LABELS, STAGE_LABELS } from "@/lib/budget/presets";
-import { readNumber } from "@/lib/budget/calc-input";
 import { formatMoney } from "@/lib/budget/money";
-import { DEFAULT_INFLATION, DEFAULT_RETIRE_AGE, DEFAULT_WITHDRAWAL, PLANNING_MARKET } from "@/lib/budget/reference";
 import { TERMS } from "@/lib/copy/terms";
 import { CarryStartControl } from "./carry-start";
 import type { DetailMode, HarborLook, HarborMotion, TextSize } from "@/lib/budget/types";
@@ -33,11 +31,9 @@ export function SettingsView() {
     <div className="mx-auto max-w-2xl space-y-8">
       <div>
         <h1 className="font-display text-3xl font-semibold">Settings</h1>
-        <p className="mt-2 text-sm text-muted">Look, household, and the file. Accounts live on Money.</p>
         <p className="mt-3 text-sm">
           <Link to="/funds" className="font-medium text-primary">Open accounts on Money</Link>
         </p>
-        <YourNumbers />
         <LeftoverStyle />
         <section className="mt-4 space-y-2 rounded-lg border border-border bg-surface p-4">
           <h2 className="font-display text-lg font-semibold">Go to</h2>
@@ -79,7 +75,7 @@ export function SettingsView() {
 
       <section id="look" className="space-y-3 rounded-lg border border-border bg-surface p-4">
         <h2 className="font-display text-xl font-semibold">Look</h2>
-        <p className="text-sm text-muted">The numbers stay the same. This only changes the paper.</p>
+
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {LOOKS.map((look) => {
             const on = (profile.accent ?? "harbor") === look.id;
@@ -111,8 +107,8 @@ export function SettingsView() {
             value={profile.motion ?? "lively"}
             onChange={(e) => patchProfile({ motion: e.target.value as HarborMotion })}
           >
-            <option value="lively">Lively — pages settle in</option>
-            <option value="calm">Calm — almost still</option>
+            <option value="lively">Lively</option>
+            <option value="calm">Calm</option>
           </Select>
         </Field>
       </section>
@@ -120,7 +116,7 @@ export function SettingsView() {
       <section id="mode" className="space-y-3 rounded-lg border border-border bg-surface p-4">
         <h2 className="font-display text-xl font-semibold">Show advanced tools</h2>
         <p className="text-sm text-muted">
-          Simple keeps the short notes. Advanced adds the workings. Payback, splits, merchants, and the year page stay available either way.
+          Advanced shows the math.
         </p>
         <Field label="Advanced tools">
           <Select
@@ -149,7 +145,7 @@ export function SettingsView() {
         <Field label="Name">
           <Input value={profile.ledgerName} onChange={(e) => patchProfile({ ledgerName: e.target.value })} />
         </Field>
-        <p className="text-xs text-muted">The name saves as you type.</p>
+
         <Field label="Review period">
           <Select value={profile.budgetPeriod} onChange={(e) => setBudgetPeriod(e.target.value as "month" | "week")}>
             <option value="month">Month to month</option>
@@ -168,106 +164,11 @@ export function SettingsView() {
         <Button variant="outline" onClick={() => reopenSetup()}>
           Edit household answers
         </Button>
-        <p className="text-xs text-muted">Opens the setup questions. Your transactions stay.</p>
+        <p className="text-xs text-muted">Your transactions stay.</p>
         <Link to="/budget" className="inline-flex text-sm font-medium text-primary">
           Edit the monthly budget
         </Link>
       </section>
-    </div>
-  );
-}
-
-function YourNumbers() {
-  const profile = useBudgetStore((s) => s.profile);
-  const patchProfile = useBudgetStore((s) => s.patchProfile);
-  const year = new Date().getFullYear();
-  const age = profile.birthYear != null ? year - profile.birthYear : null;
-  const [ageText, setAgeText] = useState(age == null ? "" : String(age));
-  useEffect(() => {
-    setAgeText(age == null ? "" : String(age));
-  }, [age]);
-  const retire = profile.retireAge ?? DEFAULT_RETIRE_AGE;
-  const inflation = Math.round((profile.plannerInflation ?? DEFAULT_INFLATION) * 1000) / 10;
-  const withdrawal = Math.round((profile.withdrawalRate ?? DEFAULT_WITHDRAWAL) * 1000) / 10;
-  const band = profile.returnBand ?? PLANNING_MARKET;
-  return (
-    <section className="mt-4 space-y-3 rounded-lg border border-border bg-surface p-4">
-      <h2 className="font-display text-xl font-semibold">Your numbers</h2>
-      <p className="text-sm text-muted">Retirement starts from these. Reset puts a number back to its default. A blank age is left unset.</p>
-      <Field label={`Age (default: not set). Birth year ${profile.birthYear ?? "not saved"}.`}>
-        <Input
-          inputMode="numeric"
-          aria-label="Age"
-          value={ageText}
-          onChange={(e) => {
-            setAgeText(e.target.value);
-            const raw = e.target.value.trim();
-            if (raw === "") {
-              patchProfile({ birthYear: undefined });
-              return;
-            }
-            const nextAge = Math.round(Number(raw));
-            if (Number.isFinite(nextAge) && nextAge >= 0 && nextAge <= 120) patchProfile({ birthYear: year - nextAge });
-          }}
-        />
-      </Field>
-      <NumberRow
-        label="Retire-at age"
-        fallback={DEFAULT_RETIRE_AGE}
-        value={retire}
-        onChange={(value) => patchProfile({ retireAge: value })}
-        onReset={() => patchProfile({ retireAge: DEFAULT_RETIRE_AGE })}
-      />
-      <NumberRow
-        label="Inflation %"
-        fallback={DEFAULT_INFLATION * 100}
-        value={inflation}
-        onChange={(value) => patchProfile({ plannerInflation: value / 100 })}
-        onReset={() => patchProfile({ plannerInflation: DEFAULT_INFLATION })}
-      />
-      <NumberRow
-        label="Withdrawal %"
-        fallback={DEFAULT_WITHDRAWAL * 100}
-        value={withdrawal}
-        onChange={(value) => patchProfile({ withdrawalRate: value / 100 })}
-        onReset={() => patchProfile({ withdrawalRate: DEFAULT_WITHDRAWAL })}
-      />
-      <p className="text-sm">Return range {Math.round(band.conservative * 1000) / 10}% to {Math.round(band.optimistic * 1000) / 10}%, middle {Math.round(band.expected * 1000) / 10}%. The planning range needs checking.</p>
-      <Button variant="outline" onClick={() => patchProfile({ returnBand: { ...PLANNING_MARKET } })}>
-        Reset return range
-      </Button>
-    </section>
-  );
-}
-
-function NumberRow({
-  label,
-  value,
-  fallback,
-  onChange,
-  onReset,
-}: {
-  label: string;
-  value: number;
-  fallback: number;
-  onChange: (value: number) => void;
-  onReset: () => void;
-}) {
-  return (
-    <div className="flex flex-wrap items-end gap-2">
-      <Field label={`${label} (default ${fallback})`}>
-        <Input
-          inputMode="decimal"
-          aria-label={label}
-          value={String(value)}
-          onChange={(e) => {
-            const next = readNumber(e.target.value);
-            if (next == null) return;
-            onChange(next);
-          }}
-        />
-      </Field>
-      <Button variant="outline" onClick={onReset}>Reset</Button>
     </div>
   );
 }
@@ -297,13 +198,7 @@ function LeftoverStyle() {
           {TERMS.carryOver}
         </button>
       </div>
-      <p className="text-sm text-muted">This choice is for spending categories only.</p>
-      <details className="text-sm text-muted">
-        <summary className="min-h-11 cursor-pointer">What this does not change</summary>
-        <p className="mt-1">Income is compared with what usually comes in. It is not carried.</p>
-        <p className="mt-1">A fund is extra savings, not this choice. One category can do the opposite on Budget.</p>
-        <p className="mt-1">Switching never deletes the amount, a one-month amount, or a charge.</p>
-      </details>
+      <p className="text-sm text-muted">Switching never deletes anything.</p>
       <CarryStartControl />
     </section>
   );
@@ -395,7 +290,7 @@ function AccountPanel({ signedIn, email }: { signedIn: boolean; email: string })
       const result = await sendConfirmationEmail();
       if (result.previewLink) {
         setPreviewLink(result.previewLink);
-        setNote("Mail is not connected yet, so the confirmation link is here. Open it on this device. After you add Resend, this button emails it instead.");
+        setNote("Your link:");
         return;
       }
       if (!result.configured) {
@@ -423,7 +318,7 @@ function AccountPanel({ signedIn, email }: { signedIn: boolean; email: string })
       const result = await sendOwnResetLink();
       if (result.previewLink) {
         setPreviewLink(result.previewLink);
-        setNote("Mail is not connected yet, so the reset link is here. It only works for this account. After you add Resend, this button emails it instead.");
+        setNote("Your link:");
         return;
       }
       if (!result.ok || !result.configured) {
@@ -461,7 +356,7 @@ function AccountPanel({ signedIn, email }: { signedIn: boolean; email: string })
     return (
       <section id="account" className="space-y-3 rounded-lg border border-border bg-surface p-4">
         <h2 className="font-display text-xl font-semibold">Account</h2>
-        <p className="text-sm text-muted">This ledger stays on this device until you sign in. Then it follows the account.</p>
+        <p className="text-sm text-muted">Saved on this device. Sign in to sync.</p>
         <Link to="/login">
           <Button>Sign in or create an account</Button>
         </Link>
@@ -478,7 +373,7 @@ function AccountPanel({ signedIn, email }: { signedIn: boolean; email: string })
           Email {mail?.verified ? "confirmed." : "not confirmed yet."}{" "}
           {mail?.configured
             ? "Mail is connected."
-            : "Mail is not connected yet. Ask for a confirmation or reset link and it will show on this page until you add RESEND_API_KEY and HARBOR_FROM_EMAIL (Resend)."}
+            : "Email isn't available yet. The link shows on this page."}
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
           <Button variant="outline" size="sm" disabled={busy} onClick={() => void onConfirm()}>
@@ -502,7 +397,7 @@ function AccountPanel({ signedIn, email }: { signedIn: boolean; email: string })
       <details className="rounded-lg border border-border bg-surface p-4">
         <summary className="cursor-pointer font-display text-xl font-semibold">Change password</summary>
         <form className="mt-3 space-y-3" onSubmit={onChangePassword}>
-          <p className="text-sm text-muted">For email accounts. Google and X do not have a password here.</p>
+          <p className="text-sm text-muted">Email sign-in only.</p>
           <Field label="Current password">
             <Input type="password" value={current} onChange={(e) => setCurrent(e.target.value)} required />
           </Field>
@@ -517,10 +412,7 @@ function AccountPanel({ signedIn, email }: { signedIn: boolean; email: string })
 
       <details className="rounded-lg border border-border bg-surface p-4">
         <summary className="cursor-pointer font-display text-xl font-semibold">Optional backup code</summary>
-        <p className="mt-3 text-sm text-muted">
-          You do not need this. Email confirmation and the reset link are the way back in. A backup code is only if mail
-          stays disconnected. It is shown once. A new code retires the old one.
-        </p>
+        <p className="mt-3 text-sm text-muted">Optional. Shown once.</p>
         {recovery ? (
           <p className="mt-4 rounded-md border border-border bg-chip px-4 py-3 text-center font-display text-lg tracking-wide">
             {recovery}
@@ -533,7 +425,7 @@ function AccountPanel({ signedIn, email }: { signedIn: boolean; email: string })
 
       <form className="space-y-3 rounded-lg border border-danger/30 bg-surface p-4" onSubmit={onDelete}>
         <h2 className="font-display text-xl font-semibold text-danger">Delete account</h2>
-        <p className="text-sm text-muted">Removes this sign-in and the ledger saved to it. Download a file first if you might want it.</p>
+        <p className="text-sm text-muted">Deletes your account and budget. Download first.</p>
         <Field label="Type DELETE to confirm">
           <Input value={confirm} onChange={(e) => setConfirm(e.target.value)} />
         </Field>

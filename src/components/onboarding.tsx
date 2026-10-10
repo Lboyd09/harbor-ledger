@@ -547,7 +547,7 @@ function IncomeStep({ answers, total, onChange }: { answers: SetupAnswers; total
   return (
     <div className="mt-6 space-y-4">
       {answers.incomeUnknown ? (
-        <p className="text-sm">No income yet. You can add it later, inside the app.</p>
+        <p className="text-sm">Add income later anytime.</p>
       ) : (
         answers.income.map((row, index) => (
         <div key={row.id} className="space-y-2 rounded-lg border border-border bg-surface p-3">
@@ -578,7 +578,7 @@ function IncomeStep({ answers, total, onChange }: { answers: SetupAnswers; total
           <Field label="Words on the deposit">
             <Input value={row.depositWords} onChange={(event) => edit(index, { depositWords: event.target.value })} />
           </Field>
-          <p className="text-xs text-muted">The name your bank shows, like your employer. It helps us recognize this income later.</p>
+
           {answers.income.length > 1 ? (
             <Button
               type="button"
@@ -635,11 +635,12 @@ function StyleStep({
           <div className="flex items-start justify-between gap-3">
             <div>
               <div className="text-base font-medium">{TERMS.monthlyReset}</div>
-              <p className="mt-1 text-sm text-muted">Each spending category, like rent or groceries, starts over. Income is compared with what usually comes in. It is not carried over.</p>
+              <p className="mt-1 text-sm text-muted">Each category resets monthly.</p>
+              <p className="mt-1 text-xs text-muted">Income never carries.</p>
             </div>
             <Jar mode="refill" lively={lively} />
           </div>
-          <p className="sr-only">A jar empties, then fills again on the first of the month.</p>
+          <p className="sr-only">Resets on the 1st</p>
         </button>
         <button type="button" className={`${choiceClass(answers.budgetStyle === "buckets")} p-4`} onClick={() => onPick("buckets")} aria-pressed={answers.budgetStyle === "buckets"}>
           <div className="flex items-start justify-between gap-3">
@@ -648,17 +649,17 @@ function StyleStep({
               <p className="mt-1 text-sm text-muted">Leftover in a category stays for next month.</p>
               <details className="mt-1 text-sm text-muted">
                 <summary className="cursor-pointer">How leftovers start</summary>
-                <p className="mt-1">Going over means next month has less. Income is not carried, because pay changes.</p>
+                <p className="mt-1">Going over means next month has less.</p>
                 <p className="mt-1">Leftovers start at the first month of your file. You can start from this month instead.</p>
                 <p className="mt-1">Past months show what you would have carried. Changing it does not delete anything.</p>
               </details>
             </div>
             <Jar mode="carry" lively={lively} />
           </div>
-          <p className="sr-only">The level left in the jar stays there for the next month.</p>
+          <p className="sr-only">Leftovers roll over</p>
         </button>
       </div>
-      <p className="text-sm text-muted">Not sure? Either can be changed any time in Account. One category can do the other later, and that does not delete anything.</p>
+      <p className="text-sm text-muted">Not sure? Change it later in Settings.</p>
     </div>
   );
 }
@@ -731,7 +732,7 @@ function AmountsStep({
           ) : null}
         </>
       ) : (
-        <p className="text-sm text-muted">No income yet, so these start from a typical floor. You can change them.</p>
+        <p className="text-sm text-muted">Starter amounts. Edit any.</p>
       )}
       <ul className="space-y-3">
         {slugs.map((slug) => {
@@ -805,7 +806,7 @@ function AccountsStep({
     <div className="mt-6 space-y-4">
       <section className="rounded-lg border border-border bg-surface p-3">
         <h2 className="text-base font-medium">{TERMS.account}s</h2>
-        <p className="mt-1 text-sm text-muted">Optional. Add the ones you use, and today's balance if you know it.</p>
+        <p className="mt-1 text-sm text-muted">Optional</p>
         {!showAccounts ? (
           <Button type="button" className="mt-3" variant="outline" onClick={onShowAccounts}>
             Add an account
@@ -875,7 +876,7 @@ function AccountsStep({
       </section>
       <section className="rounded-lg border border-border bg-surface p-3">
         <h2 className="text-base font-medium">{TERMS.savingsPlan}</h2>
-        <p className="mt-1 text-sm text-muted">Optional. One thing you are saving for.</p>
+        <p className="mt-1 text-sm text-muted">Optional</p>
         {!showSavings ? (
           <Button type="button" className="mt-3" variant="outline" onClick={onShowSavings}>
             Add a {TERMS.savingsPlan.toLowerCase()}

@@ -36,7 +36,7 @@ export function YourMoney({
   return (
     <section className="rounded-lg border border-border bg-surface p-4">
       <h2 className="font-display text-xl font-semibold">Your money today</h2>
-      <p className="mt-1 text-sm text-muted">Each slice is a kind of account. Cards you owe are in the net total, not drawn as money you have.</p>
+      <p className="mt-1 text-sm text-muted">Debts are in the net, not drawn.</p>
       <div className="mt-3">
         <Donut parts={parts} centerLabel={formatMoney(view.net, { signed: true })} />
       </div>
@@ -141,7 +141,7 @@ export function PlaceMap() {
   return (
     <section className="rounded-lg border border-border bg-surface p-4">
       <h2 className="font-display text-xl font-semibold">Pick a place</h2>
-      <p className="mt-1 text-sm">One picture of where money can go. Tap a dot. These are not promised returns.</p>
+      <p className="mt-1 text-sm">Tap a dot to compare.</p>
       <div className="relative mt-3 h-72 overflow-hidden rounded-md border border-border bg-chip">
         <span className="absolute left-2 top-2 text-xs text-muted">Can swing</span>
         <span className="absolute bottom-2 left-2 text-xs text-muted">Steady</span>
@@ -160,7 +160,7 @@ export function PlaceMap() {
           </button>
         ))}
       </div>
-      <p className="mt-2 text-xs text-muted">Positions are rough. Real products vary.</p>
+
       {place ? (
         <div className="mt-3 rounded-md border border-border p-3 text-sm">
           <p className="font-medium">{place.name}</p>

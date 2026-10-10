@@ -105,7 +105,7 @@ function Reset() {
         <div className="mt-6 space-y-8">
           <form className="space-y-3" onSubmit={onEmail}>
             <p className="text-sm text-muted">
-              Email yourself a link. It works for one hour. Google and X sign-in do not use a password.
+              We'll email a link (1 hour).
             </p>
             {sent ? <p className="text-sm text-good">If that email uses a BudgetFlow password, the link is on its way.</p> : null}
             <Field label="Email">
@@ -116,12 +116,9 @@ function Reset() {
             </Button>
           </form>
           <details className="border-t border-border pt-6">
-            <summary className="cursor-pointer text-sm text-muted">Email is not set up on this host</summary>
+            <summary className="cursor-pointer text-sm text-muted">Email reset isn't available yet.</summary>
             <form className="mt-4 space-y-3" onSubmit={onCode}>
-              <p className="text-sm text-muted">
-                If you once saved an optional backup code from Account, you can use it here. New accounts do not get one
-                at signup.
-              </p>
+              <p className="text-sm text-muted">Have a backup code?</p>
               <Field label="Email">
                 <Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
               </Field>

@@ -113,7 +113,7 @@ export function AccountBoard() {
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
           <h2 className="font-display text-xl font-semibold">Your accounts</h2>
-          <p className="text-sm text-muted">Net {formatMoney(net, { signed: true })}. Debts of {formatMoney(picture.debts)} are subtracted. That is cards, loan accounts, and loans added on Money.</p>
+          <p className="text-sm text-muted" title="Debts are subtracted. That is cards, loan accounts, and loans added on Money.">Net {formatMoney(net, { signed: true })}</p>
         </div>
         <div className="flex gap-2">
           <Button size="sm" variant="outline" onClick={() => openQuickAdd("cash")}>
@@ -202,7 +202,7 @@ export function AccountBoard() {
       {groups.length === 0 ? (
         <p className="mt-3 text-sm">
           {debts.length
-            ? "No bank or investment accounts yet. Add cash or an investment, or import a bank file."
+            ? "No accounts yet. Add one or import a file."
             : "No accounts yet. Add cash or an investment, or import a bank file."}
         </p>
       ) : (
@@ -241,7 +241,7 @@ export function AccountBoard() {
                             {grown.lastTyped != null && grown.lastTypedDate ? ` (last typed ${formatMoney(grown.lastTyped)} on ${prettyDate(grown.lastTypedDate)})` : ""}.
                           </p>
                         ) : null}
-                        {grown && !grown.ready ? <p className="mt-1 text-sm text-muted">Add a return and a monthly amount to estimate growth.</p> : null}
+                        {grown && !grown.ready ? <p className="mt-1 text-sm text-muted">Estimate growth</p> : null}
                         {grown?.path ? <GrowthChart path={grown.path} /> : null}
                         {(account.kind === "investment" || account.kind === "retirement") && account ? (
                           <GrowthFields account={account} onChange={(growth) => updateAccount(account.id, { growth })} />
@@ -304,7 +304,7 @@ export function AccountBoard() {
       {rows.length ? (
         <p className="mt-3 font-medium">
           Net {formatMoney(net, { signed: true })}
-          <span className="mt-1 block text-xs font-normal text-muted">Typed balances, unless an investment is set to use its estimate.</span>
+          <span className="mt-1 block text-xs font-normal text-muted" title="Typed balances, unless an investment is set to use its estimate.">Balances</span>
         </p>
       ) : null}
     </section>
@@ -328,7 +328,7 @@ function DebtList({ debts }: { debts: DebtItem[] }) {
 function GrowthChart({ path }: { path: { label: string; low: number; likely: number; high: number }[] }) {
   const max = Math.max(1, ...path.flatMap((point) => [point.low, point.likely, point.high]));
   return (
-    <div className="mt-2" aria-label="Estimated growth. Low, likely, and high.">
+    <div className="mt-2" aria-label="Estimate (low–high)">
       <svg viewBox="0 0 120 48" className="h-16 w-full" role="img">
         {(["low", "likely", "high"] as const).map((key) => {
           const color = key === "low" ? "var(--color-muted)" : key === "high" ? "var(--color-good)" : "var(--color-primary)";
@@ -336,7 +336,7 @@ function GrowthChart({ path }: { path: { label: string; low: number; likely: num
           return <polyline key={key} fill="none" stroke={color} strokeWidth={key === "likely" ? 2 : 1} points={points} />;
         })}
       </svg>
-      <p className="text-xs text-muted">Estimate. Low, likely, and high. Not a typed balance.</p>
+      <p className="text-xs text-muted">Estimate (low–high)</p>
       <ul className="mt-1 space-y-1 text-xs">
         {path.map((point) => (
           <li key={point.label}>

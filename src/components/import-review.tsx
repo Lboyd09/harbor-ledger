@@ -50,7 +50,7 @@ export function ImportReview({ addedIds, skipped }: { addedIds: string[]; skippe
           We sorted {headline.sorted} of {headline.total} for you.
         </h2>
         <p className="mt-1 text-sm text-muted">
-          Fair guesses are marked Check. Only names with no good guess wait.
+          Check the guesses marked Check.
           {skipped ? ` Skipped ${skipped} that ${skipped === 1 ? "was" : "were"} already in this account.` : ""}
         </p>
       </div>
