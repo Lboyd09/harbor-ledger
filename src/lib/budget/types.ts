@@ -46,7 +46,7 @@ export type Profile = {
   budgetPeriod: BudgetPeriod;
   /** Paper color. Missing on older ledgers — treat as harbor. */
   accent?: HarborLook;
-  /** Motion level. Missing on older ledgers — treat as lively. */
+  /** Motion level. Missing on older ledgers — treat as calm. */
   motion?: HarborMotion;
   /** Type size. Missing on older ledgers — treat as normal. */
   textSize?: TextSize;

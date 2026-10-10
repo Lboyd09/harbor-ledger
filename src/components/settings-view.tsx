@@ -6,7 +6,6 @@ import { emailStatus, sendConfirmationEmail, sendOwnResetLink } from "@/lib/budg
 import { deleteAccount, issueRecoveryCode } from "@/lib/budget/persist";
 import { HOUSEHOLD_LABELS, HOUSING_LABELS, STAGE_LABELS } from "@/lib/budget/presets";
 import { formatMoney } from "@/lib/budget/money";
-import { TERMS } from "@/lib/copy/terms";
 import { CarryStartControl } from "./carry-start";
 import type { DetailMode, HarborLook, HarborMotion, TextSize } from "@/lib/budget/types";
 import { useBudgetStore } from "@/store/budget-store";
@@ -65,6 +64,7 @@ export function SettingsView() {
       </div>
 
       <AccountPanel signedIn={Boolean(user)} email={user?.primaryEmail ?? ""} />
+      <DangerZone signedIn={Boolean(user)} />
 
       <div id="files" className="space-y-3">
         <ExportBar />
@@ -179,28 +179,64 @@ function LeftoverStyle() {
   const style = profile.budgetStyle === "buckets" ? "buckets" : "monthly";
   return (
     <section className="mt-4 space-y-3 rounded-lg border border-border bg-surface p-4">
-      <h2 className="font-display text-xl font-semibold">How leftover money works</h2>
-      <div className="grid gap-2 sm:grid-cols-2">
-        <button
-          type="button"
-          aria-pressed={style === "monthly"}
-          className={`min-h-11 rounded-md border px-3 py-2 text-left text-sm ${style === "monthly" ? "border-primary bg-chip" : "border-border bg-surface"}`}
-          onClick={() => setBudgetStyle("monthly")}
-        >
-          {TERMS.monthlyReset}
-        </button>
-        <button
-          type="button"
-          aria-pressed={style === "buckets"}
-          className={`min-h-11 rounded-md border px-3 py-2 text-left text-sm ${style === "buckets" ? "border-primary bg-chip" : "border-border bg-surface"}`}
-          onClick={() => setBudgetStyle("buckets")}
-        >
-          {TERMS.carryOver}
-        </button>
-      </div>
+      <h2 className="font-display text-xl font-semibold">Unused money rolls into next month: {style === "buckets" ? "On" : "Off"}</h2>
+      <Button type="button" variant="outline" aria-pressed={style === "buckets"} onClick={() => setBudgetStyle(style === "buckets" ? "monthly" : "buckets")}>
+        {style === "buckets" ? "On" : "Off"}
+      </Button>
       <p className="text-sm text-muted">Switching never deletes anything.</p>
-      <CarryStartControl />
+      {profile.detail === "nerd" ? (
+        <div>
+          <h3 className="text-sm font-medium">When leftovers start</h3>
+          <CarryStartControl />
+        </div>
+      ) : null}
     </section>
+  );
+}
+
+function DangerZone({ signedIn }: { signedIn: boolean }) {
+  const resetAll = useBudgetStore((s) => s.resetAll);
+  const [arm, setArm] = useState(false);
+  const [word, setWord] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+  return (
+    <details className="rounded-lg border border-danger/30 bg-surface p-4">
+      <summary className="min-h-11 cursor-pointer font-display text-xl font-semibold text-danger">Danger zone</summary>
+      <p className="mt-3 text-sm">Download a backup first.</p>
+      {arm ? (
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <span className="text-sm">Type RESET to erase this device. Your bank is not touched.</span>
+          <Input aria-label="Type RESET to confirm" value={word} onChange={(e) => setWord(e.target.value)} />
+          <Button
+            variant="danger"
+            size="sm"
+            disabled={busy || word !== "RESET"}
+            onClick={() => {
+              setBusy(true);
+              void resetAll()
+                .then(() => {
+                  setArm(false);
+                  setNote("This device is cleared.");
+                })
+                .catch((err: unknown) => setNote(err instanceof Error ? err.message : "Could not reset this device."))
+                .finally(() => setBusy(false));
+            }}
+          >
+            {busy ? "Erasing…" : "Erase ledger"}
+          </Button>
+          <Button variant="ghost" size="sm" disabled={busy} onClick={() => setArm(false)}>
+            Cancel
+          </Button>
+        </div>
+      ) : (
+        <Button className="mt-3" variant="danger" size="sm" onClick={() => setArm(true)}>
+          Reset this device
+        </Button>
+      )}
+      {signedIn ? <p className="mt-3 text-sm">Delete account is with your sign-in, and it asks you to type DELETE.</p> : null}
+      {note ? <p className="mt-2 text-sm">{note}</p> : null}
+    </details>
   );
 }
 

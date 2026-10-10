@@ -58,6 +58,19 @@ export function monthLabel(ym: string): string {
   return new Date(y, m - 1, 1).toLocaleString("en-US", { month: "long", year: "numeric" });
 }
 
+const SHORT_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** User-visible day. The year is added only when it is not the current year. */
+export function formatDay(iso: string, now = new Date()): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (!match) return iso;
+  const year = Number(match[1]);
+  const month = SHORT_MONTHS[Number(match[2]) - 1];
+  if (!month) return iso;
+  const label = `${month} ${Number(match[3])}`;
+  return year === now.getFullYear() ? label : `${label}, ${year}`;
+}
+
 export function monthShort(ym: string): string {
   const m = Number(ym.slice(5, 7));
   return ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][m - 1] ?? ym;

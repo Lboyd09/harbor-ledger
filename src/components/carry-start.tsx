@@ -23,7 +23,7 @@ export function CarryStartControl() {
 
   return (
     <section className="rounded-lg border border-border bg-surface p-4">
-      <h2 className="font-display text-lg font-semibold">When leftovers start</h2>
+      <h2 className="font-display text-lg font-semibold">Start month</h2>
       <p className="mt-1 text-sm text-muted">Nothing is deleted.</p>
       {current ? <p className="mt-1 text-sm">Leftovers start in {monthLabel(current)}.</p> : null}
       {first && current && first < current && asked !== first ? (

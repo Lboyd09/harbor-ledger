@@ -4,6 +4,7 @@ import { recurringBills, savingsRateSeries } from "@/lib/budget/analytics-depth"
 import { safeToSpend } from "@/lib/budget/buckets";
 import { daysLeftInMonth, weeklySafe } from "@/lib/budget/dashboard";
 import { monthLedger, safeBreakdown } from "@/lib/budget/ledger-month";
+import { formatDay } from "@/lib/budget/parse-date";
 import { formatMoney } from "@/lib/budget/money";
 import { moneyPicture } from "@/lib/budget/picture";
 import { investingReadiness } from "@/lib/budget/phase4";
@@ -46,10 +47,7 @@ function Spark({ points }: { points: number[] }) {
 }
 
 function shortDate(iso: string) {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
-  if (!match) return iso;
-  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return formatDay(iso);
 }
 
 export function HomeDashboard() {

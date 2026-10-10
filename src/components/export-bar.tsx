@@ -21,12 +21,9 @@ export function ExportBar() {
   const accounts = useBudgetStore((s) => s.accounts) ?? [];
   const balances = useBudgetStore((s) => s.balances) ?? [];
   const setAsides = useBudgetStore((s) => s.setAsides) ?? [];
-  const resetAll = useBudgetStore((s) => s.resetAll);
   const restoreBackup = useBudgetStore((s) => s.restoreBackup);
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [armReset, setArmReset] = useState(false);
-  const [resetWord, setResetWord] = useState("");
   const [ready, setReady] = useState<{ name: string; href: string } | null>(null);
 
   function publish(filename: string, bytes: Uint8Array, type: string) {
@@ -184,44 +181,7 @@ export function ExportBar() {
               }}
             />
           </label>
-          {armReset ? (
-            <span className="inline-flex flex-wrap items-center gap-2 rounded-md border border-danger/40 bg-danger/10 p-2">
-              <span className="text-sm">Type RESET to erase this device. Your bank is not touched.</span>
-              <input
-                aria-label="Type RESET to confirm"
-                className="min-h-11 rounded-md border border-border bg-surface px-2 text-sm"
-                value={resetWord}
-                onChange={(e) => setResetWord(e.target.value)}
-              />
-              <Button
-                variant="danger"
-                size="sm"
-                disabled={busy || resetWord !== "RESET"}
-                onClick={() => {
-                  setBusy(true);
-                  setNote(null);
-                  void resetAll()
-                    .then(() => {
-                      setArmReset(false);
-                      setNote("This device is cleared.");
-                    })
-                    .catch((err: unknown) => {
-                      setNote(err instanceof Error ? err.message : "Could not reset this device.");
-                    })
-                    .finally(() => setBusy(false));
-                }}
-              >
-                {busy ? "Erasing…" : "Erase ledger"}
-              </Button>
-              <Button variant="ghost" size="sm" disabled={busy} onClick={() => setArmReset(false)}>
-                Cancel
-              </Button>
-            </span>
-          ) : (
-            <Button variant="danger" size="sm" onClick={() => setArmReset(true)}>
-              Reset this device
-            </Button>
-          )}
+
         </div>
       </section>
       {note ? <p className="text-sm text-muted">{note}</p> : null}
