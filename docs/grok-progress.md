@@ -66,12 +66,12 @@
 - [x] 4.17 · #219 · Escape in the amount editor · Done (db6a1f5)
 - [x] 4.18 · #234 · Loan years box starts empty · Verified already fixed (loan years start empty, placeholder e.g. 30)
 - [x] 4.19 · #148 #27 #29 · Named reference tests · Done (db6a1f5)
-- [ ] 5.1 · #105 · Reset this device in Danger zone
+- [x] 5.1 · #105 · Reset this device in Danger zone · Done (58a0af9)
 - [ ] 5.2 · #176 · Confirm account removal; archive; undo
 - [ ] 5.3 · #235 · Settings link works on first click
-- [ ] 5.4 · #237 #106 · Simple is the default
-- [ ] 5.5 · #126 · Motion defaults to Calm
-- [ ] 5.6 · #66 #109 #108 · One roll-over setting in Settings
+- [x] 5.4 · #237 #106 · Simple is the default · Done (58a0af9)
+- [x] 5.5 · #126 · Motion defaults to Calm · Done (58a0af9)
+- [x] 5.6 · #66 #109 #108 · One roll-over setting in Settings · Done (58a0af9)
 - [ ] 5.7 · #181 · Settings in four sections
 - [ ] 5.8 · #125 · Undo after every change
 - [ ] 5.9 · #50 #52 #53 #177 · Calculator URLs and nav highlight
