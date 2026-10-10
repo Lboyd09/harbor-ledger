@@ -36,7 +36,8 @@ export function InflationPage() {
   return (
     <CalcFrame
       question="What will today's money buy later?"
-      result={`${formatMoney(pile)} buys about ${formatMoney(result.buyingPower)} in ${yearCount} years if prices rise ${inflation} percent.`}
+      headline={missing ? undefined : { value: `${formatMoney(result.buyingPower)} of buying power`, sub: `in ${yearCount} yrs at ${inflation}%` }}
+      result=""
       missing={missing}
       topic="inflation"
       facts={g.tipFacts}
@@ -46,10 +47,10 @@ export function InflationPage() {
           <Field label="Amount today" tag={source}>
             <Input className="mt-1" aria-label="Amount today" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
           </Field>
-          <Field label="Years" tag="typed">
+          <Field label="Years">
             <Input className="mt-1" aria-label="Inflation years" inputMode="decimal" value={years} onChange={(e) => setYears(e.target.value)} />
           </Field>
-          <Field label="Inflation %" tag={g.facts.inflation.source === "typed" ? "typed" : "typed"}>
+          <Field label="Inflation %">
             <Input className="mt-1" aria-label="Inflation percent" inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)} />
           </Field>
         </div>

@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { debtTimeline } from "@/lib/budget/grow-tables";
-import { firstMissing, optionalAmount, readNumber } from "@/lib/budget/calc-input";
+import { firstMissing, readNumber } from "@/lib/budget/calc-input";
 import { debtWhatIfs, extraNeeded, paymentBelowInterest, simulatePayoff } from "@/lib/budget/grow-math";
 import { formatMoney } from "@/lib/budget/money";
 import { currentMonthKey, monthShort, shiftMonth } from "@/lib/budget/parse-date";
@@ -10,7 +10,6 @@ import { PayoffRace } from "../grow-pictures";
 import { Button } from "../ui/button";
 import { Input } from "../ui/field";
 import { CalcFrame, Field, Sensitivity, YearTable } from "./frame";
-import { tagOf } from "./source-tag";
 import { useGrow } from "./grow-context";
 
 export function DebtPage() {
@@ -26,16 +25,16 @@ export function DebtPage() {
   const [apr, setApr] = useState("");
   const [minimum, setMinimum] = useState("");
   const [extra, setExtra] = useState("50");
-  const extraRead = optionalAmount(extra);
-  const extraN = Math.max(0, extraRead.amount);
+  const extraIn = readNumber(extra);
+  const extraN = Math.max(0, extraIn ?? 0);
   // A blank rate or minimum is not 0. Typing 0 on purpose is fine.
   const balanceIn = readNumber(balance);
   const aprIn = readNumber(apr);
   const minimumIn = readNumber(minimum);
   const debtNeeds = firstMissing([
     { label: "the balance", value: balanceIn, above: 0 },
-    { label: "the interest rate (0 is fine)", value: aprIn, min: 0 },
-    { label: "the minimum payment (0 is fine)", value: minimumIn, min: 0 },
+    { label: "the rate", value: aprIn, min: 0 },
+    { label: "the minimum", value: minimumIn, min: 0 },
   ]);
   const typing = Boolean(name.trim() || balance.trim() || apr.trim() || minimum.trim());
   const snow = simulatePayoff(working, extraN, "snowball");
@@ -51,19 +50,25 @@ export function DebtPage() {
   const add = ava.unfinished ? extraNeeded(working, extraN) : 0;
   const neverText = ava.unfinished
     ? paymentBelowInterest(working, extraN)
-      ? `This payment never pays it off, because it doesn't cover the interest. Add at least ${formatMoney(add)} a month.`
-      : `At this payment it takes more than 50 years. Add at least ${formatMoney(add)} a month to finish within 50 years.`
+      ? `Never paid off. Add ${formatMoney(add)}+/mo.`
+      : `Over 50 years. Add ${formatMoney(add)}/mo.`
     : null;
+  const cardOwed = g.facts.creditOwed.value ?? 0;
+  const freeYm = shiftMonth(now, ava.months);
+  const freeLabel = `${monthShort(freeYm)} ${freeYm.slice(0, 4)}`;
   const result = !working.length
-    ? "Add a card or loan."
-    : neverText
-      ? neverText
-      : single
-        ? `Paying ${formatMoney(monthlyTotal)} a month, ${working[0].name} is paid off in ${when(ava.months)} with ${formatMoney(ava.interest)} in interest.`
-        : `Paying highest interest first, you're debt-free in ${when(ava.months)} and pay ${formatMoney(ava.interest)} in interest.`;
+    ? cardOwed > 0
+      ? `Cards owe ${formatMoney(cardOwed)}. Add rate + minimum.`
+      : "Add a card or loan."
+    : (neverText ?? "");
+  const headline =
+    working.length && !neverText
+      ? { value: `Debt-free ${freeLabel}`, sub: `${formatMoney(ava.interest)} interest · ${formatMoney(monthlyTotal)}/mo` }
+      : undefined;
   return (
     <CalcFrame
       question="How long to pay off a debt?"
+      headline={headline}
       result={result}
       topic="debt"
       facts={g.tipFacts}
@@ -74,7 +79,7 @@ export function DebtPage() {
       ]}
       numbers={
         <div className="space-y-2">
-          <Field label="Extra payment each month" tag="typed">
+          <Field label="Extra payment each month">
             <Input className="mt-1 max-w-xs" inputMode="decimal" aria-label="Extra payment" placeholder="0" value={extra} onChange={(e) => setExtra(e.target.value)} />
           </Field>
           <ul className="space-y-1 text-sm">
@@ -82,7 +87,6 @@ export function DebtPage() {
               <li key={debt.id} className="flex items-center justify-between gap-2">
                 <span>
                   {debt.name} · {formatMoney(debt.balance)} · {debt.apr}%
-                  {fromAccounts.some((row) => row.id === debt.id) ? " · from your accounts" : ""}
                 </span>
                 <button type="button" className="min-h-11 text-xs text-muted" onClick={() => setRows(working.filter((row) => row.id !== debt.id))}>
                   Remove
@@ -99,7 +103,7 @@ export function DebtPage() {
             <Input aria-label="APR" inputMode="decimal" placeholder="Interest %" value={apr} onChange={(e) => setApr(e.target.value)} />
             <Input aria-label="Minimum" inputMode="decimal" placeholder="Minimum" value={minimum} onChange={(e) => setMinimum(e.target.value)} />
           </div>
-          <p className="text-xs text-muted">{tagOf(g.facts.creditOwed.source)}</p>
+          {fromAccounts.some((row) => working.some((debt) => debt.id === row.id)) ? <p className="text-xs text-muted">↺ from your accounts</p> : null}
           {typing && (debtNeeds || !name.trim()) ? (
             <p className="text-xs text-muted" role="status">
               {debtNeeds ? `Enter ${debtNeeds} to add this debt.` : "Enter a name to add this debt."}

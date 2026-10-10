@@ -1,21 +1,62 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Footnote } from "@/components/footnote";
+import { InfoTip } from "@/components/info-tip";
 import { factNote, readNumber } from "@/lib/budget/calc-input";
-import { formatMoney } from "@/lib/budget/money";
+import { formatCompact, formatMoney } from "@/lib/budget/money";
 import { moneyPicture } from "@/lib/budget/picture";
-import { figureLine, FIGURES } from "@/lib/budget/reference";
-import { projectRetirement, retirementInputFrom, retirementMonteCarlo, retirementSensitivity } from "@/lib/budget/retirement";
+import { assumptionLines } from "@/lib/budget/reference";
+import { projectRetirement, retirementInputFrom, retirementMonteCarlo, retirementSensitivity, type SensitivityRow } from "@/lib/budget/retirement";
+import { tipsFor } from "@/lib/budget/tips";
 import { useBudgetStore } from "@/store/budget-store";
+import { Citations } from "./grow/frame";
+import { useGrow } from "./grow/grow-context";
 import { useLivelyMotion } from "./use-lively-motion";
 import { usePlannerFacts } from "./use-planner-facts";
 import { ProgressRing } from "./visuals/progress-ring";
 import { Input } from "./ui/field";
 
-function money(value: string) {
-  return formatMoney(Math.max(0, readNumber(value) ?? 0));
+const AXIS = { fontSize: 11, fill: "var(--color-muted)" };
+const ASSUMPTIONS = ["withdrawal", "inflation", "market-conservative", "market-expected", "market-optimistic", "ss-full"];
+
+function coverLabel(percent: number) {
+  return percent > 150 ? "More than enough" : `${percent}%`;
+}
+
+function senseLabel(label: string) {
+  return label
+    .replace("Return 2 points lower", "Return −2 pts")
+    .replace("Return 2 points higher", "Return +2 pts")
+    .replace("Saving $100 less", "Save −$100")
+    .replace("Saving $100 more", "Save +$100")
+    .replace("Retire 3 years sooner", "Retire −3 yrs")
+    .replace("Retire 3 years later", "Retire +3 yrs");
+}
+
+function senseLine(row: SensitivityRow) {
+  const covered = row.coveredPercent > 150 ? "More than enough" : `${row.coveredPercent}%`;
+  return `${senseLabel(row.label)}: ${formatCompact(row.real)} (${covered})`;
+}
+
+function noteOf(fact: { note: string; source: string }, extra?: string) {
+  const text = [factNote(fact), extra].filter((part) => part && part.trim()).join(" ");
+  return text.trim() || undefined;
+}
+
+function Labeled({ label, note, children }: { label: string; note?: string; children: ReactNode }) {
+  return (
+    <div className="text-xs text-muted">
+      <span className="flex items-center">
+        {label}
+        {note ? <InfoTip label={label} text={note} /> : null}
+      </span>
+      {children}
+    </div>
+  );
 }
 
 export function RetirementCard() {
+  const { tipFacts } = useGrow();
   const facts = usePlannerFacts();
   const accounts = useBudgetStore((s) => s.accounts ?? []);
   const balances = useBudgetStore((s) => s.balances ?? []);
@@ -39,7 +80,6 @@ export function RetirementCard() {
   const [withdrawal, setWithdrawal] = useState("4");
   const [mean, setMean] = useState("7");
   const [spread, setSpread] = useState("12");
-  const [numbers, setNumbers] = useState(false);
 
   useEffect(() => {
     if (touched) return;
@@ -61,7 +101,6 @@ export function RetirementCard() {
     set(value);
   }
 
-  // A blank box is "not entered", never 0. Without an age there is no estimate at all.
   const read = useMemo(
     () =>
       retirementInputFrom({
@@ -100,23 +139,86 @@ export function RetirementCard() {
     return retirementMonteCarlo(input, { mean: meanN / 100, spread: spreadN / 100, seed: 20261004, runs: 1000 });
   }, [nerd, input, meanN, spreadN]);
   const wantedKnown = Boolean(input && input.incomeWantedYearly > 0);
+  const tips = tipsFor("retirement", tipFacts);
+  const firstTip = tips[0];
+  const moreTips = tips.slice(1);
+  const lines = assumptionLines(ASSUMPTIONS);
 
-  const assumptions = ["inflation", "withdrawal", "market-conservative", "market-expected", "market-optimistic", "ss-full"].map((id) => {
-    const figure = FIGURES.find((row) => row.id === id);
-    return figure ? figureLine(figure) : id;
-  });
+  let gapLine = "";
+  if (result && wantedKnown) {
+    if (result.gapYearly <= 0) gapLine = "On track";
+    else {
+      const save = result.extraPerMonth != null && result.extraPerMonth > 0 ? ` · save +${formatMoney(result.extraPerMonth)}/mo` : "";
+      const years = result.extraYears != null && result.extraYears > 0 ? ` or work ${result.extraYears.toFixed(1)} yrs more` : "";
+      gapLine = `Gap ${formatMoney(result.gapYearly)}/yr${save}${years}`;
+    }
+  } else if (result) {
+    gapLine = "Add the yearly income you want.";
+  }
 
   return (
-    <section className="space-y-4 rounded-lg border border-border bg-surface p-4">
-      <h2 className="font-display text-xl font-semibold">Will I be able to retire?</h2>
-      {result ? (
+    <section className="space-y-4">
+      <h2 className="font-display text-xl font-semibold">Can I retire?</h2>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <Labeled label="Age" note={noteOf(facts.age)}>
+          <Input className="mt-1" inputMode="numeric" aria-label="Age" value={age} onChange={(e) => edit(setAge, e.target.value)} />
+        </Labeled>
+        <Labeled label="Retire at" note={noteOf(facts.retireAge)}>
+          <Input className="mt-1" inputMode="numeric" aria-label="Retire at" value={retire} onChange={(e) => edit(setRetire, e.target.value)} />
+        </Labeled>
+        <Labeled label="Invested so far" note={noteOf(facts.saved, investedSplit)}>
+          <Input className="mt-1" inputMode="decimal" aria-label="Invested so far" value={saved} onChange={(e) => edit(setSaved, e.target.value)} />
+        </Labeled>
+        <Labeled label="Saving each month" note={noteOf(facts.monthlySaving)}>
+          <Input className="mt-1" inputMode="decimal" aria-label="Saving each month" value={monthly} onChange={(e) => edit(setMonthly, e.target.value)} />
+        </Labeled>
+        <Labeled label="Employer match %">
+          <Input className="mt-1" inputMode="decimal" aria-label="Employer match percent" placeholder="50 = half of what you save" value={match} onChange={(e) => edit(setMatch, e.target.value)} />
+        </Labeled>
+        <Labeled label="Income wanted each year" note={noteOf(facts.incomeWantedYearly)}>
+          <Input className="mt-1" inputMode="decimal" aria-label="Income wanted" value={wanted} onChange={(e) => edit(setWanted, e.target.value)} />
+        </Labeled>
+        <Labeled label="Social Security each month">
+          <Input className="mt-1" inputMode="decimal" aria-label="Social Security monthly" placeholder="0 if none" value={social} onChange={(e) => edit(setSocial, e.target.value)} />
+        </Labeled>
+        <Labeled label="Expected return %" note={noteOf(facts.returns)}>
+          <Input className="mt-1" inputMode="decimal" aria-label="Expected return" value={mid} onChange={(e) => edit(setMid, e.target.value)} />
+        </Labeled>
+        {nerd ? (
+          <>
+            <Labeled label="Low return %">
+              <Input className="mt-1" inputMode="decimal" aria-label="Low return" value={low} onChange={(e) => edit(setLow, e.target.value)} />
+            </Labeled>
+            <Labeled label="High return %">
+              <Input className="mt-1" inputMode="decimal" aria-label="High return" value={high} onChange={(e) => edit(setHigh, e.target.value)} />
+            </Labeled>
+          </>
+        ) : null}
+        <Labeled label="Inflation %" note={noteOf(facts.inflation)}>
+          <Input className="mt-1" inputMode="decimal" aria-label="Inflation" value={inflation} onChange={(e) => edit(setInflation, e.target.value)} />
+        </Labeled>
+        <Labeled label="Withdrawal %" note={noteOf(facts.withdrawal)}>
+          <Input className="mt-1" inputMode="decimal" aria-label="Withdrawal rate" value={withdrawal} onChange={(e) => edit(setWithdrawal, e.target.value)} />
+        </Labeled>
+      </div>
+      {result && expected ? (
         <>
-          <p className="text-sm">{result.sentence}</p>
+          <div>
+            <p className="font-display text-3xl font-semibold tabular">
+              {formatCompact(expected.real)} at {result.retireAge}
+            </p>
+            {wantedKnown ? (
+              <p className="text-sm text-muted">
+                {result.coveredPercent > 150 ? "More than enough" : `Covers ${result.coveredPercent}% of your goal`}
+              </p>
+            ) : null}
+          </div>
+          {gapLine ? <p className="text-sm">{gapLine}</p> : null}
           {wantedKnown ? (
             <ProgressRing
               pct={Math.max(0, Math.min(100, result.coveredPercent))}
               tone={result.coveredPercent >= 100 ? "good" : "primary"}
-              label={`${result.coveredPercent} percent of the income you want`}
+              label={result.coveredPercent > 150 ? "More than enough" : `${coverLabel(result.coveredPercent)} of goal`}
             />
           ) : null}
           <div className="chart-rise h-56 w-full">
@@ -124,7 +226,7 @@ export function RetirementCard() {
               <LineChart data={chart}>
                 <CartesianGrid stroke="var(--color-border)" vertical={false} />
                 <XAxis dataKey="age" type="number" domain={["dataMin", "dataMax"]} tick={{ fontSize: 12, fill: "var(--color-muted)" }} />
-                <YAxis tick={{ fontSize: 11, fill: "var(--color-muted)" }} width={48} />
+                <YAxis tick={AXIS} width={56} tickFormatter={(value) => formatCompact(Number(value))} />
                 <Tooltip formatter={(value) => formatMoney(Number(Array.isArray(value) ? value[0] : value))} />
                 <ReferenceLine x={result.retireAge} stroke="var(--color-warn)" label={{ value: "Retire", fontSize: 11, fill: "var(--color-muted)" }} />
                 <Line type="monotone" dataKey="Low" stroke="var(--color-muted)" dot={false} isAnimationActive={lively} />
@@ -133,156 +235,108 @@ export function RetirementCard() {
               </LineChart>
             </ResponsiveContainer>
           </div>
-          {wantedKnown ? (
-            <p className="text-sm">
-              {result.gapYearly <= 0
-                ? "The likely path covers what you want."
-                : `The gap is ${formatMoney(result.gapYearly)} a year.`}
-              {result.extraPerMonth != null && result.extraPerMonth > 0 ? ` Save ${formatMoney(result.extraPerMonth)} more each month` : ""}
-              {result.extraYears != null && result.extraYears > 0 ? `${result.extraPerMonth ? ", or" : ""} work about ${result.extraYears.toFixed(1)} more years` : ""}
-              {result.gapYearly > 0 ? "." : ""}
-            </p>
-          ) : (
-            <p className="text-sm text-muted">Enter the yearly income you want to see how much of it this covers.</p>
-          )}
+          <section>
+            <h3 className="text-sm font-medium">Key numbers</h3>
+            <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {[
+                { label: "Likely", value: formatMoney(expected.real) },
+                { label: "Low", value: formatMoney(result.paths[0].real) },
+                { label: "High", value: formatMoney(result.paths[2].real) },
+                { label: "Of goal", value: wantedKnown ? coverLabel(result.coveredPercent) : "—" },
+                { label: "Gap / yr", value: wantedKnown ? formatMoney(result.gapYearly) : "—" },
+                { label: "Invested", value: formatMoney(Math.max(0, readNumber(saved) ?? 0)) },
+              ].map((row) => (
+                <div key={row.label} className="rounded-md border border-border p-2">
+                  <dt className="text-xs text-muted">{row.label}</dt>
+                  <dd className="text-sm font-medium tabular">{row.value}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+          <details className="rounded-lg border border-border bg-surface p-3">
+            <summary className="min-h-11 cursor-pointer text-sm font-medium">Show the years</summary>
+            <div className="mt-2 max-h-64 overflow-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr>
+                    {["Age", "Put in", "Growth", "Balance", "Today's dollars"].map((col) => (
+                      <th key={col} className="px-2 py-1 font-medium">{col}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {expected.points.map((point) => (
+                    <tr key={point.age} className="border-t border-border">
+                      <td className="px-2 py-1">{point.age}</td>
+                      <td className="px-2 py-1 tabular">{formatMoney(point.contributed)}</td>
+                      <td className="px-2 py-1 tabular">{formatMoney(point.growth)}</td>
+                      <td className="px-2 py-1 tabular">{formatMoney(point.balance)}</td>
+                      <td className="px-2 py-1 tabular">{formatMoney(point.real)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </details>
         </>
       ) : (
         <p className="rounded-md border border-dashed border-border p-3 text-sm" role="status">
           {read.ok ? null : read.message}
         </p>
       )}
-      <div className="grid gap-2 sm:grid-cols-2">
-        <label className="text-xs text-muted">
-          Age
-          <Input className="mt-1" inputMode="numeric" aria-label="Age" value={age} onChange={(e) => edit(setAge, e.target.value)} />
-          <span className="mt-1 block">{factNote(facts.age)}</span>
-        </label>
-        <label className="text-xs text-muted">
-          Retire at
-          <Input className="mt-1" inputMode="numeric" aria-label="Retire at" value={retire} onChange={(e) => edit(setRetire, e.target.value)} />
-          <span className="mt-1 block">{factNote(facts.retireAge)}</span>
-        </label>
-        <label className="text-xs text-muted">
-          Invested so far (retirement + brokerage)
-          <Input className="mt-1" inputMode="decimal" aria-label="Invested so far" value={saved} onChange={(e) => edit(setSaved, e.target.value)} />
-          <span className="mt-1 block">{factNote(facts.saved)} {investedSplit}</span>
-        </label>
-        <label className="text-xs text-muted">
-          Saving each month
-          <Input className="mt-1" inputMode="decimal" aria-label="Saving each month" value={monthly} onChange={(e) => edit(setMonthly, e.target.value)} />
-          <span className="mt-1 block">{factNote(facts.monthlySaving)}</span>
-        </label>
-        <label className="text-xs text-muted">
-          Employer match, percent of what you save
-          <Input className="mt-1" inputMode="decimal" aria-label="Employer match percent" value={match} onChange={(e) => edit(setMatch, e.target.value)} />
-          <span className="mt-1 block">50 means the employer adds half of your monthly saving, not half of your pay.</span>
-        </label>
-        <label className="text-xs text-muted">
-          Income wanted each year, today's dollars
-          <Input className="mt-1" inputMode="decimal" aria-label="Income wanted" value={wanted} onChange={(e) => edit(setWanted, e.target.value)} />
-          <span className="mt-1 block">{factNote(facts.incomeWantedYearly)}</span>
-        </label>
-        <label className="text-xs text-muted">
-          Social Security each month
-          <Input className="mt-1" inputMode="decimal" aria-label="Social Security monthly" value={social} onChange={(e) => edit(setSocial, e.target.value)} placeholder="Blank counts as zero" />
-          <span className="mt-1 block">Blank counts as zero.</span>
-        </label>
-        <label className="text-xs text-muted">
-          Expected return %
-          <Input className="mt-1" inputMode="decimal" aria-label="Expected return" value={mid} onChange={(e) => edit(setMid, e.target.value)} />
-          <span className="mt-1 block">{factNote(facts.returns)}</span>
-        </label>
-        <label className="text-xs text-muted">
-          Low return %
-          <Input className="mt-1" inputMode="decimal" aria-label="Low return" value={low} onChange={(e) => edit(setLow, e.target.value)} />
-        </label>
-        <label className="text-xs text-muted">
-          High return %
-          <Input className="mt-1" inputMode="decimal" aria-label="High return" value={high} onChange={(e) => edit(setHigh, e.target.value)} />
-        </label>
-        <label className="text-xs text-muted">
-          Inflation %
-          <Input className="mt-1" inputMode="decimal" aria-label="Inflation" value={inflation} onChange={(e) => edit(setInflation, e.target.value)} />
-          <span className="mt-1 block">{factNote(facts.inflation)}</span>
-        </label>
-        <label className="text-xs text-muted">
-          Withdrawal %
-          <Input className="mt-1" inputMode="decimal" aria-label="Withdrawal rate" value={withdrawal} onChange={(e) => edit(setWithdrawal, e.target.value)} />
-          <span className="mt-1 block">{factNote(facts.withdrawal)}</span>
-        </label>
-      </div>
-      <p className="text-xs text-muted">Full Social Security age of 67 is for a birth year of 1960 or later. An earlier birth year has a lower full age. {money(saved)} saved is what the chart starts from.</p>
-      {expected ? (
-        <button type="button" className="min-h-11 text-sm font-medium text-primary" onClick={() => setNumbers((open) => !open)}>
-          {numbers ? "Hide the numbers" : "Show as numbers"}
-        </button>
+      {firstTip ? <p className="text-sm">{firstTip.text}</p> : null}
+      {moreTips.length ? (
+        <details className="rounded-lg border border-border bg-surface p-3">
+          <summary className="min-h-11 cursor-pointer text-sm font-medium">Tips ({tips.length})</summary>
+          <ul className="mt-2 space-y-2 text-sm">
+            {moreTips.map((tip) => (
+              <li key={tip.id}>{tip.text}</li>
+            ))}
+          </ul>
+        </details>
       ) : null}
-      {numbers && expected ? (
-        <div className="max-h-64 overflow-auto">
-          <table className="w-full text-left text-xs">
-            <thead>
-              <tr>
-                {["Age", "Put in", "Growth", "Balance", "Today's dollars"].map((col) => (
-                  <th key={col} className="px-2 py-1 font-medium">{col}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {expected.points.map((point) => (
-                <tr key={point.age} className="border-t border-border">
-                  <td className="px-2 py-1">{point.age}</td>
-                  <td className="px-2 py-1 tabular">{formatMoney(point.contributed)}</td>
-                  <td className="px-2 py-1 tabular">{formatMoney(point.growth)}</td>
-                  <td className="px-2 py-1 tabular">{formatMoney(point.balance)}</td>
-                  <td className="px-2 py-1 tabular">{formatMoney(point.real)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : null}
-      <ul className="space-y-1 text-xs text-muted">
-        {assumptions.map((line) => (
-          <li key={line}>{line}</li>
-        ))}
-      </ul>
-      {nerd ? (
+      <details className="rounded-lg border border-border bg-surface p-3">
+        <summary className="min-h-11 cursor-pointer text-sm font-medium">Assumptions</summary>
+        <ul className="mt-2 space-y-1 text-xs text-muted">
+          {lines.map((line) => (
+            <li key={line}>{line}</li>
+          ))}
+        </ul>
+      </details>
+      <Citations ids={ASSUMPTIONS} />
+      {nerd && result ? (
         <div className="space-y-3">
           {sense.length ? (
-            <>
-              <h3 className="text-sm font-medium">If a number moves</h3>
-              <ul className="space-y-1 text-xs text-muted">
+            <details className="rounded-lg border border-border bg-surface p-3">
+              <summary className="min-h-11 cursor-pointer text-sm font-medium">If a number moves</summary>
+              <ul className="mt-2 space-y-1 text-xs text-muted">
                 {sense.map((row) => (
-                  <li key={row.label}>
-                    {row.label}: {formatMoney(row.real)}, {row.coveredPercent} percent covered
-                  </li>
+                  <li key={row.label}>{senseLine(row)}</li>
                 ))}
               </ul>
-            </>
+            </details>
           ) : null}
-          <h3 className="text-sm font-medium">A thousand tries</h3>
-          <p className="text-xs text-muted">
-            Each year draws a return around {mean || 0}% with a spread of {spread || 0} points. Same seed, same result. After the retire age, spending rises with inflation. This is not a promise.
-          </p>
+          <div className="flex items-center">
+            <h3 className="text-sm font-medium">Good years and bad years</h3>
+            <InfoTip label="About these tries" text="Random market years. Not a promise." />
+          </div>
           <div className="grid gap-2 sm:grid-cols-2">
-            <label className="text-xs text-muted">
-              Average return %
+            <Labeled label="Average return %">
               <Input className="mt-1" inputMode="decimal" aria-label="Monte Carlo average return" value={mean} onChange={(e) => edit(setMean, e.target.value)} />
-            </label>
-            <label className="text-xs text-muted">
-              Spread, points
+            </Labeled>
+            <Labeled label={`Market swings: ±${spread || 0}%`}>
               <Input className="mt-1" inputMode="decimal" aria-label="Monte Carlo spread" value={spread} onChange={(e) => edit(setSpread, e.target.value)} />
-            </label>
+            </Labeled>
           </div>
           {monte ? (
             <>
-              <p className="text-sm">About {Math.round(monte.chanceLasts * 100)} percent of the tries still have money at 95.</p>
+              <p className="text-sm">In {Math.round(monte.chanceLasts * 100)} out of 100 possible futures, your money lasts to 95</p>
               <div className="chart-rise h-48 w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={monte.points}>
                     <CartesianGrid stroke="var(--color-border)" vertical={false} />
-                    <XAxis dataKey="age" tick={{ fontSize: 11, fill: "var(--color-muted)" }} />
-                    <YAxis tick={{ fontSize: 11, fill: "var(--color-muted)" }} width={48} />
+                    <XAxis dataKey="age" tick={AXIS} />
+                    <YAxis tick={AXIS} width={56} tickFormatter={(value) => formatCompact(Number(value))} />
                     <Tooltip formatter={(value) => formatMoney(Number(Array.isArray(value) ? value[0] : value))} />
                     <Line type="monotone" dataKey="p10" name="Low 10%" stroke="var(--color-muted)" dot={false} isAnimationActive={lively} />
                     <Line type="monotone" dataKey="p50" name="Middle" stroke="var(--color-primary)" strokeWidth={2} dot={false} isAnimationActive={lively} />
@@ -294,7 +348,7 @@ export function RetirementCard() {
           ) : null}
         </div>
       ) : null}
-      <p className="text-xs text-muted">Estimates only, not financial advice.</p>
+      <Footnote />
     </section>
   );
 }

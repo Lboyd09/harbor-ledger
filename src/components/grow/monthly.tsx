@@ -1,7 +1,7 @@
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { needsPrompt } from "@/lib/budget/calc-input";
 import { sensitivityOf, yearRows } from "@/lib/budget/grow-tables";
-import { formatMoney } from "@/lib/budget/money";
+import { formatCompact, formatMoney } from "@/lib/budget/money";
 import { Input } from "../ui/field";
 import { SharedRates } from "./editors";
 import { CalcFrame, Field, Sensitivity, YearTable } from "./frame";
@@ -24,7 +24,8 @@ export function MonthlyPage() {
   return (
     <CalcFrame
       question="What if you add money every month?"
-      result={`${formatMoney(end?.contributed ?? 0)} is money you put in. The ending balance is ${formatMoney(end?.balance ?? 0)}.`}
+      headline={missing ? undefined : { value: formatMoney(end?.balance ?? 0), sub: `you put in ${formatMoney(end?.contributed ?? 0)}` }}
+      result=""
       missing={missing}
       topic="monthly"
       facts={g.tipFacts}
@@ -33,13 +34,13 @@ export function MonthlyPage() {
       assumptionEditor={<SharedRates />}
       numbers={
         <div className="grid gap-2 sm:grid-cols-2">
-          <Field label="Starting amount" tag={g.principalN > 0 ? "from your accounts" : "typed"}>
+          <Field label="Starting amount" tag={g.facts.saved.value != null && g.principalN === Math.round(g.facts.saved.value) ? "from your accounts" : undefined}>
             <Input className="mt-1" inputMode="decimal" aria-label="Starting amount" value={g.principal} onChange={(e) => g.setPrincipal(e.target.value)} />
           </Field>
           <Field label="Each month" tag={tagOf(g.facts.monthlySaving.source)}>
             <Input className="mt-1" inputMode="decimal" aria-label="Each month" value={g.monthly} onChange={(e) => g.setMonthly(e.target.value)} />
           </Field>
-          <Field label="Years" tag="typed">
+          <Field label="Years">
             <Input className="mt-1" inputMode="decimal" aria-label="Years" value={g.years} onChange={(e) => g.setYears(e.target.value)} />
           </Field>
         </div>
@@ -50,7 +51,7 @@ export function MonthlyPage() {
             <LineChart data={g.both}>
               <CartesianGrid stroke="var(--color-border)" vertical={false} />
               <XAxis dataKey="year" tick={{ fontSize: 12, fill: "var(--color-muted)" }} />
-              <YAxis tick={{ fontSize: 11, fill: "var(--color-muted)" }} width={48} />
+              <YAxis tick={{ fontSize: 11, fill: "var(--color-muted)" }} width={56} tickFormatter={(value) => formatCompact(Number(value))} />
               <Tooltip formatter={(v) => formatMoney(Number(Array.isArray(v) ? v[0] : v))} />
               <Line type="monotone" dataKey="contributed" stroke="var(--color-muted)" dot={false} isAnimationActive={g.lively} name="Put in" />
               <Line type="monotone" dataKey="balance" stroke="var(--color-primary)" strokeWidth={2} dot={false} isAnimationActive={g.lively} name="Balance" />

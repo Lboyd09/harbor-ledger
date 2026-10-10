@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "@tanstack/react-router";
 import {
   ACCOUNT_KIND_OPTIONS,
   accountAcceptsFile,
@@ -485,70 +486,13 @@ function ColumnTools({
   );
 }
 
-const BANK_STEPS: { bank: string; steps: string[] }[] = [
-  {
-    bank: "Chase",
-    steps: [
-      "Sign in on chase.com (the download is more reliable there than in the app).",
-      "Open the account → See all activity or Account activity.",
-      "Choose Download, pick CSV, set a date range, download.",
-      "The file often starts with Details, Posting Date, Description, Amount. BudgetFlow ignores Details as a direction marker.",
-    ],
-  },
-  {
-    bank: "Bank of America",
-    steps: [
-      "Sign in → Activity → Download.",
-      "Pick CSV (not QFX/OFX or PDF).",
-      "Date, Description, Amount columns are enough.",
-    ],
-  },
-  {
-    bank: "Wells Fargo",
-    steps: [
-      "Account → Activity → Download. CSV may have no header row — BudgetFlow still reads date, amount, description.",
-    ],
-  },
-  {
-    bank: "Capital One / Citi / Ally / most credit cards",
-    steps: [
-      "Look for Download, Export, or Spreadsheet in account activity.",
-      "Prefer CSV. If the file has Debit and Credit columns instead of a signed Amount, leave the column map as-is — BudgetFlow uses both.",
-    ],
-  },
-];
-
 function CsvHelp() {
-  const [open, setOpen] = useState(false);
   return (
-    <section className="rounded-lg border border-border bg-surface p-4">
-      <button type="button" className="flex min-h-11 w-full items-center justify-between text-left" onClick={() => setOpen((v) => !v)}>
-        <h2 className="font-display text-lg font-semibold">How to get a CSV from your bank</h2>
-        <span className="text-sm text-muted">{open ? "Hide" : "Show"}</span>
-      </button>
-      {open ? (
-        <div className="mt-3 space-y-4 text-sm">
-          <ol className="list-decimal space-y-1 pl-5 text-muted">
-            <li>Sign in on the bank or card website.</li>
-            <li>Open one account’s activity or transactions.</li>
-            <li>Find Download, Export, or Spreadsheet — not Print, not PDF.</li>
-            <li>Choose CSV (sometimes called comma separated or Excel CSV).</li>
-            <li>Pick a date range. A month is a good first import; you can add more later. Duplicates are skipped.</li>
-            <li>Save the file, then drop it in the box below.</li>
-          </ol>
-          {BANK_STEPS.map((b) => (
-            <div key={b.bank}>
-              <h3 className="font-medium">{b.bank}</h3>
-              <ul className="mt-1 list-disc pl-5 text-muted">
-                {b.steps.map((s) => (
-                  <li key={s}>{s}</li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
-      ) : null}
-    </section>
+    <p>
+      <Link to="/help" hash="csv" className="inline-flex min-h-11 items-center text-sm font-medium text-primary">
+        How to get your bank file →
+      </Link>
+    </p>
   );
 }
 

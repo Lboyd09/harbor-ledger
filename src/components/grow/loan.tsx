@@ -31,34 +31,30 @@ export function LoanPage() {
   const plain = loanCompare({ balance: balanceN, apr: aprN, years: yearsN, extra: 0 });
   const table = amortizationSchedule({ balance: balanceN, aprPercent: aprN, years: yearsN, extra: extraN });
   const saved = Math.max(0, plain.interest - result.extraInterest);
-  const sentence = !read.ok
-    ? ""
-    : result.unfinished
-      ? "This payment does not finish the loan in 50 years."
-      : `The regular payment is ${formatMoney(result.payment)}. Paying ${formatMoney(extraN)} extra saves ${formatMoney(saved)}.`;
+  const sentence = !read.ok ? "" : result.unfinished ? "This payment does not finish the loan in 50 years." : "";
   const schedule = table.filter((row) => row.month % 12 === 0 || row.month === table.length);
   const dash = !read.ok || result.unfinished;
   return (
     <CalcFrame
       question="What does an extra payment save?"
+      headline={read.ok && !result.unfinished ? { value: `${formatMoney(result.payment)}/mo`, sub: `Extra ${formatMoney(extraN)} saves ${formatMoney(saved)}` } : undefined}
       result={sentence}
       missing={read.ok ? null : read.prompt}
       topic="loan"
       facts={g.tipFacts}
       assumptionIds={[]}
-      extraAssumptions={["The regular payment matches this loan. Extra is added on top. A card balance is not filled in."]}
       numbers={
         <div className="grid gap-2 sm:grid-cols-2">
-          <Field label="Balance" tag="typed">
+          <Field label="Balance">
             <Input className="mt-1" aria-label="Loan balance" inputMode="decimal" value={balance} onChange={(e) => setBalance(e.target.value)} />
           </Field>
-          <Field label="Interest %" tag="typed">
+          <Field label="Interest %">
             <Input className="mt-1" aria-label="Loan interest" inputMode="decimal" value={apr} onChange={(e) => setApr(e.target.value)} />
           </Field>
-          <Field label="Years" tag="typed">
-            <Input className="mt-1" aria-label="Loan years" inputMode="decimal" placeholder="5.5" value={years} onChange={(e) => setYears(e.target.value)} />
+          <Field label="Years">
+            <Input className="mt-1" aria-label="Loan years" inputMode="decimal" placeholder="e.g. 30" value={years} onChange={(e) => setYears(e.target.value)} />
           </Field>
-          <Field label="Extra each month" tag="typed">
+          <Field label="Extra each month">
             <Input className="mt-1" aria-label="Extra payment" inputMode="decimal" placeholder="0" value={extra} onChange={(e) => setExtra(e.target.value)} />
           </Field>
         </div>

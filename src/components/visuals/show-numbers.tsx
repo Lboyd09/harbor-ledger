@@ -11,7 +11,7 @@ export function ShowNumbers({
   return (
     <details className="mt-2">
       <summary className="min-h-11 cursor-pointer text-sm text-muted">Show as numbers</summary>
-      <p className="mt-2 text-sm">{caption}</p>
+      {caption ? <p className="mt-2 text-sm">{caption}</p> : null}
       <div className="mt-2 max-w-full overflow-x-auto">
         <table className="w-full min-w-0 text-left text-sm">
           <thead>
