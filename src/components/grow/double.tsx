@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { needsPrompt, optionalAmount, readNumber } from "@/lib/budget/calc-input";
 import { monthsToTarget, yearsToDouble } from "@/lib/budget/grow-math";
 import { formatMoney } from "@/lib/budget/money";
+import { dropSameWhatIfs, investingReadiness } from "@/lib/budget/phase4";
+import { debtsInNetWorth } from "@/lib/budget/real-debts";
 import { useBudgetStore } from "@/store/budget-store";
 import { Input } from "../ui/field";
 import { CalcFrame, Field, Sensitivity, YearTable } from "./frame";
@@ -70,7 +72,15 @@ export function DoublePage() {
     if (!hasTarget) return "Add a target";
     return reachLabel(monthsToTarget({ principal: savedN, monthly: add, apr, target: targetIn ?? 0 }), true);
   }
+  const liveDebts = debtsInNetWorth(g.debts, g.accounts, g.balances);
+  const highDebt = liveDebts.filter((debt) => debt.balance > 0 && debt.apr > 8).sort((a, b) => b.apr - a.apr)[0];
+  const ready = investingReadiness({
+    monthsSaved: g.picture.cushionMonths ?? 0,
+    highAprDebt: highDebt ? { name: highDebt.name, apr: highDebt.apr } : null,
+  });
   return (
+    <div className="space-y-3">
+    {ready.step === "ready" ? null : <p className="text-sm">{ready.sentence}</p>}
     <CalcFrame
       question="How long to double, or to reach a number?"
       headline={years == null || missing ? undefined : { value: `${years} yrs`, sub: hasTarget ? `Target in ${reach}` : "Add a target." }}
@@ -132,16 +142,17 @@ export function DoublePage() {
       advanced={
         g.nerd && hasTarget ? (
           <Sensitivity
-            rows={[
+            rows={dropSameWhatIfs([
               { label: "Return 2 points lower", value: reachAt(rateN - 2, monthlyN) },
               { label: "Return as entered", value: reach },
               { label: "Return 2 points higher", value: reachAt(rateN + 2, monthlyN) },
               { label: "Monthly $100 less", value: reachAt(rateN, Math.max(0, monthlyN - 100)) },
               { label: "Monthly $100 more", value: reachAt(rateN, monthlyN + 100) },
-            ]}
+            ])}
           />
         ) : null
       }
     />
+    </div>
   );
 }

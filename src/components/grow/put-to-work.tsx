@@ -1,7 +1,9 @@
 import { yearRows } from "@/lib/budget/grow-tables";
 import { debtFirstNote, growLump, lumpPath, lumpWhatIfs, readLump } from "@/lib/budget/lump";
-import { debtsInNetWorth } from "@/lib/budget/real-debts";
 import { formatMoney } from "@/lib/budget/money";
+import { cashAboveCushion, dropSameWhatIfs, investingReadiness } from "@/lib/budget/phase4";
+import { planTotal } from "@/lib/budget/plans";
+import { debtsInNetWorth } from "@/lib/budget/real-debts";
 import { InfoTip } from "../info-tip";
 import { GrowthArea, PlaceMap } from "../grow-pictures";
 import { Input } from "../ui/field";
@@ -39,6 +41,15 @@ export function PutToWork() {
     }
   }
   const debtNote = input ? debtFirstNote(debtsInNetWorth(g.debts, g.accounts, g.balances), input.rate) : null;
+  const liveDebts = debtsInNetWorth(g.debts, g.accounts, g.balances);
+  const highDebt = liveDebts.filter((debt) => debt.balance > 0 && debt.apr > 8).sort((a, b) => b.apr - a.apr)[0];
+  const ready = investingReadiness({
+    monthsSaved: g.picture.cushionMonths ?? 0,
+    highAprDebt: highDebt ? { name: highDebt.name, apr: highDebt.apr } : null,
+    employerMatchShort: false,
+  });
+  const spare = cashAboveCushion(g.picture.cash, planTotal(g.categories));
+  const spareTag = spare != null && Number(g.principal) === spare;
   const rows = input ? yearRows({ principal: input.amount, monthly: 0, years: input.years, rate: input.rate, inflation: input.inflation, today: input.today }) : [];
   return (
     <CalcFrame
@@ -58,8 +69,13 @@ export function PutToWork() {
       assumptionEditor={<SharedRates />}
       numbers={
         <div className="grid gap-2 sm:grid-cols-2">
-          <Field label="Amount" tag={amountTag}>
+          <Field label="Amount" tag={spareTag ? "from your accounts" : amountTag}>
             <Input className="mt-1" inputMode="decimal" aria-label="Amount" value={g.principal} onChange={(e) => g.setPrincipal(e.target.value)} />
+            {spare != null && g.principal.trim() === "" ? (
+              <button type="button" className="mt-1 text-sm text-primary" onClick={() => g.setPrincipal(String(spare))}>
+                Use {formatMoney(spare)} (cash above a 3-month cushion)
+              </button>
+            ) : null}
           </Field>
           <Field label="Years">
             <Input className="mt-1" inputMode="decimal" aria-label="Years" value={g.years} onChange={(e) => g.setYears(e.target.value)} />
@@ -74,6 +90,7 @@ export function PutToWork() {
       }
       picture={
         <div className="space-y-3">
+          {ready.step === "ready" ? null : <p className="text-sm">{ready.sentence}</p>}
           {debtNote ? (
             <p className="flex items-center text-sm">
               High-rate debt first
@@ -103,7 +120,7 @@ export function PutToWork() {
       }
       advanced={
         g.nerd && input ? (
-          <Sensitivity rows={lumpWhatIfs(input).map((row) => ({ label: row.label, value: `${formatMoney(row.beforeTax)} before tax, ${formatMoney(row.afterTax)} after tax on the gain` }))} />
+          <Sensitivity rows={dropSameWhatIfs(lumpWhatIfs(input).map((row) => ({ label: row.label, value: `${formatMoney(row.beforeTax)} before tax, ${formatMoney(row.afterTax)} after tax on the gain` })))} />
         ) : null
       }
     />

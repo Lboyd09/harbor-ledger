@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { needsPrompt, optionalAmount, readNumber } from "@/lib/budget/calc-input";
 import { monthlyForGoal } from "@/lib/budget/grow-math";
+import { dropSameWhatIfs } from "@/lib/budget/phase4";
 import { formatMoney } from "@/lib/budget/money";
 import { shiftMonth } from "@/lib/budget/parse-date";
 import { FillJar } from "../money-visual";
@@ -83,11 +84,11 @@ export function GoalPage() {
         advanced={
           g.nerd ? (
             <Sensitivity
-              rows={[
+              rows={dropSameWhatIfs([
                 { label: "Already saved $100 less", value: formatMoney(monthlyForGoal(goal, Math.max(0, saved - 100), monthCount)) },
                 { label: "Already saved as entered", value: formatMoney(need) },
                 { label: "Already saved $100 more", value: formatMoney(monthlyForGoal(goal, saved + 100, monthCount)) },
-              ]}
+              ])}
             />
           ) : null
         }
@@ -98,7 +99,7 @@ export function GoalPage() {
         size="sm"
         disabled={missing != null}
         onClick={() => {
-          queueFundFromGoal({ name: "Goal", target: goal, by, monthly: Math.max(0, need) });
+          queueFundFromGoal({ name: "Goal", target: goal, by, monthly: Math.max(0, need), opening: saved });
           void navigate({ to: "/funds" });
         }}
       >

@@ -3,6 +3,7 @@ import { latestBalance } from "@/lib/budget/accounts";
 import { bucketBalance } from "@/lib/budget/buckets";
 import { monthlyPath, projectBoth, rothVsTraditional } from "@/lib/budget/grow-math";
 import { moneyPicture } from "@/lib/budget/picture";
+import { planTotal } from "@/lib/budget/plans";
 import { DEFAULT_IRA, iraLimit, rothRoom } from "@/lib/budget/ira";
 import { optionalAmount, readNumber } from "@/lib/budget/calc-input";
 import { buildYearWorkbook } from "@/lib/budget/year";
@@ -149,7 +150,7 @@ export function useGrowState() {
         categories,
         moves: moveList ?? [],
         ym,
-        bills: facts.typicalFixed.value ?? facts.typicalSpendMonthly.value,
+        bills: planTotal(categories, ym) > 0 ? planTotal(categories, ym) : (facts.typicalFixed.value ?? facts.typicalSpendMonthly.value),
       }),
     [accounts, balances, debts, bucketList, transactions, categories, moveList, ym, facts],
   );

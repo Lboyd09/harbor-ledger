@@ -18,6 +18,8 @@ export type TipFacts = {
   savingsRate?: number | null;
   savingsWanted?: number | null;
   hasDebts?: boolean;
+  monthlySaving?: number | null;
+  retirementGoal?: number | null;
 };
 
 const withdrawal = figureById("withdrawal");
@@ -25,6 +27,7 @@ const withdrawal = figureById("withdrawal");
 /** Short, general ideas. A number appears only when it is a dated reference figure. */
 export const TIPS: Tip[] = [
   { id: "match-first", topic: "retirement", text: "Take an employer match before other investing. It is part of pay.", source: "General saving order.", status: "general guidance", when: (f) => f.employerMatch == null || f.employerMatch <= 0 },
+  { id: "below-goal", topic: "retirement", text: "Saving is below your goal.", source: "General saving order.", status: "general guidance", when: (f) => f.retirementGoal != null && f.retirementGoal > 0 && f.monthlySaving != null && f.monthlySaving + 0.005 < f.retirementGoal },
   { id: "match-entered", topic: "retirement", text: "Count the match as part of what you save, then raise your own amount slowly.", source: "General saving order.", status: "general guidance" },
   { id: "debt-before-low", topic: "debt", text: "Pay high-interest debt before money that is likely to earn less than that rate.", source: "General saving order.", status: "general guidance", when: (f) => (f.cardApr ?? 0) >= 8 || Boolean(f.hasDebts) },
   { id: "debt-minimums", topic: "debt", text: "Pay at least the minimum on every debt, then put extra on the highest rate.", source: "General saving order.", status: "general guidance" },

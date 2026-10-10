@@ -41,6 +41,12 @@ export function extraPaymentSavings(debts: DebtItem[], extra: number): { interes
   };
 }
 
+/** Drop the base row and any later row that repeats a kept result. */
+export function dropSameWhatIfs(rows: { label: string; value: string }[], baseValue?: string): { label: string; value: string }[] {
+  const base = baseValue ?? rows.find((row) => /as entered/i.test(row.label))?.value ?? "";
+  return whatIfRows(base, rows, (a, b) => a === b);
+}
+
 export function whatIfRows<T>(base: T, rows: { label: string; value: T }[], same: (a: T, b: T) => boolean): { label: string; value: T }[] {
   const kept = rows.filter((row) => !same(row.value, base));
   const out: { label: string; value: T }[] = [];

@@ -24,4 +24,6 @@ test("tipsFor returns at most three and prefers the person's facts", () => {
   assert.equal(gap[0]?.id, "rate-gap");
   const matched = tipsFor("retirement", { employerMatch: null });
   assert.equal(matched[0]?.id, "match-first");
+  const below = tipsFor("retirement", { employerMatch: 50, monthlySaving: 100, retirementGoal: 400 });
+  assert.ok(below.some((tip) => tip.id === "below-goal"));
 });

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { formatMoney } from "@/lib/budget/money";
+import { dropSameWhatIfs } from "@/lib/budget/phase4";
 import { FillJar } from "../money-visual";
 import { ProgressRing } from "../visuals/progress-ring";
 import { CalcFrame, Sensitivity, YearTable } from "./frame";
@@ -70,11 +71,11 @@ export function CushionPage() {
       advanced={
         g.nerd ? (
           <Sensitivity
-            rows={[
+            rows={dropSameWhatIfs([
               { label: "Spending $100 less", value: monthly > 100 ? `${(saved / (monthly - 100)).toFixed(1)} months` : "—" },
               { label: "Spending as entered", value: monthly > 0 ? `${covered.toFixed(1)} months` : "—" },
               { label: "Spending $100 more", value: monthly > 0 ? `${(saved / (monthly + 100)).toFixed(1)} months` : "—" },
-            ]}
+            ])}
           />
         ) : null
       }

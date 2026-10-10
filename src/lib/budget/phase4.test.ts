@@ -14,7 +14,7 @@ import {
 } from "./phase4.ts";
 import { moneyPicture } from "./picture.ts";
 import { monteCarloInTodaysDollars, projectRetirement, retirementInputFrom, retirementMonteCarlo, type RetirementFields } from "./retirement.ts";
-import type { Account, BalancePoint, DebtItem, MoneyBucket } from "./types.ts";
+import type { Account, BalancePoint, DebtItem, MoneyBucket, Transaction } from "./types.ts";
 
 /** Scenario (d). Likely today's dollars are locked in calc-input.test.ts at $543,829.77. Mortgage payment is locked in calc-input.test.ts at $1,896.20. */
 const scenarioD: RetirementFields = {

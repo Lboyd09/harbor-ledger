@@ -52,6 +52,8 @@ export type SetupSavingsDraft = {
   target: number;
   /** YYYY-MM, or null when no date was picked. */
   by: string | null;
+  /** Money already in the fund. Missing means none. */
+  saved?: number;
 };
 
 export type SetupAnswers = {
@@ -332,11 +334,11 @@ export function fitToIncome(amounts: Record<string, number>, income: number): Re
 }
 
 /** About how much a month to reach a purchase by the chosen month. Null when there is no date. */
-export function savingsPlanMonthly(target: number, by: string | null, startMonth: string): number | null {
+export function savingsPlanMonthly(target: number, by: string | null, startMonth: string, already = 0): number | null {
   if (!(target > 0) || !by || !/^\d{4}-\d{2}$/.test(by) || !/^\d{4}-\d{2}$/.test(startMonth) || by < startMonth) return null;
   const span = monthsInclusive(startMonth, by);
   if (span <= 0) return null;
-  return Math.ceil((target / span) * 100) / 100;
+  return roundMoney(Math.max(0, target - Math.max(0, already)) / span);
 }
 
 function slugify(name: string): string {
@@ -490,7 +492,8 @@ export function buildSetup(
   const savingsPlans: MoneyBucket[] = [];
   if (answers.savings && answers.savings.name.trim() && answers.savings.target > 0) {
     const by = answers.savings.by && /^\d{4}-\d{2}$/.test(answers.savings.by) ? answers.savings.by : null;
-    const monthly = savingsPlanMonthly(answers.savings.target, by, month) ?? 0;
+    const already = Math.max(0, answers.savings.saved ?? 0);
+    const monthly = savingsPlanMonthly(answers.savings.target, by, month, already) ?? 0;
     savingsPlans.push(
       normalizePlan(
         {
@@ -502,7 +505,7 @@ export function buildSetup(
           target: answers.savings.target,
           by,
           startMonth: month,
-          opening: 0,
+          opening: already,
         },
         month,
       ),
@@ -764,7 +767,7 @@ export function answersFromLedger(input: {
     amountsTouched: expenses.length > 0,
     accounts,
     savings: plan
-      ? { id: plan.id, name: plan.name, target: plan.target && plan.target > 0 ? plan.target : 0, by: plan.by }
+      ? { id: plan.id, name: plan.name, target: plan.target && plan.target > 0 ? plan.target : 0, by: plan.by, saved: plan.opening > 0 ? plan.opening : 0 }
       : null,
     age: input.year != null ? ageInYear(profile.birthYear, input.year) : null,
   };

@@ -801,7 +801,7 @@ function AccountsStep({
   const plan = answers.savings;
   const [byMonth, setByMonth] = useState(plan?.by?.slice(5, 7) ?? "");
   const [byYear, setByYear] = useState(plan?.by?.slice(0, 4) ?? "");
-  const pace = plan ? savingsPlanMonthly(plan.target, plan.by, month) : null;
+  const pace = plan ? savingsPlanMonthly(plan.target, plan.by, month, plan.saved ?? 0) : null;
   return (
     <div className="mt-6 space-y-4">
       <section className="rounded-lg border border-border bg-surface p-3">
@@ -886,7 +886,7 @@ function AccountsStep({
             <Field label="What for">
               <Input
                 value={plan?.name ?? ""}
-                onChange={(event) => onChange({ savings: { id: plan?.id || newId("plan"), name: event.target.value, target: plan?.target ?? 0, by: plan?.by ?? null } })}
+                onChange={(event) => onChange({ savings: { id: plan?.id || newId("plan"), name: event.target.value, target: plan?.target ?? 0, by: plan?.by ?? null, saved: plan?.saved ?? 0 } })}
               />
             </Field>
             <Field label="Goal amount">
@@ -903,9 +903,28 @@ function AccountsStep({
                         return read.invalid ? (plan?.target ?? 0) : Math.max(0, read.amount);
                       })(),
                       by: plan?.by ?? null,
+                      saved: plan?.saved ?? 0,
                     },
                   })
                 }
+              />
+            </Field>
+            <Field label="Already saved">
+              <Input
+                inputMode="decimal"
+                value={plan?.saved ? String(plan.saved) : ""}
+                onChange={(event) => {
+                  const read = optionalAmount(event.target.value);
+                  onChange({
+                    savings: {
+                      id: plan?.id || newId("plan"),
+                      name: plan?.name ?? "",
+                      target: plan?.target ?? 0,
+                      by: plan?.by ?? null,
+                      saved: read.invalid ? (plan?.saved ?? 0) : Math.max(0, read.amount),
+                    },
+                  });
+                }}
               />
             </Field>
             <div className="grid grid-cols-2 gap-2">
@@ -916,7 +935,7 @@ function AccountsStep({
                     const nextMonth = event.target.value;
                     setByMonth(nextMonth);
                     const by = nextMonth && byYear ? `${byYear}-${nextMonth}` : null;
-                    onChange({ savings: { id: plan?.id || newId("plan"), name: plan?.name ?? "", target: plan?.target ?? 0, by } });
+                    onChange({ savings: { id: plan?.id || newId("plan"), name: plan?.name ?? "", target: plan?.target ?? 0, by, saved: plan?.saved ?? 0 } });
                   }}
                 >
                   <option value="">No month</option>
@@ -934,7 +953,7 @@ function AccountsStep({
                     const nextYear = event.target.value;
                     setByYear(nextYear);
                     const by = byMonth && nextYear ? `${nextYear}-${byMonth}` : null;
-                    onChange({ savings: { id: plan?.id || newId("plan"), name: plan?.name ?? "", target: plan?.target ?? 0, by } });
+                    onChange({ savings: { id: plan?.id || newId("plan"), name: plan?.name ?? "", target: plan?.target ?? 0, by, saved: plan?.saved ?? 0 } });
                   }}
                 >
                   <option value="">No year</option>

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { formatMoney } from "@/lib/budget/money";
-import { fiPath, fiWhatIfs, planFi, readFi, savingFromRate, yearsText } from "@/lib/budget/work-optional";
+import { dropSameWhatIfs } from "@/lib/budget/phase4";
+import { fiPath, fiWhatIfs, planFi, readFi, yearsText } from "@/lib/budget/work-optional";
 import { InfoTip } from "../info-tip";
 import { Input } from "../ui/field";
 import { ProgressRing } from "../visuals/progress-ring";
@@ -22,9 +23,7 @@ export function WorkOptionalPage() {
   const spendThisYear = g.book.activeMonths > 0 && g.book.expenses > 0 ? g.book.expenses / g.book.activeMonths : null;
   const spendDefault = spendFact ?? spendThisYear;
   const spend = spendTyped ?? asText(spendDefault);
-  const rateSeen = g.facts.savingsRate ?? (g.book.activeMonths > 0 ? g.book.savingsRate : null);
-  const saveFromRate = spendDefault != null && rateSeen != null ? savingFromRate(spendDefault, Math.max(0, rateSeen)) : null;
-  const saveDefault = g.facts.monthlySaving.value ?? saveFromRate;
+  const saveDefault = g.facts.monthlySaving.value;
   const save = saveTyped ?? asText(saveDefault);
   // No retirement or investment balance in your accounts shows as 0, with a tag that says so.
   const investedDefault = g.facts.saved.value ?? 0;
@@ -135,7 +134,7 @@ export function WorkOptionalPage() {
       }
       advanced={
         g.nerd && input ? (
-          <Sensitivity rows={fiWhatIfs(input).map((row) => ({ label: row.label, value: row.years == null ? "Not within 100 years" : yearsText(row.years) }))} />
+          <Sensitivity rows={dropSameWhatIfs(fiWhatIfs(input).map((row) => ({ label: row.label, value: row.years == null ? "Not within 100 years" : yearsText(row.years) })))} />
         ) : null
       }
     />

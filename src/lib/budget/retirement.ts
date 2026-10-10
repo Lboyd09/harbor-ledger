@@ -433,6 +433,37 @@ export function futuresHeadline(chanceLasts: number): string {
   return `On track in about ${tenths} of 10 futures`;
 }
 
+/** Cap a today's-dollar chart at the retirement-age 90th percentile, plus a little room. */
+export function retirementChartCap(p90AtRetirement: number): number {
+  if (!(p90AtRetirement > 0)) return 0;
+  return roundMoney(p90AtRetirement * 1.25);
+}
+
+/**
+ * Extra monthly saving that reaches the next tenth of futures.
+ * Null when already 10 of 10, or when more than $2,000 a month is required.
+ */
+export function extraMonthlyForNextTenth(
+  raw: RetirementInput,
+  options?: { mean?: number; spread?: number; seed?: number; runs?: number },
+): number | null {
+  const opts = { mean: options?.mean, spread: options?.spread, seed: options?.seed ?? 20261004, runs: options?.runs ?? 40 };
+  const base = retirementMonteCarlo(raw, opts);
+  const tenths = Math.round(base.chanceLasts * 10);
+  if (tenths >= 10) return null;
+  const target = (tenths + 1) / 10;
+  const score = (extra: number) => retirementMonteCarlo({ ...raw, monthlySaving: Math.max(0, raw.monthlySaving) + extra }, opts).chanceLasts;
+  if (score(2000) + 1e-9 < target) return null;
+  let low = 0;
+  let high = 2000;
+  for (let step = 0; step < 6; step++) {
+    const mid = Math.round((low + high) / 2);
+    if (score(mid) + 1e-9 >= target) high = mid;
+    else low = mid;
+  }
+  return high > 0 && high <= 2000 ? high : null;
+}
+
 export function coverageLabel(percent: number): string {
   return percent > 150 ? "More than enough" : `${Math.round(percent)}%`;
 }

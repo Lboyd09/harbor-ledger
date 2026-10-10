@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { debtTimeline } from "@/lib/budget/grow-tables";
 import { firstMissing, readNumber } from "@/lib/budget/calc-input";
 import { debtWhatIfs, extraNeeded, paymentBelowInterest, simulatePayoff } from "@/lib/budget/grow-math";
-import { extraPaymentSavings } from "@/lib/budget/phase4";
+import { dropSameWhatIfs, extraPaymentSavings } from "@/lib/budget/phase4";
 import { formatMoney } from "@/lib/budget/money";
 import { currentMonthKey, monthShort, shiftMonth } from "@/lib/budget/parse-date";
 import { calculatorDebts } from "@/lib/budget/real-debts";
@@ -181,10 +181,10 @@ export function DebtPage() {
       advanced={
         g.nerd && working.length ? (
           <Sensitivity
-            rows={debtWhatIfs(working, extraN).map((row) => ({
+            rows={dropSameWhatIfs(debtWhatIfs(working, extraN).map((row) => ({
               label: row.label,
               value: row.unfinished ? "Not within 50 years" : `${row.months} months, ${formatMoney(row.interest)} interest`,
-            }))}
+            })))}
           />
         ) : null
       }

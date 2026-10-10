@@ -1,6 +1,7 @@
 import { needsPrompt, readNumber } from "@/lib/budget/calc-input";
 import { iraLimitCheck, rothVerdict, rothVsTraditional, rothWhatIfs } from "@/lib/budget/grow-math";
 import { reducedRothLimit } from "@/lib/budget/ira";
+import { dropSameWhatIfs } from "@/lib/budget/phase4";
 import { formatMoney } from "@/lib/budget/money";
 import { InfoTip } from "../info-tip";
 import { RothBars } from "../grow-pictures";
@@ -114,10 +115,10 @@ export function RothPage() {
       advanced={
         g.nerd ? (
           <Sensitivity
-            rows={rothWhatIfs(input).map((row) => ({
+            rows={dropSameWhatIfs(rothWhatIfs(input).map((row) => ({
               label: row.label,
               value: `Roth ${formatMoney(row.roth)}, traditional ${formatMoney(row.traditional)}`,
-            }))}
+            })))}
           />
         ) : null
       }

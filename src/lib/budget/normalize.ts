@@ -113,6 +113,12 @@ function optionalPlanner(p: Record<string, unknown>): Partial<Profile> {
   if (typeof p.savingsGoalRate === "number" && Number.isFinite(p.savingsGoalRate) && p.savingsGoalRate >= 0 && p.savingsGoalRate <= 1) {
     out.savingsGoalRate = p.savingsGoalRate;
   }
+  if (typeof p.employerMatchPercent === "number" && Number.isFinite(p.employerMatchPercent) && p.employerMatchPercent >= 0 && p.employerMatchPercent <= 100) {
+    out.employerMatchPercent = p.employerMatchPercent;
+  }
+  if (typeof p.retirementSavingGoal === "number" && Number.isFinite(p.retirementSavingGoal) && p.retirementSavingGoal >= 0) {
+    out.retirementSavingGoal = p.retirementSavingGoal;
+  }
   return out;
 }
 
