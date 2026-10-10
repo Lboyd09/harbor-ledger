@@ -200,7 +200,7 @@ export function goalPace(bucket: MoneyBucket, balance: number, todayYm: string) 
   if (bucket.target == null || bucket.target <= 0) return null;
   const left = roundMoney(Math.max(0, bucket.target - balance));
   const span = bucket.by && /^\d{4}-\d{2}$/.test(bucket.by) ? monthsInclusive(todayYm, bucket.by) : null;
-  const required = span && span > 0 && left > 0 ? Math.ceil((left / span) * 100) / 100 : left <= 0 ? 0 : null;
+  const required = span && span > 0 && left > 0 ? roundMoney(left / span) : left <= 0 ? 0 : null;
   let projected: string | null = null;
   if (left <= 0) projected = todayYm;
   else if (bucket.monthly > 0) {

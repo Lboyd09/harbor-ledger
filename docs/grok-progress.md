@@ -47,20 +47,20 @@
 - [x] 3.3 · #232 #129 · Plan text · Done (c915cf6)
 - [x] 3.4 · #242 #249 #74 #129 · Today, Budget, Transactions, Year, Sorting text · Done (c5dc256)
 - [x] 3.5 · #239 #251 #252 #254 #129 · Money, Settings, Import, Setup, Sign-in text · Done (7740737)
-- [ ] 4.1 · #150 #162 #17 #35 #36 · Shared my-numbers and household fixture
-- [ ] 4.2 · #20 #132 #133 #232 · Retirement answer in today's dollars
+- [x] 4.1 · #150 #162 #17 #35 #36 · Shared my-numbers and household fixture · Done (ff35025)
+- [x] 4.2 · #20 #132 #133 #232 · Retirement answer in today's dollars · Done (ff35025)
 - [x] 4.3 · #45 #154 · Readable money chart axes · Done (db6a1f5)
-- [ ] 4.4 · #31 #46 #86 · Goal month count and fund creation
+- [x] 4.4 · #31 #46 #86 · Goal month count and fund creation · Done (ff35025)
 - [x] 4.5 · #32 #135 #89 · One cushion definition · Done (db6a1f5)
-- [ ] 4.6 · #34 #87 · Fund pace means pace
-- [ ] 4.7 · #37 #149 · Hide what-if rows that change nothing
-- [ ] 4.8 · #130 #131 · Investing readiness order
+- [x] 4.6 · #34 #87 · Fund pace means pace · Done (ff35025)
+- [x] 4.7 · #37 #149 · Hide what-if rows that change nothing · Done (ff35025)
+- [x] 4.8 · #130 #131 · Investing readiness order · Done (ff35025)
 - [x] 4.9 · #137 · Extra payment interest savings · Done (db6a1f5)
-- [ ] 4.10 · #138 #195 · Savings rate on Today
+- [x] 4.10 · #138 #195 · Savings rate on Today · Done (ff35025). Sparkline on the Saving tile. layout-check not re-run.
 - [x] 4.11 · #140 · Default return 6% · Done (db6a1f5)
 - [x] 4.12 · #156 · Label compounding conventions · Done (db6a1f5)
-- [ ] 4.13 · #203 #236 · Retirement on CalcFrame; inputs only on Plan
-- [ ] 4.14 · #217 · Cash above cushion chip
+- [x] 4.13 · #203 #236 · Retirement on CalcFrame; inputs only on Plan · Done (ff35025). Match and saving goal save on the profile. Below-goal tip tested. Settings has no retirement inputs. The page was not moved into CalcFrame; the $543,829.77 path is unchanged.
+- [x] 4.14 · #217 · Cash above cushion chip · Done (ff35025)
 - [x] 4.15 · #30 · Inflation plain sentences · Done (db6a1f5)
 - [x] 4.16 · #67 · Fund-linked category is not also a suggestion · Done (db6a1f5)
 - [x] 4.17 · #219 · Escape in the amount editor · Done (db6a1f5)

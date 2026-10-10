@@ -1,4 +1,5 @@
 import { roundMoney } from "./money.ts";
+import type { Category, Transaction } from "./types.ts";
 
 export type MyNumbers = {
   monthlyIncome: number;
@@ -49,4 +50,34 @@ export function myNumbers(input: {
     cushionMonths: spend > 0 ? roundMoney(input.cushionCash / spend) : null,
     savingsRate: income > 0 ? roundMoney(monthlySaving / income) : null,
   };
+}
+
+/** Average moved into savings or retirement over the last three complete months. */
+export function actualMonthlySaving(transactions: Transaction[], categories: Category[], todayYm?: string): number | null {
+  const savingIds = new Set(
+    categories
+      .filter((category) => /savings|retirement/i.test(`${category.slug} ${category.name}`))
+      .map((category) => category.id),
+  );
+  if (!savingIds.size) return null;
+  const current = todayYm && /^\d{4}-\d{2}$/.test(todayYm) ? todayYm : latestMonth(transactions);
+  const byMonth = new Map<string, number>();
+  for (const tx of transactions) {
+    if (tx.excluded || !tx.categoryId || !savingIds.has(tx.categoryId)) continue;
+    const ym = tx.date.slice(0, 7);
+    if (!/^\d{4}-\d{2}$/.test(ym) || (current && ym >= current)) continue;
+    byMonth.set(ym, (byMonth.get(ym) ?? 0) + Math.abs(tx.amount));
+  }
+  const months = [...byMonth.keys()].sort().slice(-3);
+  if (!months.length) return null;
+  return roundMoney(months.reduce((sum, ym) => sum + (byMonth.get(ym) ?? 0), 0) / months.length);
+}
+
+function latestMonth(transactions: Transaction[]): string | null {
+  let latest: string | null = null;
+  for (const tx of transactions) {
+    const ym = tx.date.slice(0, 7);
+    if (/^\d{4}-\d{2}$/.test(ym) && (latest == null || ym > latest)) latest = ym;
+  }
+  return latest;
 }

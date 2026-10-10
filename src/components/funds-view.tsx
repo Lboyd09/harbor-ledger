@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
-import { bucketBalance, categorySpend, DEFAULT_FUND_VIEW, fundWindow, fullLineOf, fundingForMonth, goalPace, monthName } from "@/lib/budget/buckets";
+import { bucketBalance, categorySpend, DEFAULT_FUND_VIEW, fundWindow, fullLineOf, fundingForMonth, goalPace, monthName, monthsInclusive } from "@/lib/budget/buckets";
 import { readNumber } from "@/lib/budget/calc-input";
 import { monthLedger } from "@/lib/budget/ledger-month";
 import { displayMerchant } from "@/lib/budget/merchant";
 import { formatMoney } from "@/lib/budget/money";
+import { investingReadiness, scheduleGap } from "@/lib/budget/phase4";
+import { planTotal } from "@/lib/budget/plans";
 import { moneyPicture } from "@/lib/budget/picture";
 import { plannerFacts } from "@/lib/budget/planner";
 import { monthKeyFromDate, monthLabel, monthShort, shiftMonth } from "@/lib/budget/parse-date";
@@ -190,6 +192,18 @@ function FundCard({ fund }: { fund: MoneyBucket }) {
   const negative = balance < -0.004;
   const overflow = balance > line + 0.004;
   const pace = goalPace(fund, balance, ym);
+  const accounts = useBudgetStore((s) => s.accounts ?? []);
+  const balances = useBudgetStore((s) => s.balances ?? []);
+  const debts = useBudgetStore((s) => s.debts ?? []);
+  const elapsed = monthsInclusive(fund.startMonth, ym);
+  const gap = fund.monthly > 0 ? scheduleGap({ monthly: fund.monthly, monthsElapsed: elapsed, balance: Math.max(0, balance - Math.max(0, fund.opening ?? 0)) }) : null;
+  const bills = planTotal(categories);
+  const cushion = moneyPicture({ accounts, balances, debts, funds: [fund], transactions, categories, ym, bills: bills > 0 ? bills : null }).cushionMonths;
+  const highDebt = debts.filter((debt) => debt.balance > 0 && debt.apr > 8).sort((a, b) => b.apr - a.apr)[0];
+  const ready = investingReadiness({
+    monthsSaved: cushion ?? 0,
+    highAprDebt: highDebt ? { name: highDebt.name, apr: highDebt.apr } : null,
+  });
   const putIn = fundingForMonth(fund, month);
   const monthBook = monthLedger(
     { transactions, categories, budgets, buckets: funds, moves, setAsides, style, carryStartMonth: carryStart },
@@ -236,11 +250,13 @@ function FundCard({ fund }: { fund: MoneyBucket }) {
                     : `${formatMoney(pace.left)} to go`
             }
           />
+          {gap ? <p className="mt-2 text-sm">{gap.sentence}</p> : null}
         </div>
       ) : null}
       {showNudge ? (
         <p className="mt-3 text-sm">
           Goal reached · {formatMoney(extra)} extra ·{" "}
+          {ready.step === "ready" ? null : <span>{ready.sentence} </span>}
           <a className="font-medium text-primary" href={`/grow?lump=${Math.round(extra > 0 ? extra : balance)}`}>
             Grow it
           </a>{" "}

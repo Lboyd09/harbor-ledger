@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { fullLineOf, goalPace, monthName, monthsInclusive } from "@/lib/budget/buckets";
 import { readNumber } from "@/lib/budget/calc-input";
+import { monthlyForGoal } from "@/lib/budget/grow-math";
 import { formatMoney, roundMoney } from "@/lib/budget/money";
 import { currentMonthKey } from "@/lib/budget/parse-date";
 import type { MoneyBucket } from "@/lib/budget/types";
@@ -18,7 +19,7 @@ function readFundPrefill() {
   try {
     const raw = sessionStorage.getItem(FUND_PREFILL_KEY);
     if (!raw) return null;
-    return JSON.parse(raw) as { name?: string; target?: number; by?: string | null; monthly?: number };
+    return JSON.parse(raw) as { name?: string; target?: number; by?: string | null; monthly?: number; opening?: number };
   } catch {
     return null;
   }
@@ -54,7 +55,7 @@ export function FundWizard({
   const [amount, setAmount] = useState(prefill?.monthly ? String(prefill.monthly) : "");
   const [seeded, setSeeded] = useState(Boolean(prefill?.monthly));
   const [chosen, setChosen] = useState<string[]>(linkedCategoryId ? [linkedCategoryId] : []);
-  const [opening, setOpening] = useState("");
+  const [opening, setOpening] = useState(prefill?.opening != null && prefill.opening > 0 ? String(prefill.opening) : "");
 
   const yearNow = Number(start.slice(0, 4));
   const years = Array.from({ length: 16 }, (_, i) => String(yearNow + i));
@@ -62,9 +63,10 @@ export function FundWizard({
   const targetRead = readNumber(target);
   const targetN = targetRead != null && targetRead > 0 ? targetRead : 0;
   const span = by && by >= start ? monthsInclusive(start, by) : 0;
-  const suggested = wantsGoal && targetN > 0 && span > 0 ? Math.ceil((targetN / span) * 100) / 100 : null;
   const amountRead = readNumber(amount);
   const openingRead = readNumber(opening);
+  const openingN = openingRead == null ? 0 : Math.max(0, openingRead);
+  const suggested = wantsGoal && targetN > 0 && span > 0 ? monthlyForGoal(targetN, openingN, span) : null;
   const typed = amountRead ?? 0;
   const monthly = per === "year" ? roundMoney(typed / 12) : roundMoney(typed);
   const yearly = per === "year" && typed > 0 ? roundMoney(typed) : null;
@@ -291,7 +293,7 @@ export function FundWizard({
               Back
             </Button>
             <Button onClick={() => setStep(5)}>Continue</Button>
-            <Button variant="ghost" onClick={() => { setOpening(""); setStep(5); }}>
+            <Button variant="ghost" onClick={() => setStep(5)}>
               Skip
             </Button>
           </div>
@@ -310,6 +312,7 @@ export function FundWizard({
                   ? `${formatMoney(monthly)} goes in on the 1st of every month starting this month.`
                   : "Nothing is added automatically. You can move money in later."}
               </p>
+              {openingN > 0 ? <p className="mt-1 text-sm">{formatMoney(openingN)} already in it.</p> : null}
               {pace && preview.target ? (
                 <p className="mt-1 text-sm text-muted">
                   {pace.required != null && preview.by

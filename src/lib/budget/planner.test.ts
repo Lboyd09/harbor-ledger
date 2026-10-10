@@ -87,7 +87,7 @@ test("planner facts come from accounts and spending, not invented balances", () 
   assert.equal(facts.age.source, "typed");
   assert.equal(facts.saved.value, 12000);
   assert.equal(facts.saved.source, "from your accounts");
-  assert.equal(facts.incomeWantedYearly.source, "from your spending");
-  assert.equal(facts.incomeWantedYearly.value, 2000 * 12 * 0.8);
+  assert.equal(facts.incomeWantedYearly.source, "from your plan");
+  assert.equal(facts.incomeWantedYearly.value, 1000 * 12 * 0.8);
   assert.equal(facts.saved.value != null && facts.incomeWantedYearly.value !== 0, true);
 });

@@ -3,6 +3,7 @@ import { readLoan } from "@/lib/budget/calc-input";
 import { loanCompare } from "@/lib/budget/grow-math";
 import { amortizationSchedule } from "@/lib/budget/grow-tables";
 import { formatMoney } from "@/lib/budget/money";
+import { dropSameWhatIfs } from "@/lib/budget/phase4";
 import { Input } from "../ui/field";
 import { CalcFrame, Field, Sensitivity, YearTable } from "./frame";
 import { useGrow } from "./grow-context";
@@ -92,18 +93,21 @@ export function LoanPage() {
       advanced={
         g.nerd && read.ok ? (
           <Sensitivity
-            rows={[
-              { label: "No extra", value: `${termLabel(plain.extraMonths)} · ${formatMoney(plain.interest)}` },
-              { label: "With this extra", value: `${termLabel(result.extraMonths)} · ${formatMoney(result.extraInterest)}` },
-              { label: "This extra saves", value: formatMoney(saved) },
-              {
-                label: "Extra $100 more",
-                value: (() => {
-                  const more = loanCompare({ balance: balanceN, apr: aprN, years: yearsN, extra: extraN + 100 });
-                  return more.unfinished ? "—" : `${termLabel(more.extraMonths)} · saves ${formatMoney(Math.max(0, plain.interest - more.extraInterest))}`;
-                })(),
-              },
-            ]}
+            rows={dropSameWhatIfs(
+              [
+                { label: "No extra", value: `${termLabel(plain.extraMonths)} · ${formatMoney(plain.interest)}` },
+                { label: "With this extra", value: `${termLabel(result.extraMonths)} · ${formatMoney(result.extraInterest)}` },
+                { label: "This extra saves", value: formatMoney(saved) },
+                {
+                  label: "Extra $100 more",
+                  value: (() => {
+                    const more = loanCompare({ balance: balanceN, apr: aprN, years: yearsN, extra: extraN + 100 });
+                    return more.unfinished ? "—" : `${termLabel(more.extraMonths)} · saves ${formatMoney(Math.max(0, plain.interest - more.extraInterest))}`;
+                  })(),
+                },
+              ],
+              `${termLabel(result.extraMonths)} · ${formatMoney(result.extraInterest)}`,
+            )}
           />
         ) : null
       }

@@ -4,7 +4,7 @@ import { Footnote } from "@/components/footnote";
 import { InfoTip } from "@/components/info-tip";
 import { factNote, readNumber } from "@/lib/budget/calc-input";
 import { axisMoney, formatCompact, formatMoney } from "@/lib/budget/money";
-import { coverageLabel, futuresHeadline } from "@/lib/budget/retirement";
+import { coverageLabel, extraMonthlyForNextTenth, futuresHeadline, monteCarloInTodaysDollars, retirementChartCap } from "@/lib/budget/retirement";
 import { moneyPicture } from "@/lib/budget/picture";
 import { assumptionLines } from "@/lib/budget/reference";
 import { projectRetirement, retirementInputFrom, retirementMonteCarlo, retirementSensitivity, type SensitivityRow } from "@/lib/budget/retirement";
@@ -71,7 +71,11 @@ export function RetirementCard() {
   const [retire, setRetire] = useState("67");
   const [saved, setSaved] = useState("");
   const [monthly, setMonthly] = useState("");
-  const [match, setMatch] = useState("0");
+  const patchProfile = useBudgetStore((s) => s.patchProfile);
+  const savedMatch = useBudgetStore((s) => s.profile.employerMatchPercent);
+  const savedGoal = useBudgetStore((s) => s.profile.retirementSavingGoal);
+  const [match, setMatch] = useState(savedMatch == null ? "" : String(savedMatch));
+  const [goal, setGoal] = useState(savedGoal == null ? "" : String(savedGoal));
   const [low, setLow] = useState("4");
   const [mid, setMid] = useState("7");
   const [high, setHigh] = useState("10");
@@ -88,7 +92,6 @@ export function RetirementCard() {
     setRetire(String(facts.retireAge.value ?? 67));
     setSaved(facts.saved.value == null ? "" : String(Math.round(facts.saved.value)));
     setMonthly(facts.monthlySaving.value == null ? "" : String(Math.round(facts.monthlySaving.value)));
-    setWanted(facts.incomeWantedYearly.value == null ? "" : String(Math.round(facts.incomeWantedYearly.value)));
     setInflation(String(Math.round((facts.inflation.value ?? 0.02) * 1000) / 10));
     setWithdrawal(String(Math.round((facts.withdrawal.value ?? 0.04) * 1000) / 10));
     setLow(String(Math.round(facts.returns.conservative * 1000) / 10));
@@ -136,11 +139,21 @@ export function RetirementCard() {
   const meanN = readNumber(mean);
   const spreadN = readNumber(spread);
   const monte = useMemo(() => {
-    if (!nerd || !input || meanN == null || spreadN == null) return null;
-    return retirementMonteCarlo(input, { mean: meanN / 100, spread: spreadN / 100, seed: 20261004, runs: 1000 });
-  }, [nerd, input, meanN, spreadN]);
+    if (!input || meanN == null || spreadN == null) return null;
+    const raw = retirementMonteCarlo(input, { mean: meanN / 100, spread: spreadN / 100, seed: 20261004, runs: 200 });
+    return { ...raw, points: monteCarloInTodaysDollars(raw.points, input.inflation, input.age) };
+  }, [input, meanN, spreadN]);
+  const extraTenth = useMemo(() => {
+    if (!input || meanN == null || spreadN == null) return null;
+    return extraMonthlyForNextTenth(input, { mean: meanN / 100, spread: spreadN / 100, seed: 20261004, runs: 30 });
+  }, [input, meanN, spreadN]);
   const wantedKnown = Boolean(input && input.incomeWantedYearly > 0);
-  const tips = tipsFor("retirement", tipFacts);
+  const tips = tipsFor("retirement", {
+    ...tipFacts,
+    employerMatch: readNumber(match),
+    monthlySaving: readNumber(monthly),
+    retirementGoal: readNumber(goal),
+  });
   const firstTip = tips[0];
   const moreTips = tips.slice(1);
   const lines = assumptionLines(ASSUMPTIONS);
@@ -174,10 +187,18 @@ export function RetirementCard() {
           <Input className="mt-1" inputMode="decimal" aria-label="Saving each month" value={monthly} onChange={(e) => edit(setMonthly, e.target.value)} />
         </Labeled>
         <Labeled label="Employer match %">
-          <Input className="mt-1" inputMode="decimal" aria-label="Employer match percent" placeholder="50 = half of what you save" value={match} onChange={(e) => edit(setMatch, e.target.value)} />
+          <Input className="mt-1" inputMode="decimal" aria-label="Employer match percent" placeholder="50 = half of what you save" value={match} onChange={(e) => edit(setMatch, e.target.value)} onBlur={() => patchProfile({ employerMatchPercent: readNumber(match) })} />
+        </Labeled>
+        <Labeled label="Saving goal each month">
+          <Input className="mt-1" inputMode="decimal" aria-label="Retirement saving goal" value={goal} onChange={(e) => edit(setGoal, e.target.value)} onBlur={() => patchProfile({ retirementSavingGoal: readNumber(goal) })} />
         </Labeled>
         <Labeled label="Income wanted each year" note={noteOf(facts.incomeWantedYearly)}>
           <Input className="mt-1" inputMode="decimal" aria-label="Income wanted" value={wanted} onChange={(e) => edit(setWanted, e.target.value)} />
+          {wanted.trim() === "" && facts.incomeWantedYearly.value != null ? (
+            <button type="button" className="mt-1 text-left text-sm text-primary" onClick={() => edit(setWanted, String(Math.round(facts.incomeWantedYearly.value ?? 0)))}>
+              Use 80% of your plan: {formatMoney(facts.incomeWantedYearly.value)}/yr
+            </button>
+          ) : null}
         </Labeled>
         <Labeled label="Social Security each month">
           <Input className="mt-1" inputMode="decimal" aria-label="Social Security monthly" placeholder="0 if none" value={social} onChange={(e) => edit(setSocial, e.target.value)} />
@@ -209,6 +230,7 @@ export function RetirementCard() {
               {formatMoney(expected.real)} at {result.retireAge}
             </p>
             {monte ? <p className="text-sm">{futuresHeadline(monte.chanceLasts)} · in today's dollars</p> : <p className="text-sm">in today's dollars</p>}
+            {extraTenth != null ? <p className="text-sm">Saving {formatMoney(extraTenth)} more a month makes it {Math.min(10, Math.round((monte?.chanceLasts ?? 0) * 10) + 1)} of 10</p> : null}
             {wantedKnown ? (
               <p className="text-sm text-muted">
                 {result.coveredPercent > 150 ? "More than enough" : `Covers ${result.coveredPercent}% of your goal`}
@@ -228,7 +250,7 @@ export function RetirementCard() {
               <LineChart data={chart}>
                 <CartesianGrid stroke="var(--color-border)" vertical={false} />
                 <XAxis dataKey="age" type="number" domain={["dataMin", "dataMax"]} tick={{ fontSize: 12, fill: "var(--color-muted)" }} />
-                <YAxis tick={AXIS} width={56} tickFormatter={(value) => axisMoney(Number(value))} />
+                <YAxis tick={AXIS} width={56} domain={monte && result ? [0, retirementChartCap(monte.points.find((point) => point.age === result.retireAge)?.p90 ?? 0) || "auto"] : undefined} tickFormatter={(value) => axisMoney(Number(value))} />
                 <Tooltip formatter={(value) => formatMoney(Number(Array.isArray(value) ? value[0] : value))} />
                 <ReferenceLine x={result.retireAge} stroke="var(--color-warn)" label={{ value: "Retire", fontSize: 11, fill: "var(--color-muted)" }} />
                 <Line type="monotone" dataKey="Low" stroke="var(--color-muted)" dot={false} isAnimationActive={lively} />
@@ -312,7 +334,10 @@ export function RetirementCard() {
             <details className="rounded-lg border border-border bg-surface p-3">
               <summary className="min-h-11 cursor-pointer text-sm font-medium">If a number moves</summary>
               <ul className="mt-2 space-y-1 text-xs text-muted">
-                {sense.map((row) => (
+                {sense
+                  .filter((row) => formatMoney(row.real) !== formatMoney(expected?.real ?? 0))
+                  .filter((row, index, list) => list.findIndex((prior) => formatMoney(prior.real) === formatMoney(row.real)) === index)
+                  .map((row) => (
                   <li key={row.label}>{senseLine(row)}</li>
                 ))}
               </ul>
@@ -338,7 +363,7 @@ export function RetirementCard() {
                   <LineChart data={monte.points}>
                     <CartesianGrid stroke="var(--color-border)" vertical={false} />
                     <XAxis dataKey="age" tick={AXIS} />
-                    <YAxis tick={AXIS} width={56} tickFormatter={(value) => axisMoney(Number(value))} />
+                    <YAxis tick={AXIS} width={56} domain={monte && result ? [0, retirementChartCap(monte.points.find((point) => point.age === result.retireAge)?.p90 ?? 0) || "auto"] : undefined} tickFormatter={(value) => axisMoney(Number(value))} />
                     <Tooltip formatter={(value) => formatMoney(Number(Array.isArray(value) ? value[0] : value))} />
                     <Line type="monotone" dataKey="p10" name="Low 10%" stroke="var(--color-muted)" dot={false} isAnimationActive={lively} />
                     <Line type="monotone" dataKey="p50" name="Middle" stroke="var(--color-primary)" strokeWidth={2} dot={false} isAnimationActive={lively} />

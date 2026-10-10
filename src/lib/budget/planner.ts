@@ -1,11 +1,13 @@
 import { latestBalance } from "./accounts.ts";
 import { dataDepth, savingsRateSeries, typicalMonth } from "./analytics-depth.ts";
+import { actualMonthlySaving } from "./my-numbers.ts";
 import { roundMoney } from "./money.ts";
+import { planTotal } from "./plans.ts";
 import { DEFAULT_INFLATION, DEFAULT_RETIRE_AGE, DEFAULT_WITHDRAWAL, PLANNING_MARKET, figureById, figureLine } from "./reference.ts";
 import type { Account, BalancePoint, Category, Profile, Transaction } from "./types.ts";
 import { median } from "./year.ts";
 
-export type FactSource = "from your accounts" | "from your spending" | "from your income" | "typed" | "default";
+export type FactSource = "from your accounts" | "from your spending" | "from your income" | "from your plan" | "typed" | "default";
 
 export type Fact = {
   value: number | null;
@@ -70,7 +72,10 @@ export function plannerFacts(input: {
       ? roundMoney(Math.max(0, typical.moneyIn - typical.moneyOut))
       : null;
   const monthly = kept ?? (savingsRate != null && income > 0 ? roundMoney(Math.max(0, savingsRate * income)) : null);
-  const wanted = typical && typical.moneyOut > 0 ? roundMoney(typical.moneyOut * 12 * 0.8) : null;
+  const planned = planTotal(input.categories);
+  const wantedBase = planned > 0 ? planned : (typical?.moneyOut ?? 0);
+  const wanted = wantedBase > 0 ? roundMoney(wantedBase * 12 * 0.8) : null;
+  const moved = actualMonthlySaving(input.transactions, input.categories);
   const fixed = typical ? roundMoney(typical.fixed.reduce((sum, row) => sum + row.typical, 0)) : null;
 
   let saved = 0;
@@ -119,17 +124,19 @@ export function plannerFacts(input: {
       ? { value: roundMoney(owed), source: "from your accounts", note: "Credit card balances." }
       : { value: null, source: "typed", note: "No card balance yet." },
     monthlySaving:
-      monthly != null
-        ? {
-            value: monthly,
-            source: kept != null ? "from your income" : "from your income",
-            note: kept != null ? "A typical month of income, minus a typical month of spending." : "Median savings rate, times monthly income.",
-          }
-        : { value: null, source: "typed", note: "Not enough history to guess monthly saving." },
+      moved != null
+        ? { value: moved, source: "from your accounts", note: "Average moved into savings over the last three complete months." }
+        : monthly != null
+          ? { value: monthly, source: "from your income", note: "A typical month of income, minus a typical month of spending." }
+          : { value: null, source: "typed", note: "Not enough history to guess monthly saving." },
     incomeWantedYearly:
       wanted != null
-        ? { value: wanted, source: "from your spending", note: "80 percent of a typical year of spending." }
-        : { value: null, source: "typed", note: "Need at least two months of spending." },
+        ? {
+            value: wanted,
+            source: planned > 0 ? "from your plan" : "from your spending",
+            note: planned > 0 ? "80 percent of a year of your plan." : "80 percent of a typical year of spending.",
+          }
+        : { value: null, source: "typed", note: "Need a plan or two months of spending." },
     inflation: {
       value: inflation,
       source: profile.plannerInflation != null ? "typed" : "default",

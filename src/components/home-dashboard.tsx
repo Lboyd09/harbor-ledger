@@ -1,11 +1,13 @@
 import { Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { recurringBills } from "@/lib/budget/analytics-depth";
+import { recurringBills, savingsRateSeries } from "@/lib/budget/analytics-depth";
 import { safeToSpend } from "@/lib/budget/buckets";
 import { daysLeftInMonth, weeklySafe } from "@/lib/budget/dashboard";
 import { monthLedger, safeBreakdown } from "@/lib/budget/ledger-month";
 import { formatMoney } from "@/lib/budget/money";
 import { moneyPicture } from "@/lib/budget/picture";
+import { investingReadiness } from "@/lib/budget/phase4";
+import { planTotal } from "@/lib/budget/plans";
 import { plannerFacts } from "@/lib/budget/planner";
 import { isDemoLedger } from "@/lib/budget/onboarding-plan";
 import { coverSentence, queueStats, reviewQueue } from "@/lib/budget/review-queue";
@@ -20,6 +22,27 @@ function todayIso() {
   const now = new Date();
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+}
+
+function Spark({ points }: { points: number[] }) {
+  const recent = points.slice(-6);
+  if (recent.length < 2) return null;
+  const min = Math.min(...recent);
+  const max = Math.max(...recent);
+  const width = 72;
+  const height = 22;
+  const d = recent
+    .map((point, index) => {
+      const x = (index / (recent.length - 1)) * width;
+      const y = max === min ? height / 2 : height - ((point - min) / (max - min)) * (height - 2) - 1;
+      return `${index === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(" ");
+  return (
+    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} aria-hidden className="text-primary">
+      <path d={d} fill="none" stroke="currentColor" strokeWidth="1.5" />
+    </svg>
+  );
 }
 
 function shortDate(iso: string) {
@@ -53,6 +76,8 @@ export function HomeDashboard() {
     () => plannerFacts({ profile, accounts, balances, transactions, categories, year: Number(ym.slice(0, 4)) }),
     [profile, accounts, balances, transactions, categories, ym],
   );
+  const planned = planTotal(categories, ym, monthBudgets ?? []);
+  const series = savingsRateSeries(transactions, categories);
   const picture = moneyPicture({
     accounts,
     balances,
@@ -62,7 +87,12 @@ export function HomeDashboard() {
     categories,
     moves: moves ?? [],
     ym,
-    bills: facts.typicalFixed.value ?? facts.typicalSpendMonthly.value,
+    bills: planned > 0 ? planned : (facts.typicalFixed.value ?? facts.typicalSpendMonthly.value),
+  });
+  const highDebt = (debts ?? []).filter((debt) => debt.balance > 0 && debt.apr > 8).sort((a, b) => b.apr - a.apr)[0];
+  const ready = investingReadiness({
+    monthsSaved: picture.cushionMonths ?? 0,
+    highAprDebt: highDebt ? { name: highDebt.name, apr: highDebt.apr } : null,
   });
   const safe = safeToSpend({
     ym,
@@ -148,12 +178,14 @@ export function HomeDashboard() {
           <p className="text-sm text-muted">Saving</p>
           <p className="money font-display tabular" data-money>{facts.savingsRate == null ? "—" : `${Math.round(facts.savingsRate * 100)}% of income`}</p>
           <p className="text-xs text-muted">goal 15–20%</p>
+          {series ? <Spark points={series.map((point) => point.rate)} /> : null}
         </Link>
         <Link to="/funds" data-tile className="min-w-0 rounded-lg border border-border bg-surface p-3 max-[419px]:col-span-2">
           <p className="text-sm text-muted">Net worth</p>
           <p className="money break-words font-display tabular" data-money>{formatMoney(picture.net, { signed: true })}</p>
         </Link>
       </section>
+      {ready.step === "ready" ? null : <p className="text-sm">{ready.sentence}</p>}
       {sample ? (
         <section className="rounded-lg border border-border bg-surface p-4">
           <p className="text-sm">Sample budget. Start yours anytime.</p>

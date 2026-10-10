@@ -2,6 +2,8 @@ import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YA
 import { needsPrompt } from "@/lib/budget/calc-input";
 import { sensitivityOf, yearRows } from "@/lib/budget/grow-tables";
 import { axisMoney, formatMoney } from "@/lib/budget/money";
+import { dropSameWhatIfs, investingReadiness } from "@/lib/budget/phase4";
+import { debtsInNetWorth } from "@/lib/budget/real-debts";
 import { Input } from "../ui/field";
 import { SharedRates } from "./editors";
 import { CalcFrame, Field, Sensitivity, YearTable } from "./frame";
@@ -21,7 +23,14 @@ export function MonthlyPage() {
     "the ending balance",
   );
   const rows = yearRows({ principal: g.principalN, monthly: g.monthlyN, years: g.yearCount, rate: g.market, inflation: g.inflationRate, today: g.today });
+  const highDebt = debtsInNetWorth(g.debts, g.accounts, g.balances).filter((debt) => debt.balance > 0 && debt.apr > 8).sort((a, b) => b.apr - a.apr)[0];
+  const ready = investingReadiness({
+    monthsSaved: g.picture.cushionMonths ?? 0,
+    highAprDebt: highDebt ? { name: highDebt.name, apr: highDebt.apr } : null,
+  });
   return (
+    <div className="space-y-3">
+    {ready.step === "ready" ? null : <p className="text-sm">{ready.sentence}</p>}
     <CalcFrame
       question="What if you add money every month?"
       headline={missing ? undefined : { value: formatMoney(end?.balance ?? 0), sub: `you put in ${formatMoney(end?.contributed ?? 0)}` }}
@@ -71,14 +80,15 @@ export function MonthlyPage() {
       advanced={
         g.nerd ? (
           <Sensitivity
-            rows={sensitivityOf(
+            rows={dropSameWhatIfs(sensitivityOf(
               (next, add) => yearRows({ principal: g.principalN, monthly: add, years: g.yearCount, rate: next, inflation: g.inflationRate, today: g.today }).at(-1)?.balance ?? 0,
               g.market,
               g.monthlyN,
-            ).map((row) => ({ label: row.label, value: formatMoney(row.value) }))}
+            ).map((row) => ({ label: row.label, value: formatMoney(row.value) })))}
           />
         ) : null
       }
     />
+    </div>
   );
 }

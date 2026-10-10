@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { needsPrompt, readNumber } from "@/lib/budget/calc-input";
 import { inflated } from "@/lib/budget/grow-math";
+import { dropSameWhatIfs } from "@/lib/budget/phase4";
 import { formatMoney } from "@/lib/budget/money";
 import { Input } from "../ui/field";
 import { CalcFrame, Field, Sensitivity, YearTable } from "./frame";
@@ -86,11 +87,11 @@ export function InflationPage() {
       advanced={
         g.nerd ? (
           <Sensitivity
-            rows={[
+            rows={dropSameWhatIfs([
               { label: "Inflation 2 points lower", value: formatMoney(inflated(pile, yearCount, Math.max(0, inflation - 2)).buyingPower) },
               { label: "Inflation as entered", value: formatMoney(result.buyingPower) },
               { label: "Inflation 2 points higher", value: formatMoney(inflated(pile, yearCount, inflation + 2).buyingPower) },
-            ]}
+            ])}
           />
         ) : null
       }

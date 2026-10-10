@@ -5,7 +5,7 @@ export const queueFundWizard = (categoryId?: string) => {
   sessionStorage.setItem(FUND_LINK_KEY, categoryId ?? "");
 };
 
-export function queueFundFromGoal(prefill: { name: string; target: number; by: string | null; monthly: number }) {
+export function queueFundFromGoal(prefill: { name: string; target: number; by: string | null; monthly: number; opening?: number }) {
   sessionStorage.setItem(FUND_PREFILL_KEY, JSON.stringify(prefill));
   sessionStorage.setItem(FUND_LINK_KEY, "");
 }

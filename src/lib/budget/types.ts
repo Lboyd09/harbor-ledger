@@ -74,6 +74,10 @@ export type Profile = {
   returnBand?: { conservative: number; expected: number; optimistic: number };
   /** Share of income the person said they want to save. Missing means they have not said. */
   savingsGoalRate?: number;
+  /** Employer match as a percent of what you save. Missing means not entered. */
+  employerMatchPercent?: number | null;
+  /** Monthly retirement saving the person wants. Missing means not entered. */
+  retirementSavingGoal?: number | null;
   /** True while the sample household is loaded. Starting your own budget clears it. */
   demo?: boolean;
 };
