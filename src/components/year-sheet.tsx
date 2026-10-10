@@ -119,7 +119,7 @@ export function YearSheet({ embedded = false }: { embedded?: boolean }) {
       <div className="mx-auto max-w-lg space-y-4 py-6">
         <h1 className="font-display text-3xl font-semibold">Year sheet</h1>
         <p className="text-sm text-muted">
-          Import a bank CSV and this page becomes a 12-month grid of every income source and expense category.
+          Import a file to fill the year.
         </p>
         <Link to="/import">
           <Button>Import a CSV</Button>
@@ -132,15 +132,11 @@ export function YearSheet({ embedded = false }: { embedded?: boolean }) {
     <div className="space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         {embedded ? (
-          <p className="max-w-xl text-sm text-muted">Months across, categories down. Scroll sideways on a phone.</p>
+          <p className="max-w-xl text-sm text-muted">{formatMoney(book.income)} in · {formatMoney(book.expenses)} out</p>
         ) : (
           <div>
             <h1 className="font-display text-2xl font-semibold md:text-3xl">{year} sheet</h1>
-            <p className="mt-2 max-w-2xl text-sm text-muted">
-              Months across, categories down. Typical is the median of months with activity. A blank plan uses that typical
-              amount to judge on-track vs over.
-            </p>
-            <p className="mt-2 text-sm text-muted">
+            <p className="mt-2 text-sm text-muted" title="Typical is the median of months with activity. A blank plan uses that typical amount.">
               {formatMoney(book.income)} in · {formatMoney(book.expenses)} out ·{" "}
               <span className={book.net < 0 ? "text-danger" : "text-good"}>
                 {formatMoney(book.net, { signed: true })} saved

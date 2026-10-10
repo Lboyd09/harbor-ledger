@@ -128,7 +128,7 @@ test("surplus suggestions rank leftovers and shrink after a set-aside", () => {
   );
   assert.ok(ranked[0].amount > ranked[1].amount);
   assert.match(ranked[0].fundLabel, /Add/);
-  assert.match(ranked[0].growLabel, /grow/);
+  assert.match(ranked[0].growLabel, /Grow/);
   const after = surplusSuggestions(
     { ...source, setAsides: [{ id: "s", ym: "2026-03", categoryId: "food", fundId: "trip", amount: ranked[0].amount }] },
     "2026-03",

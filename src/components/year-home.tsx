@@ -46,7 +46,7 @@ function CategoryYear({
         <div>
           <h2 className="font-display text-xl font-semibold">{row.name}</h2>
           <p className="text-sm text-muted">
-            {formatMoney(row.yearTotal)} this year. Tap a month to open it.
+            {formatMoney(row.yearTotal)} this year.
           </p>
         </div>
         <button type="button" className="text-sm text-muted" onClick={onClose}>
@@ -138,13 +138,10 @@ export function YearHome() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="sr-only">{year}</h1>
-          <p className="mt-1 max-w-xl text-sm text-muted">
-            Open a month, or tap a category. The budget for those categories is on Budget.
-          </p>
         </div>
         <YearSwitcher />
       </div>
-      <ReadoutCard transactions={transactions} categories={categories} title="What this year already shows" />
+      <ReadoutCard transactions={transactions} categories={categories} title="This year" />
 
       <div className="flex flex-wrap gap-1">
         {(
@@ -207,8 +204,7 @@ export function YearHome() {
       ) : (
         <>
       <section>
-        <h2 className="font-display text-xl font-semibold">Open a month</h2>
-        <p className="mt-1 mb-3 text-sm text-muted">Tap a month to edit its transactions.</p>
+        <h2 className="mb-3 font-display text-xl font-semibold">Open a month</h2>
         <MonthRail
           months={monthsOfYear(year)}
           active={activeMonth}
@@ -220,14 +216,14 @@ export function YearHome() {
       {picked ? <CategoryYear id={picked} book={book} transactions={transactions} onClose={() => setPicked(null)} onOpenMonth={openMonth} /> : null}
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <List title="Income" hint="Tap one to see the year">
+        <List title="Income" hint="">
           {income.map((r) => (
             <Row key={r.id} name={r.name} amount={formatMoney(r.yearTotal)} note={`${formatMoney(r.typical)} typical / mo`} onClick={() => setPicked(r.id)} />
           ))}
           <Row name="Total income" amount={formatMoney(book.income)} strong />
           {income.length === 0 ? <p className="px-4 py-4 text-sm text-muted">No income categorized yet.</p> : null}
         </List>
-        <List title="Expenses" hint="Tap one to see the year">
+        <List title="Expenses" hint="">
           {expenses.map((r) => (
             <Row
               key={r.id}
@@ -244,7 +240,7 @@ export function YearHome() {
 
       <section className="rounded-lg border border-border bg-surface p-4">
         <h2 className="font-display text-xl font-semibold">Income and spending</h2>
-        <p className="mt-1 mb-3 text-sm text-muted">Green stayed. Red left. A purchase someone paid back is in neither bar.</p>
+        <p className="mt-1 mb-3 text-sm text-muted">In · Out</p>
         <div className="chart-rise">
           <CashChart
             data={chart}
@@ -282,7 +278,7 @@ function YearCharts({ book }: { book: YearWorkbook }) {
     <div className="space-y-6">
       <section className="rounded-lg border border-border bg-surface p-4">
         <h2 className="font-display text-xl font-semibold">Income and spending by month</h2>
-        <p className="mt-1 mb-3 text-sm text-muted">Green stayed. Red left. Paybacks are in neither.</p>
+        <p className="mt-1 mb-3 text-sm text-muted">In · Out</p>
         <div className="chart-rise">
         <CashChart
           data={bars}
@@ -316,7 +312,7 @@ function YearCharts({ book }: { book: YearWorkbook }) {
       </section>
       <section className="rounded-lg border border-border bg-surface p-4">
         <h2 className="font-display text-xl font-semibold">Where the year went</h2>
-        <p className="mt-1 mb-3 text-sm text-muted">Largest spending categories. Money a store gave back is already taken out.</p>
+        <p className="mt-1 mb-3 text-sm text-muted">Biggest categories</p>
         <div className="chart-rise">
         <CashChart data={cats} layout="vertical" bars={[{ key: "Spent", fill: "var(--color-danger)" }]} />
         </div>

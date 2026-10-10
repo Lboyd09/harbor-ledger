@@ -3,7 +3,6 @@ import { monthEndForecast } from "@/lib/budget/analytics";
 import { amountDraft, usualAmountCommit } from "@/lib/budget/amount-input";
 import { incomeStability, typicalMonth } from "@/lib/budget/analytics-depth";
 import { monthLedger } from "@/lib/budget/ledger-month";
-import { TERMS } from "@/lib/copy/terms";
 import { formatMoney } from "@/lib/budget/money";
 import { newId } from "@/lib/budget/ids";
 import { bucketBalance } from "@/lib/budget/buckets";
@@ -22,41 +21,10 @@ import { useMoneySide } from "./use-money-side";
 import { Button } from "./ui/button";
 import { Input } from "./ui/field";
 
-export function AmountsPage({ showStyle = true }: { showStyle?: boolean }) {
+export function AmountsPage() {
   const style: BudgetStyle = useBudgetStore((s) => (s.profile.budgetStyle === "buckets" ? "buckets" : "monthly"));
-  const setBudgetStyle = useBudgetStore((s) => s.setBudgetStyle);
   return (
     <div className="space-y-6">
-      {showStyle ? (
-        <>
-          <p className="max-w-xl text-sm text-muted">
-            Rent, groceries, insurance, and eating out live here. A savings fund is separate and is not this budget.
-          </p>
-          <div className="grid gap-2 sm:grid-cols-2" role="group" aria-label="How leftover spending works">
-            <button
-              type="button"
-              aria-pressed={style === "monthly"}
-              className={`min-h-11 rounded-md border px-3 py-2 text-left text-sm ${style === "monthly" ? "border-primary bg-chip" : "border-border bg-surface"}`}
-              onClick={() => setBudgetStyle("monthly")}
-            >
-              <span className="font-medium">{TERMS.monthlyReset}</span>
-              <span className="mt-1 block text-muted">Each spending category starts over.</span>
-            </button>
-            <button
-              type="button"
-              aria-pressed={style === "buckets"}
-              className={`min-h-11 rounded-md border px-3 py-2 text-left text-sm ${style === "buckets" ? "border-primary bg-chip" : "border-border bg-surface"}`}
-              onClick={() => setBudgetStyle("buckets")}
-            >
-              <span className="font-medium">{TERMS.carryOver}</span>
-              <span className="mt-1 block text-muted">Leftover spending stays in that category.</span>
-            </button>
-          </div>
-          <p className="text-sm text-muted">
-            Income is not part of this choice. Pay changes, so it is compared with what usually comes in. One category can do the other. Open it and switch. Nothing already saved is deleted.
-          </p>
-        </>
-      ) : null}
       <BudgetSides style={style} />
     </div>
   );
@@ -218,13 +186,13 @@ function BudgetSides({ style }: { style: BudgetStyle }) {
       <section className="rounded-lg border border-border bg-surface p-4">
         <p className="font-display text-xl font-semibold">{lead.sentence}</p>
         {lead.cover ? <p className={`mt-1 text-sm ${lead.warn ? "text-danger" : "text-muted"}`}>{lead.cover}</p> : null}
-        {forecast?.sentence ? <p className="mt-2 text-sm">{forecast.sentence}</p> : null}
+        {forecast ? <p className="mt-2 text-sm">On pace: {formatMoney(forecast.projectedLeft, { signed: true })} by month end</p> : null}
         {ideas.map((idea) => (
           <div key={idea.id} className="mt-2 flex flex-wrap items-center gap-2 text-sm">
             <span>{idea.sentence}</span>
             {idea.suggested != null ? (
               <Button size="sm" variant="outline" onClick={() => updateCategory(idea.id, { plannedMonthly: idea.suggested as number })}>
-                Add {formatMoney(idea.suggested)}
+                Use
               </Button>
             ) : null}
           </div>
@@ -234,7 +202,7 @@ function BudgetSides({ style }: { style: BudgetStyle }) {
       <div className="grid min-w-0 gap-6 lg:grid-cols-2">
       <section className={`min-w-0 space-y-3 ${side === "in" ? "block" : "hidden"} lg:block`}>
         <h2 className="font-display text-lg font-semibold">Money in</h2>
-        <p className="text-sm text-muted">What arrived, next to what usually arrives. Nothing rolls into next month.</p>
+
         {steady ? <p className="text-sm text-muted">Pay has ranged from {formatMoney(steady.low)} to {formatMoney(steady.high)}. {steady.sentence}</p> : null}
         <ul className="space-y-3">
           {income.map((row) => {
@@ -247,7 +215,7 @@ function BudgetSides({ style }: { style: BudgetStyle }) {
                 <SideHead row={row} />
                 {due ? <p className="mt-2 text-sm font-medium">{due}</p> : null}
                 <label className="mt-3 block text-xs text-muted">
-                  Usual amount, if you want one
+                  Usual amount
                   <AmountField
                     className="mt-1 max-w-xs"
                     aria-label={`Usual amount for ${category.name}`}
@@ -274,11 +242,6 @@ function BudgetSides({ style }: { style: BudgetStyle }) {
 
       <section className={`min-w-0 space-y-3 ${side === "out" ? "block" : "hidden"} lg:block`}>
         <h2 className="font-display text-lg font-semibold">Money out</h2>
-        <p className="text-sm text-muted">
-          {style === "buckets"
-            ? "What’s left stays in the category. The bar is that leftover, full at three months of the amount."
-            : "The bar is what you spent against this month’s amount. Next month starts over."}
-        </p>
         {expenses.length === 0 ? (
           <div className="rounded-lg border border-dashed border-line px-4 py-6 text-center">
             <EmptyArt kind="budget" />

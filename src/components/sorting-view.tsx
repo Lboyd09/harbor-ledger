@@ -133,21 +133,21 @@ export function SortingView() {
       <div>
         <h1 className="font-display text-2xl font-semibold md:text-3xl">Sorting</h1>
         <p className="mt-2 max-w-2xl text-sm text-muted">
-          Each name has one default category. Those categories are the budget: rent, groceries, insurance, eating out. Changing a name here changes every month, except charges you set by hand.
+          Changes apply to every month.
         </p>
       </div>
       <HomeMenu current="rules" />
       {openNames > 0 ? (
         <button type="button" className="w-full rounded-lg border border-primary/40 bg-surface p-4 text-left" onClick={() => setQueueOpen(true)}>
           <div className="font-display text-xl font-semibold">{openNames} {openNames === 1 ? "name" : "names"} still to sort</div>
-          <p className="mt-1 text-sm text-muted">Opens the same sort screen used everywhere else.</p>
+
         </button>
       ) : null}
       {queueOpen ? <SortQueue onDone={() => setQueueOpen(false)} /> : null}
       {!transactions.length ? (
         <div className="rounded-lg border border-dashed border-line px-4 py-6 text-center">
           <EmptyArt kind="sorting" />
-          <p className="text-sm">No names yet. A bank file is how they show up.</p>
+          <p className="text-sm">Import a file to see names.</p>
           <Link to="/import" className="mt-3 inline-flex">
             <Button>Add your first bank file</Button>
           </Link>

@@ -24,7 +24,7 @@ export function CarryStartControl() {
   return (
     <section className="rounded-lg border border-border bg-surface p-4">
       <h2 className="font-display text-lg font-semibold">When leftovers start</h2>
-      <p className="mt-1 text-sm text-muted">Past months will show what you would have carried. This does not delete anything.</p>
+      <p className="mt-1 text-sm text-muted">Nothing is deleted.</p>
       {current ? <p className="mt-1 text-sm">Leftovers start in {monthLabel(current)}.</p> : null}
       {first && current && first < current && asked !== first ? (
         <div className="mt-3 rounded-md border border-border bg-bg p-3 text-sm">

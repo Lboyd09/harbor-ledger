@@ -89,7 +89,7 @@ export function TransactionsPage() {
       <div className="mx-auto max-w-lg space-y-4">
         <h2 className="font-display text-2xl font-semibold">Start with one month</h2>
         <p className="text-sm text-muted">
-          Import a bank file, then categorize each charge. That is the whole start. Tap a row later to split it or mark it paid back.
+          Import a bank file to begin.
         </p>
         <div className="flex flex-wrap gap-2">
           <Link to="/import"><Button>Import a CSV</Button></Link>
@@ -112,7 +112,7 @@ export function TransactionsPage() {
             {stillComing.slice(0, 6).map((item) => (
               <li key={item.merchantKey}>
                 {item.description} · {formatMoney(item.usual)} · {item.nextDate}
-                {item.status === "late" ? " · this looks late" : ""}
+                {item.status === "late" ? " · late" : ""}
               </li>
             ))}
           </ul>
@@ -143,13 +143,13 @@ export function TransactionsPage() {
         <section className="rounded-lg border border-warn/50 bg-surface p-4">
           <h2 className="font-display text-xl font-semibold">Left out of income ({hiddenDeposits.length})</h2>
           <p className="mt-1 text-sm text-muted">
-            These deposits were filed as transfers, so they are not in income. Count them if the money is yours. Open a row if it pays back a purchase.
+            Left out of income. Yours? Count them.
           </p>
           <Button className="mt-3" size="sm" onClick={() => {
             const n = countHiddenDeposits();
             setNotice(n ? `Counted ${n} deposit${n === 1 ? "" : "s"} as income.` : "Those deposits are already in income.");
           }}>
-            Count every hidden deposit as income
+            Count all as income
           </Button>
           <ul className="mt-3 divide-y divide-border border-t border-border">
             {hiddenDeposits.map((t) => (
@@ -172,7 +172,7 @@ export function TransactionsPage() {
       <Section
         title="Money in"
         kicker="Money in"
-        hint="Tap a category to see the deposits."
+        hint=""
         groups={layout.income}
         empty="No income in this month."
         tone="in"
@@ -190,7 +190,7 @@ export function TransactionsPage() {
       <Section
         title="Money out"
         kicker="Money out"
-        hint="Tap a category to see the charges. Tap a charge to change where it goes."
+        hint=""
         groups={layout.expenses}
         empty="No expenses in this month."
         tone="out"
@@ -209,7 +209,7 @@ export function TransactionsPage() {
         <details className="rounded-lg border border-border bg-surface">
           <summary className="cursor-pointer px-4 py-3 text-sm font-medium">Card payments and account moves ({hiddenOut.length})</summary>
           <p className="px-4 pb-3 text-sm text-muted">
-            A payment to a credit card is not new spending — the purchases are already in expenses. These stay out so you do not count them twice.
+            Already counted as purchases.
           </p>
           <ul className="divide-y divide-border border-t border-border">
             {hiddenOut.map((t) => (

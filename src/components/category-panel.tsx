@@ -77,7 +77,7 @@ export function LeftoversCard({ limit = 3 }: { limit?: number }) {
   if (!suggestions.length && !undo) return null;
   return (
     <section className="rounded-lg border border-border bg-surface p-4">
-      <h2 className="font-display text-lg font-semibold">Put leftovers to work</h2>
+      <h2 className="font-display text-lg font-semibold">Extra money this month</h2>
       {undo ? (
         <p className="mt-2 flex flex-wrap items-center gap-2 text-sm">
           <span>{undo.name} was set aside.</span>
@@ -96,7 +96,7 @@ export function LeftoversCard({ limit = 3 }: { limit?: number }) {
       <ul className="mt-3 space-y-3">
         {suggestions.map((item) => (
           <li key={item.categoryId}>
-            <LeftoverActions categoryId={item.categoryId} name={item.name} amount={item.amount} ym={ym} fromEarlier={item.fromEarlier} onSaved={(id) => setUndo({ id, name: item.name })} />
+            <LeftoverActions categoryId={item.categoryId} name={item.name} amount={item.amount} ym={ym} onSaved={(id) => setUndo({ id, name: item.name })} />
           </li>
         ))}
       </ul>
@@ -109,14 +109,12 @@ function LeftoverActions({
   name,
   amount,
   ym,
-  fromEarlier,
   onSaved,
 }: {
   categoryId: string;
   name: string;
   amount: number;
   ym: string;
-  fromEarlier?: number | null;
   onSaved?: (id: string) => void;
 }) {
   const funds = useBudgetStore((s) => s.moneyBuckets) ?? [];
@@ -136,8 +134,7 @@ function LeftoverActions({
   return (
     <div className="text-sm">
       <p>
-        {name} has {shown} that can move.
-        {fromEarlier != null ? ` includes ${formatMoney(fromEarlier)} from earlier.` : ""}
+        Savings transfers: {shown} spare
       </p>
       <div className="mt-2 flex flex-wrap items-center gap-2">
         {funds.length ? (
@@ -151,7 +148,7 @@ function LeftoverActions({
               ))}
             </Select>
             <Button size="sm" onClick={add} disabled={!fund}>
-              Add {shown} to {fund?.name ?? "a fund"}
+              Move
             </Button>
           </>
         ) : (
@@ -162,11 +159,11 @@ function LeftoverActions({
               void navigate({ to: "/funds" });
             }}
           >
-            Make a fund
+            Move
           </Button>
         )}
         <a className="inline-flex min-h-11 items-center text-sm font-medium text-primary" href={`/grow?lump=${Math.round(amount)}`}>
-          See what it could grow to
+          Grow it
         </a>
       </div>
     </div>
@@ -270,9 +267,7 @@ function CategoryPanel({ categoryId, initialYm, onClose }: { categoryId: string;
           <span className="font-medium">This month: {story.thisMonth}.</span>
           {story.fromEarlier !== 0 ? ` From earlier: ${formatMoney(story.fromEarlier)}.` : ` ${story.detail}`}
         </p>
-      ) : (
-        <p className="mt-3 text-sm text-muted">Income is compared with what usually comes in. It does not carry.</p>
-      )}
+      ) : null}
       {linked ? (
         <a className="mt-2 inline-flex min-h-11 items-center text-sm font-medium text-primary" href={`/funds#fund-${linked.id}`}>
           Fund balance {formatMoney(bucketBalance(linked, ym, transactions, categories, bucketMoves ?? []))}
