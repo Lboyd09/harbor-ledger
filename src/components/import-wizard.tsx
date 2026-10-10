@@ -9,7 +9,7 @@ import {
   storedFileBalance,
 } from "@/lib/budget/accounts";
 import { parseCsvText, remapPreview } from "@/lib/budget/csv";
-import { fileChecklist, guessAccountKind, inferIncomeStreams, type IncomeSuggestion } from "@/lib/budget/file-inference";
+import { fileChecklist, fileCounts, guessAccountKind, inferIncomeStreams, type IncomeSuggestion } from "@/lib/budget/file-inference";
 import { formatMoney } from "@/lib/budget/money";
 import type { Account, AccountKind, Category, ColumnRole, CsvPreview, ImportBatch, IncomeCadence, Profile } from "@/lib/budget/types";
 import { useBudgetStore } from "@/store/budget-store";
@@ -303,6 +303,16 @@ export function ImportWizard() {
               {preview.guessedSource} · {preview.rows.length} rows · {fileAccount.name}
             </span>
           </div>
+          {(() => {
+            const counts = fileCounts(preview.rows);
+            const first = preview.rows[0]?.date;
+            const last = preview.rows.at(-1)?.date;
+            return (
+              <p className="text-sm">
+                We found {counts.total} transactions{first && last ? ` from ${first} to ${last}` : ""}: {counts.deposits} deposits, {counts.payments} payments. Look right?
+              </p>
+            );
+          })()}
           {preview.issues.length ? (
             <ul className="list-disc pl-5 text-sm text-warn">
               {preview.issues.map((issue) => (

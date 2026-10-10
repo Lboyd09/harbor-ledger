@@ -9,6 +9,9 @@ import type { Account, BalancePoint, Category, Transaction } from "./types.ts";
 test("an old profile without a birth year still loads", () => {
   const loaded = normalizeProfile({ ledgerName: "Old", monthlyIncome: 10, completedOnboarding: true });
   assert.equal(loaded.birthYear, undefined);
+  assert.equal(loaded.detail, "simple");
+  assert.equal(loaded.motion, "calm");
+  assert.equal(normalizeProfile({ ledgerName: "Moving", motion: "lively" }).motion, "lively");
   assert.equal(loaded.retireAge, undefined);
   assert.equal(loaded.plannerInflation, undefined);
   assert.equal(loaded.ledgerName, "Old");

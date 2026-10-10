@@ -8,6 +8,13 @@ import type { AccountKind, BalancePoint, Category, IncomeCadence, IncomeStream, 
 
 export type AccountGuess = { kind: AccountKind; reason: string };
 
+export function fileCounts(rows: { amount: number | null }[]): { total: number; deposits: number; payments: number } {
+  const live = rows.filter((row): row is { amount: number } => row.amount != null && Number.isFinite(row.amount) && row.amount !== 0);
+  const deposits = live.filter((row) => row.amount > 0).length;
+  const payments = live.filter((row) => row.amount < 0).length;
+  return { total: live.length, deposits, payments };
+}
+
 export type IncomeSuggestion = {
   name: string;
   amount: number;

@@ -200,7 +200,7 @@ function Login() {
           </Field>
           {error ? <p className="text-sm text-danger">{error}</p> : null}
           <Button type="submit" className="w-full" disabled={busy || !authEnabled}>
-            {busy ? "Working…" : mode === "in" ? "Sign in with email" : "Create account and save ledger"}
+            {busy ? "Working…" : mode === "in" ? "Sign in" : "Create free account"}
           </Button>
         </form>
 

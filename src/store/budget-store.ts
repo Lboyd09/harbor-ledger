@@ -134,8 +134,10 @@ type State = LedgerSnapshot & {
   addAccount: (input: { name: string; kind: AccountKind; institution?: string | null }) => string;
   updateAccount: (id: string, patch: Partial<Pick<Account, "name" | "kind" | "institution" | "growth">>) => void;
   removeAccount: (id: string) => boolean;
+  archiveAccount: (id: string) => boolean;
+  undoLast: () => boolean;
   addBalance: (accountId: string, amount: number, date?: string) => void;
-  addCash: (amount: number, date?: string) => string;
+  addCash: (amount: number, date?: string, name?: string) => string;
   addInvestment: (input: { name?: string | null; pick: "brokerage" | "roth" | "traditional" | "401k" | "other"; amount: number; date?: string }) => string;
   addSetAside: (input: { ym: string; categoryId: string; fundId: string | null; amount: number }) => string;
   removeSetAside: (id: string) => void;
@@ -176,6 +178,12 @@ function snapshotOf(s: LedgerSnapshot): LedgerSnapshot {
     activeMonth: s.activeMonth,
     activeWeek: s.activeWeek,
   };
+}
+
+let lastUndo: LedgerSnapshot | null = null;
+
+function captureUndo(state: LedgerSnapshot) {
+  lastUndo = snapshotOf(state);
 }
 
 let persistTimer: ReturnType<typeof setTimeout> | null = null;
@@ -367,6 +375,7 @@ export const useBudgetStore = create<State>()(
         schedulePersist();
       },
       setBudgetStyle: (style, options) => {
+        captureUndo(get());
         const profile = get().profile;
         let carryStartMonth = options?.carryStartMonth;
         if (style === "buckets" && !carryStartMonth && !profile.carryStartMonth) {
@@ -402,12 +411,33 @@ export const useBudgetStore = create<State>()(
         schedulePersist();
       },
       removeAccount: (id) => {
-        if (!(get().accounts ?? []).some((account) => account.id === id)) return false;
-        if (accountHasActivity(id, get().transactions, get().imports ?? [])) return false;
-        set({
-          accounts: (get().accounts ?? []).filter((account) => account.id !== id),
-          balances: (get().balances ?? []).filter((point) => point.accountId !== id),
-        });
+        const accounts = get().accounts ?? [];
+        if (!accounts.some((account) => account.id === id)) return false;
+        captureUndo(get());
+        if (accountHasActivity(id, get().transactions, get().imports ?? [])) {
+          set({ accounts: accounts.map((account) => (account.id === id ? { ...account, archived: true } : account)) });
+        } else {
+          set({
+            accounts: accounts.filter((account) => account.id !== id),
+            balances: (get().balances ?? []).filter((point) => point.accountId !== id),
+          });
+        }
+        schedulePersist();
+        return true;
+      },
+      archiveAccount: (id) => {
+        const accounts = get().accounts ?? [];
+        if (!accounts.some((account) => account.id === id)) return false;
+        captureUndo(get());
+        set({ accounts: accounts.map((account) => (account.id === id ? { ...account, archived: true } : account)) });
+        schedulePersist();
+        return true;
+      },
+      undoLast: () => {
+        if (!lastUndo) return false;
+        const snap = lastUndo;
+        lastUndo = null;
+        set({ ...snap });
         schedulePersist();
         return true;
       },
@@ -425,9 +455,9 @@ export const useBudgetStore = create<State>()(
         set({ balances: [...(get().balances ?? []), point] });
         schedulePersist();
       },
-      addCash: (amount, date) => {
+      addCash: (amount, date, name) => {
         const day = date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : todayInput();
-        const next = quickCash(get().accounts ?? [], get().balances ?? [], amount, day);
+        const next = quickCash(get().accounts ?? [], get().balances ?? [], amount, day, name);
         if (!next) return "";
         const id = next.accounts.find((account) => account.kind === "cash")?.id ?? "";
         set({ accounts: next.accounts, balances: next.balances });
@@ -529,6 +559,7 @@ export const useBudgetStore = create<State>()(
         schedulePersist();
       },
       updateCategory: (id, patch) => {
+        captureUndo(get());
         const current = get().categories.find((category) => category.id === id);
         let monthBudgets = get().monthBudgets ?? [];
         if (current && patch.plannedMonthly != null && Number.isFinite(patch.plannedMonthly) && patch.plannedMonthly !== current.plannedMonthly) {
@@ -1144,6 +1175,7 @@ export const useBudgetStore = create<State>()(
         void flushPersist();
       },
       deleteTransaction: (id) => {
+        captureUndo(get());
         set({ transactions: get().transactions.filter((t) => t.id !== id) });
         schedulePersist();
       },

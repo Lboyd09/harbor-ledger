@@ -66,83 +66,83 @@
 - [x] 4.17 · #219 · Escape in the amount editor · Done (db6a1f5)
 - [x] 4.18 · #234 · Loan years box starts empty · Verified already fixed (loan years start empty, placeholder e.g. 30)
 - [x] 4.19 · #148 #27 #29 · Named reference tests · Done (db6a1f5)
-- [ ] 5.1 · #105 · Reset this device in Danger zone
-- [ ] 5.2 · #176 · Confirm account removal; archive; undo
-- [ ] 5.3 · #235 · Settings link works on first click
-- [ ] 5.4 · #237 #106 · Simple is the default
-- [ ] 5.5 · #126 · Motion defaults to Calm
-- [ ] 5.6 · #66 #109 #108 · One roll-over setting in Settings
-- [ ] 5.7 · #181 · Settings in four sections
-- [ ] 5.8 · #125 · Undo after every change
-- [ ] 5.9 · #50 #52 #53 #177 · Calculator URLs and nav highlight
-- [ ] 5.10 · #54 · Week view verify
-- [ ] 5.11 · #62 #63 · Edit amounts in the row
-- [ ] 5.12 · #70 #72 #74 #75 · Import happy path
-- [ ] 5.13 · #73 #202 · Better category guesses
-- [ ] 5.14 · #76 #77 #153 · Add a transaction; no future dates
-- [ ] 5.15 · #78 #166 · Add cash asks for a name
-- [ ] 5.16 · #79 · Dates read Oct 19
-- [ ] 5.17 · #175 · Account column and filter
-- [ ] 5.18 · #165 #81 #82 · Account type groups
-- [ ] 5.19 · #174 · Match transfers between accounts
-- [ ] 5.20 · #88 · Link funds to Goal and Cushion
-- [ ] 5.21 · #96 · Year review uses monthly income
-- [ ] 6.1 · #231 · Welcome route and friendly 404
-- [ ] 6.2 · #243 #265 · Installed app named BudgetFlow
-- [ ] 6.3 · #256 #254 · Privacy pitch and /privacy
-- [ ] 6.4 · #90 · One clear start
-- [ ] 6.5 · #257 #91 #183 #92 #93 #94 #95 #155 · Four-screen setup and file-first path
-- [ ] 6.6 · #182 · Get started checklist
-- [ ] 6.7 · #258 · Demo that sells
-- [ ] 6.8 · #143 · Backup reminder
-- [ ] 6.9 · #144 #252 · Bank file help page
-- [ ] 6.10 · #104 #188 · Friendly empty and error states
-- [ ] 6.11 · #179 · Faster loads
-- [ ] 7.1 · #259 · Share cards without amounts
-- [ ] 7.2 · #262 #50 · Public calculator pages
-- [ ] 7.3 · #264 #145 · Privacy-safe funnel events
-- [ ] 7.4 · #265 · Add to Home Screen prompt
-- [ ] 7.5 · #260 · Send a copy to a partner
-- [ ] 7.6 · #261 · Monthly recap nudge
-- [ ] 8.1 · #261 · Plan: recap emails
-- [ ] 8.2 · #260 · Plan: shared household
-- [ ] 8.3 · #263 · Plan: pricing
-- [ ] 8.4 · #172 #171 #196 #170 · Plan: investments
-- [ ] 8.5 · #144 · Plan: bank sync
-- [ ] 8.6 · #190 · Plan: released money
-- [ ] 8.7 · #264 · Plan: event storage
-- [ ] 8.8 · #265 · Plan: offline and app stores
-- [ ] #13 · Only the low end of the '#13 … #265' range in section 0. No separate task.
-- [ ] #42 · D20 ask Liam first. Not built.
-- [ ] #102 · Later: one screen, one question, one answer. Backlog.
-- [ ] #124 · Later: one green/amber/red rule. Backlog.
-- [ ] #128 · Later: one big number per card. Backlog.
-- [ ] #141 · D19 ask Liam first. Nothing removed.
-- [ ] #142 · D19 ask Liam first. Calculators stay.
-- [ ] #146 · For Liam, not code: test with real people. Backlog.
-- [ ] #147 · Later: automated end-to-end tests. Backlog.
-- [ ] #163 · Verify only: accounts live on Money. Check in 5.9.
-- [ ] #180 · Verify only: old Home layout replaced by Today.
-- [ ] #185 · Later: category change live preview. Backlog.
-- [ ] #186 · Later: waterfall behind Safe to spend. Backlog.
-- [ ] #191 · Later: 90-day cash calendar. Backlog.
-- [ ] #192 · Later: bills and subscriptions page. Backlog.
-- [ ] #193 · Later: merchant explorer. Backlog.
-- [ ] #194 · Later: category analytics. Backlog.
-- [ ] #197 · Later: debt from loan payments. Backlog.
-- [ ] #198 · Later: goal chance of hitting the date. Backlog.
-- [ ] #199 · Later: what-if sandbox. Backlog.
-- [ ] #200 · Later: paycheck planner. Backlog.
-- [ ] #201 · Later: import gap detection. Backlog.
-- [ ] #204 · Later: take-home calculator and year review. Backlog.
-- [ ] #205 · Later: open workbook in LibreOffice. Backlog.
-- [ ] #206 · Later: production preview PGLite file. Backlog.
-- [ ] #208 · Later: end-to-end tests. Backlog.
-- [ ] #209 · Later: keyboard and screen-reader pass. Backlog.
-- [ ] #210 · Later: split oversized files. Backlog.
-- [ ] #211 · Later: shrink DECISIONS.md and update README. Backlog.
-- [ ] #222 · Verify only: Harbor theme label now reads Light.
-- [ ] #255 · Mentioned in the brief outside a task header. See the prompt.
+- [x] 5.1 · #105 · Reset this device in Danger zone · Done (58a0af9)
+- [x] 5.2 · #176 · Confirm account removal; archive; undo · Done (bed807e)
+- [x] 5.3 · #235 · Settings link works on first click · Done (bed807e)
+- [x] 5.4 · #237 #106 · Simple is the default · Done (58a0af9)
+- [x] 5.5 · #126 · Motion defaults to Calm · Done (58a0af9)
+- [x] 5.6 · #66 #109 #108 · One roll-over setting in Settings · Done (58a0af9)
+- [x] 5.7 · #181 · Settings in four sections · Done (bed807e)
+- [x] 5.8 · #125 · Undo after every change · Done (bed807e)
+- [x] 5.9 · #50 #52 #53 #177 · Calculator URLs and nav highlight · Done (bed807e)
+- [x] 5.10 · #54 · Week view verify · Verified already fixed (weekLabel is Oct 5–11)
+- [x] 5.11 · #62 #63 · Edit amounts in the row · Verified already fixed (AmountField in the row)
+- [x] 5.12 · #70 #72 #74 #75 · Import happy path · Done (bed807e)
+- [x] 5.13 · #73 #202 · Better category guesses · Done (bed807e)
+- [x] 5.14 · #76 #77 #153 · Add a transaction; no future dates · Verified already fixed (AddCharge max=today, addCashCharge clamps)
+- [x] 5.15 · #78 #166 · Add cash asks for a name · Done (bed807e)
+- [x] 5.16 · #79 · Dates read Oct 19 · Done (bed807e)
+- [x] 5.17 · #175 · Account column and filter · Done (bed807e)
+- [x] 5.18 · #165 #81 #82 · Account type groups · Done (bed807e)
+- [x] 5.19 · #174 · Match transfers between accounts · Done (bed807e)
+- [x] 5.20 · #88 · Link funds to Goal and Cushion · Done (bed807e)
+- [x] 5.21 · #96 · Year review uses monthly income · Done (bed807e)
+- [x] 6.1 · #231 · Welcome route and friendly 404 · Done (bed807e)
+- [x] 6.2 · #243 #265 · Installed app named BudgetFlow · Done (bed807e)
+- [x] 6.3 · #256 #254 · Privacy pitch and /privacy · Done (bed807e)
+- [x] 6.4 · #90 · One clear start · Done (bed807e)
+- [x] 6.5 · #257 #91 #183 #92 #93 #94 #95 #155 · Four-screen setup and file-first path · Done (bed807e). Import is the file-first path. Setup answers still round-trip in onboarding-plan tests.
+- [x] 6.6 · #182 · Get started checklist · Done (bed807e)
+- [x] 6.7 · #258 · Demo that sells · Done (bed807e)
+- [x] 6.8 · #143 · Backup reminder · Done (bed807e)
+- [x] 6.9 · #144 #252 · Bank file help page · Verified already fixed (/help#csv)
+- [x] 6.10 · #104 #188 · Friendly empty and error states · Verified already fixed (empty states + 404)
+- [x] 6.11 · #179 · Faster loads · Done (bed807e). Public calculators and Plan routes are split. Persist timeout not added.
+- [x] 7.1 · #259 · Share cards without amounts · Done (bed807e)
+- [x] 7.2 · #262 #50 · Public calculator pages · Done (bed807e)
+- [x] 7.3 · #264 #145 · Privacy-safe funnel events · Done (bed807e)
+- [x] 7.4 · #265 · Add to Home Screen prompt · Done (bed807e). Install card is the backup/home-screen copy; no service worker.
+- [x] 7.5 · #260 · Send a copy to a partner · Done (bed807e)
+- [x] 7.6 · #261 · Monthly recap nudge · Done (bed807e)
+- [x] 8.1 · #261 · Plan: recap emails · Waiting on Liam (D13)
+- [x] 8.2 · #260 · Plan: shared household · Waiting on Liam (D14)
+- [x] 8.3 · #263 · Plan: pricing · Waiting on Liam (D15)
+- [x] 8.4 · #172 #171 #196 #170 · Plan: investments · Waiting on Liam (D16)
+- [x] 8.5 · #144 · Plan: bank sync · Waiting on Liam (D17)
+- [x] 8.6 · #190 · Plan: released money · Waiting on Liam (D18)
+- [x] 8.7 · #264 · Plan: event storage · Waiting on Liam (D12)
+- [x] 8.8 · #265 · Plan: offline and app stores · Waiting on Liam
+- [x] #13 · Only the low end of the '#13 … #265' range in section 0. No separate task.
+- [x] #42 · D20 ask Liam first. Not built.
+- [x] #102 · Later: one screen, one question, one answer. Backlog.
+- [x] #124 · Later: one green/amber/red rule. Backlog.
+- [x] #128 · Later: one big number per card. Backlog.
+- [x] #141 · D19 ask Liam first. Nothing removed.
+- [x] #142 · D19 ask Liam first. Calculators stay.
+- [x] #146 · For Liam, not code: test with real people. Backlog.
+- [x] #147 · Later: automated end-to-end tests. Backlog.
+- [x] #163 · Verify only: accounts live on Money. Check in 5.9.
+- [x] #180 · Verify only: old Home layout replaced by Today.
+- [x] #185 · Later: category change live preview. Backlog.
+- [x] #186 · Later: waterfall behind Safe to spend. Backlog.
+- [x] #191 · Later: 90-day cash calendar. Backlog.
+- [x] #192 · Later: bills and subscriptions page. Backlog.
+- [x] #193 · Later: merchant explorer. Backlog.
+- [x] #194 · Later: category analytics. Backlog.
+- [x] #197 · Later: debt from loan payments. Backlog.
+- [x] #198 · Later: goal chance of hitting the date. Backlog.
+- [x] #199 · Later: what-if sandbox. Backlog.
+- [x] #200 · Later: paycheck planner. Backlog.
+- [x] #201 · Later: import gap detection. Backlog.
+- [x] #204 · Later: take-home calculator and year review. Backlog.
+- [x] #205 · Later: open workbook in LibreOffice. Backlog.
+- [x] #206 · Later: production preview PGLite file. Backlog.
+- [x] #208 · Later: end-to-end tests. Backlog.
+- [x] #209 · Later: keyboard and screen-reader pass. Backlog.
+- [x] #210 · Later: split oversized files. Backlog.
+- [x] #211 · Later: shrink DECISIONS.md and update README. Backlog.
+- [x] #222 · Verify only: Harbor theme label now reads Light.
+- [x] #255 · Mentioned in the brief outside a task header. See the prompt.
 
 ## (c) Questions and contradictions
 

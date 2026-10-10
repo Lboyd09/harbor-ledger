@@ -226,14 +226,14 @@ test("cash and investment quick add, and home groups stay in order", () => {
   ]);
   assert.deepEqual(
     groups.map((group) => group.id),
-    ["bank", "savings", "investing", "owed"],
+    ["cash", "investing", "owed"],
   );
   assert.deepEqual(
     groups[0].rows.map((row) => row.id),
-    ["h", "k"],
+    ["s", "h", "k"],
   );
   assert.deepEqual(
-    groups[2].rows.map((row) => row.id),
+    groups[1].rows.map((row) => row.id),
     ["i", "r"],
   );
 });

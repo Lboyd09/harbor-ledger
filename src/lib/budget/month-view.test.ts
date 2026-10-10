@@ -2,7 +2,14 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { merchantKey } from "./merchant.ts";
 import { groupMonth } from "./month-view.ts";
+import { formatDay } from "./parse-date.ts";
 import type { Category, Transaction } from "./types.ts";
+
+test("formatDay reads Oct 19 and adds the year only for another year", () => {
+  const now = new Date(2026, 9, 9);
+  assert.equal(formatDay("2026-10-19", now), "Oct 19");
+  assert.equal(formatDay("2025-10-19", now), "Oct 19, 2025");
+});
 
 const cats: Category[] = [
   { id: "pay", slug: "paycheck", name: "Paycheck", kind: "income", plannedMonthly: 3000 },

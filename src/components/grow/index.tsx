@@ -54,17 +54,49 @@ const PAGE_IDS = new Set<GrowPage>([
   "roth",
 ]);
 
+const PATH_TO_PAGE: Record<string, GrowPage> = {
+  retire: "retire",
+  debt: "debt",
+  goal: "goal",
+  cushion: "cushion",
+  "put-to-work": "work",
+  roth: "roth",
+  loan: "loan",
+  "work-optional": "free",
+  worth: "worth",
+  monthly: "monthly",
+  double: "double",
+  inflation: "inflation",
+};
+
+const PAGE_TO_PATH: Partial<Record<GrowPage, string>> = {
+  retire: "retire",
+  debt: "debt",
+  goal: "goal",
+  cushion: "cushion",
+  work: "put-to-work",
+  roth: "roth",
+  loan: "loan",
+  free: "work-optional",
+  worth: "worth",
+  monthly: "monthly",
+  double: "double",
+  inflation: "inflation",
+};
+
 function pageFromUrl(): GrowPage | null {
   if (typeof window === "undefined") return null;
+  const part = window.location.pathname.split("/")[2];
+  if (part && PATH_TO_PAGE[part]) return PATH_TO_PAGE[part];
   const q = new URLSearchParams(window.location.search).get("q");
+  if (q && PATH_TO_PAGE[q]) return PATH_TO_PAGE[q];
   return q && PAGE_IDS.has(q as GrowPage) ? (q as GrowPage) : null;
 }
 
 function rememberPage(next: GrowPage) {
   if (typeof window === "undefined") return;
-  const url = new URL(window.location.href);
-  url.searchParams.set("q", next);
-  window.history.replaceState(null, "", `${url.pathname}${url.search}`);
+  const slug = PAGE_TO_PATH[next] ?? next;
+  window.history.pushState(null, "", `/grow/${slug}`);
 }
 
 function GrowShell() {

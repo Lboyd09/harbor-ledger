@@ -6,7 +6,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
-export const DEFAULT_APP_NAME = "Grok App";
+export const DEFAULT_APP_NAME = "BudgetFlow";
 export const OG_SERVICE_URL_DEFAULT = "https://og.grok.me";
 export const OG_SITE_REL_PATH = "src/lib/og/site.json";
 
@@ -167,13 +167,25 @@ export function renderWebManifest(hostHeader) {
       start_url: "/",
       scope: "/",
       display: "standalone",
-      background_color: "#000000",
-      theme_color: "#000000",
+      description: "A private budget from your bank's download. No bank login.",
+      background_color: "#f3eee5",
+      theme_color: "#1f4d38",
       icons: [
         {
           src: "/__grok/icon-180.png",
           sizes: "180x180",
           type: "image/png",
+        },
+        {
+          src: "/favicon.svg",
+          sizes: "192x192",
+          type: "image/svg+xml",
+        },
+        {
+          src: "/favicon.svg",
+          sizes: "512x512",
+          type: "image/svg+xml",
+          purpose: "any maskable",
         },
       ],
     },

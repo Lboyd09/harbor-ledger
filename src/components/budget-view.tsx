@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { recurringBills } from "@/lib/budget/analytics-depth";
 import { monthLedger } from "@/lib/budget/ledger-month";
 import { formatMoney } from "@/lib/budget/money";
-import { monthLabel } from "@/lib/budget/parse-date";
+import { formatDay, monthLabel } from "@/lib/budget/parse-date";
 import { FRESH_EACH_MONTH } from "@/lib/budget/presets";
 import { stillComingThisMonth, yearlyComingLine } from "@/lib/budget/screen-plan";
 import { categoryCarries } from "@/lib/budget/style";
@@ -22,9 +22,7 @@ function todayIso() {
 }
 
 function shortDate(iso: string) {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
-  if (!match) return iso;
-  return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3])).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return formatDay(iso);
 }
 
 export function BudgetView({ page }: { page: "month" | "amounts" | "transactions" }) {

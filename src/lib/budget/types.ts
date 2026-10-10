@@ -46,7 +46,7 @@ export type Profile = {
   budgetPeriod: BudgetPeriod;
   /** Paper color. Missing on older ledgers — treat as harbor. */
   accent?: HarborLook;
-  /** Motion level. Missing on older ledgers — treat as lively. */
+  /** Motion level. Missing on older ledgers — treat as calm. */
   motion?: HarborMotion;
   /** Type size. Missing on older ledgers — treat as normal. */
   textSize?: TextSize;
@@ -322,6 +322,7 @@ export type Account = {
   institution?: string | null;
   createdAt: string;
   growth?: AccountGrowth | null;
+  archived?: boolean;
 };
 
 /** A balance for one account. Investment and retirement accounts can live on these alone. */

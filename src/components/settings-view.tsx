@@ -6,7 +6,6 @@ import { emailStatus, sendConfirmationEmail, sendOwnResetLink } from "@/lib/budg
 import { deleteAccount, issueRecoveryCode } from "@/lib/budget/persist";
 import { HOUSEHOLD_LABELS, HOUSING_LABELS, STAGE_LABELS } from "@/lib/budget/presets";
 import { formatMoney } from "@/lib/budget/money";
-import { TERMS } from "@/lib/copy/terms";
 import { CarryStartControl } from "./carry-start";
 import type { DetailMode, HarborLook, HarborMotion, TextSize } from "@/lib/budget/types";
 import { useBudgetStore } from "@/store/budget-store";
@@ -29,53 +28,10 @@ export function SettingsView() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-8">
-      <div>
-        <h1 className="font-display text-3xl font-semibold">Settings</h1>
-        <p className="mt-3 text-sm">
-          <Link to="/funds" className="font-medium text-primary">Open accounts on Money</Link>
-        </p>
-        <LeftoverStyle />
-        <section className="mt-4 space-y-2 rounded-lg border border-border bg-surface p-4">
-          <h2 className="font-display text-lg font-semibold">Go to</h2>
-          <div className="flex flex-col gap-2 text-sm">
-            <Link to="/" className="font-medium text-primary">Today</Link>
-            <Link to="/budget" className="font-medium text-primary">Budget</Link>
-            <Link to="/funds" className="font-medium text-primary">Money</Link>
-            <Link to="/grow" className="font-medium text-primary">Plan</Link>
-            <Link to="/import" className="font-medium text-primary">Import a bank file</Link>
-          </div>
-        </section>
-        <div className="mt-4 flex flex-wrap gap-2 text-sm">
-          <a href="#account" className="rounded-md border border-border bg-surface px-3 py-2">
-            Account
-          </a>
-          <a href="#files" className="rounded-md border border-border bg-surface px-3 py-2">
-            Excel & Sheets
-          </a>
-          <a href="#look" className="rounded-md border border-border bg-surface px-3 py-2">
-            Look
-          </a>
-          <a href="#mode" className="rounded-md border border-border bg-surface px-3 py-2">
-            Show advanced tools
-          </a>
-          <a href="#ledger" className="rounded-md border border-border bg-surface px-3 py-2">
-            Ledger
-          </a>
-        </div>
-      </div>
-
-      <AccountPanel signedIn={Boolean(user)} email={user?.primaryEmail ?? ""} />
-
-      <div id="files" className="space-y-3">
-        <ExportBar />
-        <Link to="/year" className="inline-flex text-sm font-medium text-primary">
-          Look back at the calendar year
-        </Link>
-      </div>
+      <h1 className="font-display text-3xl font-semibold">Settings</h1>
 
       <section id="look" className="space-y-3 rounded-lg border border-border bg-surface p-4">
         <h2 className="font-display text-xl font-semibold">Look</h2>
-
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {LOOKS.map((look) => {
             const on = (profile.accent ?? "harbor") === look.id;
@@ -93,82 +49,59 @@ export function SettingsView() {
           })}
         </div>
         <Field label="Text size">
-          <Select
-            value={profile.textSize ?? "normal"}
-            onChange={(e) => patchProfile({ textSize: e.target.value as TextSize })}
-          >
+          <Select value={profile.textSize ?? "normal"} onChange={(e) => patchProfile({ textSize: e.target.value as TextSize })}>
             <option value="normal">Normal</option>
             <option value="large">Large</option>
             <option value="xlarge">Extra large</option>
           </Select>
         </Field>
         <Field label="Motion">
-          <Select
-            value={profile.motion ?? "lively"}
-            onChange={(e) => patchProfile({ motion: e.target.value as HarborMotion })}
-          >
-            <option value="lively">Lively</option>
+          <Select value={profile.motion ?? "calm"} onChange={(e) => patchProfile({ motion: e.target.value as HarborMotion })}>
             <option value="calm">Calm</option>
+            <option value="lively">Lively</option>
           </Select>
         </Field>
-      </section>
-
-      <section id="mode" className="space-y-3 rounded-lg border border-border bg-surface p-4">
-        <h2 className="font-display text-xl font-semibold">Show advanced tools</h2>
-        <p className="text-sm text-muted">
-          Advanced shows the math.
-        </p>
         <Field label="Advanced tools">
-          <Select
-            value={profile.detail === "nerd" ? "nerd" : "simple"}
-            onChange={(e) => patchProfile({ detail: e.target.value as DetailMode, detailChosen: true })}
-          >
+          <Select value={profile.detail === "nerd" ? "nerd" : "simple"} onChange={(e) => patchProfile({ detail: e.target.value as DetailMode, detailChosen: true })}>
             <option value="simple">Simple</option>
             <option value="nerd">Advanced</option>
           </Select>
         </Field>
-        <div className="flex flex-wrap gap-3 text-sm">
-          <Link to="/rules" className="font-medium text-primary">
-            Merchants
-          </Link>
-          <Link to="/import" className="font-medium text-primary">
-            Import a CSV
-          </Link>
-          <Link to="/grow" className="font-medium text-primary">
-            Grow calculators
-          </Link>
-        </div>
+        <p className="text-sm text-muted">Advanced shows the math.</p>
       </section>
 
-      <section id="ledger" className="space-y-3 rounded-lg border border-border bg-surface p-4">
-        <h2 className="font-display text-xl font-semibold">Ledger</h2>
+      <section id="household" className="space-y-3 rounded-lg border border-border bg-surface p-4">
+        <h2 className="font-display text-xl font-semibold">Household</h2>
         <Field label="Name">
           <Input value={profile.ledgerName} onChange={(e) => patchProfile({ ledgerName: e.target.value })} />
         </Field>
-
+        <p className="text-sm">
+          {HOUSEHOLD_LABELS[profile.household]} · {STAGE_LABELS[profile.lifeStage]} · {HOUSING_LABELS[profile.housing]}
+          {profile.dependents ? ` · ${profile.dependents} dependent${profile.dependents === 1 ? "" : "s"}` : ""}
+        </p>
+        <p className="text-sm text-muted">Typical take-home {formatMoney(profile.monthlyIncome)} / month</p>
         <Field label="Review period">
           <Select value={profile.budgetPeriod} onChange={(e) => setBudgetPeriod(e.target.value as "month" | "week")}>
             <option value="month">Month to month</option>
             <option value="week">Week to week</option>
           </Select>
         </Field>
+        <LeftoverStyle />
+        <Button variant="outline" onClick={() => reopenSetup()}>
+          Reopen setup
+        </Button>
       </section>
 
-      <section className="space-y-3 rounded-lg border border-border bg-surface p-4">
-        <h2 className="font-display text-xl font-semibold">Household</h2>
-        <p className="text-sm">
-          {HOUSEHOLD_LABELS[profile.household]} · {STAGE_LABELS[profile.lifeStage]} · {HOUSING_LABELS[profile.housing]}
-          {profile.dependents ? ` · ${profile.dependents} dependent${profile.dependents === 1 ? "" : "s"}` : ""}
-        </p>
-        <p className="text-sm text-muted">Typical take-home {formatMoney(profile.monthlyIncome)} / month</p>
-        <Button variant="outline" onClick={() => reopenSetup()}>
-          Edit household answers
-        </Button>
-        <p className="text-xs text-muted">Your transactions stay.</p>
-        <Link to="/budget" className="inline-flex text-sm font-medium text-primary">
-          Edit the monthly budget
+      <section id="data" className="space-y-3">
+        <h2 className="font-display text-xl font-semibold">Data and sign-in</h2>
+        <AccountPanel signedIn={Boolean(user)} email={user?.primaryEmail ?? ""} />
+        <ExportBar />
+        <Link to="/privacy" className="inline-flex text-sm font-medium text-primary">
+          Privacy
         </Link>
       </section>
+
+      <DangerZone signedIn={Boolean(user)} />
     </div>
   );
 }
@@ -179,28 +112,64 @@ function LeftoverStyle() {
   const style = profile.budgetStyle === "buckets" ? "buckets" : "monthly";
   return (
     <section className="mt-4 space-y-3 rounded-lg border border-border bg-surface p-4">
-      <h2 className="font-display text-xl font-semibold">How leftover money works</h2>
-      <div className="grid gap-2 sm:grid-cols-2">
-        <button
-          type="button"
-          aria-pressed={style === "monthly"}
-          className={`min-h-11 rounded-md border px-3 py-2 text-left text-sm ${style === "monthly" ? "border-primary bg-chip" : "border-border bg-surface"}`}
-          onClick={() => setBudgetStyle("monthly")}
-        >
-          {TERMS.monthlyReset}
-        </button>
-        <button
-          type="button"
-          aria-pressed={style === "buckets"}
-          className={`min-h-11 rounded-md border px-3 py-2 text-left text-sm ${style === "buckets" ? "border-primary bg-chip" : "border-border bg-surface"}`}
-          onClick={() => setBudgetStyle("buckets")}
-        >
-          {TERMS.carryOver}
-        </button>
-      </div>
+      <h2 className="font-display text-xl font-semibold">Unused money rolls into next month: {style === "buckets" ? "On" : "Off"}</h2>
+      <Button type="button" variant="outline" aria-pressed={style === "buckets"} onClick={() => setBudgetStyle(style === "buckets" ? "monthly" : "buckets")}>
+        {style === "buckets" ? "On" : "Off"}
+      </Button>
       <p className="text-sm text-muted">Switching never deletes anything.</p>
-      <CarryStartControl />
+      {profile.detail === "nerd" ? (
+        <div>
+          <h3 className="text-sm font-medium">When leftovers start</h3>
+          <CarryStartControl />
+        </div>
+      ) : null}
     </section>
+  );
+}
+
+function DangerZone({ signedIn }: { signedIn: boolean }) {
+  const resetAll = useBudgetStore((s) => s.resetAll);
+  const [arm, setArm] = useState(false);
+  const [word, setWord] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+  return (
+    <details className="rounded-lg border border-danger/30 bg-surface p-4">
+      <summary className="min-h-11 cursor-pointer font-display text-xl font-semibold text-danger">Danger zone</summary>
+      <p className="mt-3 text-sm">Download a backup first.</p>
+      {arm ? (
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <span className="text-sm">Type RESET to erase this device. Your bank is not touched.</span>
+          <Input aria-label="Type RESET to confirm" value={word} onChange={(e) => setWord(e.target.value)} />
+          <Button
+            variant="danger"
+            size="sm"
+            disabled={busy || word !== "RESET"}
+            onClick={() => {
+              setBusy(true);
+              void resetAll()
+                .then(() => {
+                  setArm(false);
+                  setNote("This device is cleared.");
+                })
+                .catch((err: unknown) => setNote(err instanceof Error ? err.message : "Could not reset this device."))
+                .finally(() => setBusy(false));
+            }}
+          >
+            {busy ? "Erasing…" : "Erase ledger"}
+          </Button>
+          <Button variant="ghost" size="sm" disabled={busy} onClick={() => setArm(false)}>
+            Cancel
+          </Button>
+        </div>
+      ) : (
+        <Button className="mt-3" variant="danger" size="sm" onClick={() => setArm(true)}>
+          Reset this device
+        </Button>
+      )}
+      {signedIn ? <p className="mt-3 text-sm">Delete account is with your sign-in, and it asks you to type DELETE.</p> : null}
+      {note ? <p className="mt-2 text-sm">{note}</p> : null}
+    </details>
   );
 }
 
