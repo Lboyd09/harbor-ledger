@@ -36,12 +36,12 @@
 - [x] 1.12 · #18 #161 · One plan total · Done (46c53d0)
 - [x] 1.13 · #230 · Debt calculator empty default · Done (252e581)
 - [x] 1.14 · #71 · Demo leftovers in real budgets · Done (46c53d0)
-- [ ] 2.1 · #228 #48 #55 #98 #127 · Nothing overflows or hides behind the tab bar
-- [ ] 2.2 · #60 · Device banner shows once
-- [ ] 2.3 · #97 · Text-size setting
-- [ ] 2.4 · #99 · Category names wrap; panel is a sheet
-- [ ] 2.5 · #100 #103 #101 · Contrast, tap targets, pressable buttons
-- [ ] 2.6 · #233 · Fine-tune row does not jump
+- [x] 2.1 · #228 #48 #55 #98 #127 · Nothing overflows or hides behind the tab bar · Done (a215cf3)
+- [x] 2.2 · #60 · Device banner shows once · Done (a215cf3)
+- [x] 2.3 · #97 · Text-size setting · Done (a215cf3)
+- [x] 2.4 · #99 · Category names wrap; panel is a sheet · Done (a215cf3)
+- [x] 2.5 · #100 #103 #101 · Contrast, tap targets, pressable buttons · Done (a215cf3)
+- [x] 2.6 · #233 · Fine-tune row does not jump · Done (a215cf3)
 - [ ] 3.1 · #187 #120 #247 #248 #253 #43 #44 #41 #246 #251 #249 #250 #40 #39 #220 · Shared InfoTip, footnotes, calculator frame
 - [ ] 3.2 · #111 #112 #113 #114 #115 #116 #117 #118 #119 #107 #121 #122 #184 #238 #240 · Wording overrides
 - [ ] 3.3 · #232 #129 · Plan text
