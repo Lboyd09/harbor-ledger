@@ -70,8 +70,10 @@ export function moneyPicture(input: {
   }
   const ym = input.ym;
   if (ym && input.transactions && input.categories) {
-    for (const fund of input.funds ?? []) {
-      if (!emergencyFund(fund.name)) continue;
+    const funds = input.funds ?? [];
+    const flagged = funds.filter((fund) => fund.isCushion);
+    const counted = flagged.length ? flagged : funds.filter((fund) => emergencyFund(fund.name));
+    for (const fund of counted) {
       cushionCash += Math.max(0, bucketBalance(fund, ym, input.transactions, input.categories, input.moves ?? []));
     }
   }

@@ -1,5 +1,5 @@
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { formatCompact, formatMoney } from "@/lib/budget/money";
+import { axisMoney, formatMoney } from "@/lib/budget/money";
 import { useLivelyMotion } from "./use-lively-motion";
 
 export function CashChart({
@@ -34,7 +34,7 @@ export function CashChart({
           <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
             <CartesianGrid stroke="var(--color-border)" vertical={false} />
             <XAxis dataKey="name" tick={{ fontSize: 12, fill: "var(--color-muted)" }} interval={0} />
-            <YAxis tick={{ fontSize: 11, fill: "var(--color-muted)" }} width={56} tickFormatter={(value) => formatCompact(Number(value))} />
+            <YAxis tick={{ fontSize: 11, fill: "var(--color-muted)" }} width={56} tickFormatter={(value) => axisMoney(Number(value))} />
             <Tooltip
               formatter={(v) => formatMoney(Number(Array.isArray(v) ? v[0] : v))}
               contentStyle={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: 8 }}

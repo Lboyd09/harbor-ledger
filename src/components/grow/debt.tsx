@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { debtTimeline } from "@/lib/budget/grow-tables";
 import { firstMissing, readNumber } from "@/lib/budget/calc-input";
 import { debtWhatIfs, extraNeeded, paymentBelowInterest, simulatePayoff } from "@/lib/budget/grow-math";
+import { extraPaymentSavings } from "@/lib/budget/phase4";
 import { formatMoney } from "@/lib/budget/money";
 import { currentMonthKey, monthShort, shiftMonth } from "@/lib/budget/parse-date";
 import { calculatorDebts } from "@/lib/budget/real-debts";
@@ -65,11 +66,12 @@ export function DebtPage() {
     working.length && !neverText
       ? { value: `Debt-free ${freeLabel}`, sub: `${formatMoney(ava.interest)} interest · ${formatMoney(monthlyTotal)}/mo` }
       : undefined;
+  const saved = extraN > 0 ? extraPaymentSavings(working, extraN) : null;
   return (
     <CalcFrame
       question="How long to pay off a debt?"
       headline={headline}
-      result={result}
+      result={saved && !neverText ? `Paying ${formatMoney(extraN)} extra saves ${formatMoney(saved.interestSaved)} in interest and ${saved.monthsSaved} months` : result}
       topic="debt"
       facts={g.tipFacts}
       assumptionIds={[]}

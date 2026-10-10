@@ -89,9 +89,12 @@ export function suggestAmounts(
   categories: Category[],
   transactions: Transaction[],
   ym: string,
+  linkedCategoryIds: string[] = [],
 ): AmountSuggestion[] {
+  const linked = new Set(linkedCategoryIds);
   const out: AmountSuggestion[] = [];
   for (const category of categories) {
+    if (linked.has(category.id)) continue;
     if (category.kind !== "expense" || category.parentId || category.plannedMonthly > 0) continue;
     const series: number[] = [];
     for (let i = 0; i < 12; i++) {

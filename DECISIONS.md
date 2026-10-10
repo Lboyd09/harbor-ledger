@@ -15,6 +15,7 @@ An investment account can estimate growth. A typed balance wins over an estimate
 Home lists bank and cash, then savings, then investments and retirement, then cards and loans.
 Grow opens on one question, "What do you want to do?", with five answers. Each calculator is its own page.
 A calculator shows one question, the person's numbers, one result, one picture, key numbers, up to three tips, assumptions, and the years.
+Put it to work, Add every month, Goal, and Reach a number compound monthly with deposits at the end of each month. Roth vs traditional and When work is optional add deposits at the end of each year. Doubling is compounded yearly. A blank return box suggests 6% and does not overwrite a saved rate.
 Tips are short and general. Each page says "Not personal advice" once. A tip uses a number only when that number is a dated reference figure.
 There are three looks: Harbor, Tide, and Dusk. Automatic follows the device and is stored as auto, not as a color.
 Motion is short, plays once, and stops when the person or the device asks for less motion.

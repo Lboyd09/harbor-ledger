@@ -3,7 +3,8 @@ import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Too
 import { Footnote } from "@/components/footnote";
 import { InfoTip } from "@/components/info-tip";
 import { factNote, readNumber } from "@/lib/budget/calc-input";
-import { formatCompact, formatMoney } from "@/lib/budget/money";
+import { axisMoney, formatCompact, formatMoney } from "@/lib/budget/money";
+import { coverageLabel, futuresHeadline } from "@/lib/budget/retirement";
 import { moneyPicture } from "@/lib/budget/picture";
 import { assumptionLines } from "@/lib/budget/reference";
 import { projectRetirement, retirementInputFrom, retirementMonteCarlo, retirementSensitivity, type SensitivityRow } from "@/lib/budget/retirement";
@@ -205,8 +206,9 @@ export function RetirementCard() {
         <>
           <div>
             <p className="font-display text-3xl font-semibold tabular">
-              {formatCompact(expected.real)} at {result.retireAge}
+              {formatMoney(expected.real)} at {result.retireAge}
             </p>
+            {monte ? <p className="text-sm">{futuresHeadline(monte.chanceLasts)} · in today's dollars</p> : <p className="text-sm">in today's dollars</p>}
             {wantedKnown ? (
               <p className="text-sm text-muted">
                 {result.coveredPercent > 150 ? "More than enough" : `Covers ${result.coveredPercent}% of your goal`}
@@ -218,7 +220,7 @@ export function RetirementCard() {
             <ProgressRing
               pct={Math.max(0, Math.min(100, result.coveredPercent))}
               tone={result.coveredPercent >= 100 ? "good" : "primary"}
-              label={result.coveredPercent > 150 ? "More than enough" : `${coverLabel(result.coveredPercent)} of goal`}
+              label={result.coveredPercent > 150 ? "More than enough" : `${coverageLabel(result.coveredPercent)} of goal`}
             />
           ) : null}
           <div className="chart-rise h-56 w-full">
@@ -226,7 +228,7 @@ export function RetirementCard() {
               <LineChart data={chart}>
                 <CartesianGrid stroke="var(--color-border)" vertical={false} />
                 <XAxis dataKey="age" type="number" domain={["dataMin", "dataMax"]} tick={{ fontSize: 12, fill: "var(--color-muted)" }} />
-                <YAxis tick={AXIS} width={56} tickFormatter={(value) => formatCompact(Number(value))} />
+                <YAxis tick={AXIS} width={56} tickFormatter={(value) => axisMoney(Number(value))} />
                 <Tooltip formatter={(value) => formatMoney(Number(Array.isArray(value) ? value[0] : value))} />
                 <ReferenceLine x={result.retireAge} stroke="var(--color-warn)" label={{ value: "Retire", fontSize: 11, fill: "var(--color-muted)" }} />
                 <Line type="monotone" dataKey="Low" stroke="var(--color-muted)" dot={false} isAnimationActive={lively} />
@@ -336,7 +338,7 @@ export function RetirementCard() {
                   <LineChart data={monte.points}>
                     <CartesianGrid stroke="var(--color-border)" vertical={false} />
                     <XAxis dataKey="age" tick={AXIS} />
-                    <YAxis tick={AXIS} width={56} tickFormatter={(value) => formatCompact(Number(value))} />
+                    <YAxis tick={AXIS} width={56} tickFormatter={(value) => axisMoney(Number(value))} />
                     <Tooltip formatter={(value) => formatMoney(Number(Array.isArray(value) ? value[0] : value))} />
                     <Line type="monotone" dataKey="p10" name="Low 10%" stroke="var(--color-muted)" dot={false} isAnimationActive={lively} />
                     <Line type="monotone" dataKey="p50" name="Middle" stroke="var(--color-primary)" strokeWidth={2} dot={false} isAnimationActive={lively} />

@@ -98,7 +98,7 @@ export function plannerFacts(input: {
 
   const inflation = profile.plannerInflation != null ? profile.plannerInflation : DEFAULT_INFLATION;
   const withdrawal = profile.withdrawalRate != null ? profile.withdrawalRate : DEFAULT_WITHDRAWAL;
-  const band = profile.returnBand ?? PLANNING_MARKET;
+  const band = profile.returnBand ?? { ...PLANNING_MARKET, expected: 0.06 };
 
   return {
     age:

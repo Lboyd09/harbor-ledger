@@ -49,6 +49,7 @@ export function PutToWork() {
       facts={g.tipFacts}
       assumptionIds={g.today ? ["inflation"] : []}
       extraAssumptions={[
+        "Deposits at the end of each month.",
         "Grows monthly at rate ÷ 12.",
         "Tax on the gain is taken once, when you sell at the end. Long-term gains are often taxed at 0%, 15% or 20%. Check your own rate.",
         "In a Roth or other tax-free account you would keep the before-tax amount, within the yearly limits.",

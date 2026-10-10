@@ -79,7 +79,7 @@ export function DoublePage() {
       topic="double"
       facts={g.tipFacts}
       assumptionIds={["market-expected"]}
-      extraAssumptions={[g.facts.returns.note]}
+      extraAssumptions={["Compounded yearly.", g.facts.returns.note]}
       numbers={
         <div className="grid gap-2 sm:grid-cols-2">
           <Field label="Amount" tag={amountTag}>

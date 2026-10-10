@@ -72,7 +72,12 @@ function BudgetSides({ style }: { style: BudgetStyle }) {
     typicalSpend: typical?.moneyOut ?? null,
     typicalMonths: typical?.months ?? 0,
   });
-  const ideas = suggestAmounts(categories, transactions, ym).slice(0, 3);
+  const ideas = suggestAmounts(
+    categories,
+    transactions,
+    ym,
+    moneyBuckets.flatMap((fund) => fund.categoryIds),
+  ).slice(0, 3);
   const ranked = orderSpending(
     expenses
       .map((category) => {

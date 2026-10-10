@@ -410,6 +410,33 @@ export function retirementMonteCarlo(
   return { runs, seed, mean, spread, chanceLasts: lasts / runs, points };
 }
 
+/** Divide each path by inflation so the chart matches today's dollars. */
+export function monteCarloInTodaysDollars(
+  points: MonteCarloResult["points"],
+  inflation: number,
+  startAge: number,
+): MonteCarloResult["points"] {
+  return points.map((point) => {
+    const years = Math.max(0, point.age - startAge);
+    const div = Math.pow(1 + Math.max(0, inflation), years);
+    return {
+      age: point.age,
+      p10: roundMoney(point.p10 / div),
+      p50: roundMoney(point.p50 / div),
+      p90: roundMoney(point.p90 / div),
+    };
+  });
+}
+
+export function futuresHeadline(chanceLasts: number): string {
+  const tenths = Math.max(0, Math.min(10, Math.round(chanceLasts * 10)));
+  return `On track in about ${tenths} of 10 futures`;
+}
+
+export function coverageLabel(percent: number): string {
+  return percent > 150 ? "More than enough" : `${Math.round(percent)}%`;
+}
+
 export function defaultRetirementInput(): RetirementInput {
   return {
     age: 35,

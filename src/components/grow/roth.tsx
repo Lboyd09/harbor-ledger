@@ -64,7 +64,7 @@ export function RothPage() {
       topic="roth"
       facts={g.tipFacts}
       assumptionIds={["ira-under-50", "ira-catch-up", "roth-single-start", "roth-single-end", "market-expected", "inflation"]}
-      extraAssumptions={[METHOD_NOTE]}
+      extraAssumptions={["Deposits at the end of each year.", METHOD_NOTE]}
       assumptionEditor={
         <>
           <SharedRates />

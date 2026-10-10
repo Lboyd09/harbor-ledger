@@ -212,6 +212,8 @@ export type MoneyBucket = {
   fullLine?: number | null;
   /** YYYY-MM when the extra-money note was dismissed. Shown again the next month. */
   nudgeDismissedYm?: string | null;
+  /** The emergency cushion. Name matching is only a fallback when no fund has this on. */
+  isCushion?: boolean;
 };
 
 /** A transfer between buckets, or from unassigned money (fromId null). Not income and not spending. */

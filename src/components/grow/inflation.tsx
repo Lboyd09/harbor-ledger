@@ -43,8 +43,8 @@ export function InflationPage() {
   return (
     <CalcFrame
       question="What will today's money buy later?"
-      headline={missing ? undefined : { value: `${formatMoney(result.buyingPower)} of buying power`, sub: `in ${yearCount} yrs at ${inflation}%` }}
-      result=""
+      headline={missing ? undefined : { value: formatMoney(result.later), sub: `Later price of today's ${formatMoney(pile)}` }}
+      result={missing ? "" : `Buying power: ${formatMoney(result.buyingPower)} (what ${formatMoney(pile)} will buy then)`}
       missing={missing}
       topic="inflation"
       facts={g.tipFacts}

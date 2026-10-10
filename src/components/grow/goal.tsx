@@ -22,7 +22,6 @@ export function GoalPage() {
     if (g.facts.cashSavings.value == null && g.facts.typicalSpendMonthly.value == null) return;
     started.current = true;
     if (g.facts.cashSavings.value != null) setHave(String(Math.round(g.facts.cashSavings.value)));
-    if (g.facts.typicalSpendMonthly.value != null) setTarget(String(Math.round(g.facts.typicalSpendMonthly.value * 3)));
   }, [g.facts]);
   const missing = needsPrompt(
     [
@@ -37,7 +36,7 @@ export function GoalPage() {
   const need = monthlyForGoal(goal, saved, monthCount);
   const pct = goal > 0 ? Math.min(100, (saved / goal) * 100) : 0;
   const steps = Math.min(Math.max(0, Math.round(monthCount)), 36);
-  const by = monthCount > 0 ? shiftMonth(g.ym, monthCount) : null;
+  const by = monthCount > 0 ? shiftMonth(g.ym, monthCount - 1) : null;
   const navigate = useNavigate();
   return (
     <div className="space-y-3">
@@ -49,10 +48,10 @@ export function GoalPage() {
         topic="goal"
         facts={g.tipFacts}
         assumptionIds={[]}
-        extraAssumptions={[g.facts.cashSavings.note, g.facts.typicalSpendMonthly.note].filter((line) => line.trim())}
+        extraAssumptions={["Deposits at the end of each month.", ...[g.facts.cashSavings.note, g.facts.typicalSpendMonthly.note].filter((line) => line.trim())]}
         numbers={
           <div className="grid gap-2 sm:grid-cols-3">
-            <Field label="Goal" tag={g.facts.typicalSpendMonthly.value != null ? "from your spending" : undefined}>
+            <Field label="Goal">
               <Input className="mt-1" inputMode="decimal" aria-label="Goal" value={target} onChange={(e) => setTarget(e.target.value)} />
             </Field>
             <Field label="Already saved" tag={g.facts.cashSavings.value != null && readNumber(have) === Math.round(g.facts.cashSavings.value) ? "from your accounts" : undefined}>
