@@ -2,7 +2,7 @@ import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YA
 import { accountKindLabel } from "@/lib/budget/accounts";
 import { accountRows } from "@/lib/budget/dashboard";
 import type { LumpPoint } from "@/lib/budget/lump";
-import { formatCompact, formatMoney } from "@/lib/budget/money";
+import { axisMoney, formatMoney } from "@/lib/budget/money";
 import { InfoTip } from "./info-tip";
 import type { Account, AccountKind, BalancePoint, NetWorthPoint } from "@/lib/budget/types";
 import { useState } from "react";
@@ -200,7 +200,7 @@ export function GrowthArea({
           <AreaChart data={points}>
             <CartesianGrid stroke="var(--color-border)" vertical={false} />
             <XAxis dataKey="year" tick={{ fontSize: 12, fill: "var(--color-muted)" }} />
-            <YAxis tick={{ fontSize: 11, fill: "var(--color-muted)" }} width={56} tickFormatter={(value) => formatCompact(Number(value))} />
+            <YAxis tick={{ fontSize: 11, fill: "var(--color-muted)" }} width={56} tickFormatter={(value) => axisMoney(Number(value))} />
             <Tooltip formatter={(v) => formatMoney(Number(Array.isArray(v) ? v[0] : v))} />
             <Area type="monotone" dataKey="high" name="2 points higher" stroke="var(--color-muted)" fill="var(--color-primary)" fillOpacity={0.12} isAnimationActive={lively} />
             <Area type="monotone" dataKey="mid" name="Rate you typed" stroke="var(--color-primary)" fill="var(--color-primary)" fillOpacity={0.28} isAnimationActive={lively} />

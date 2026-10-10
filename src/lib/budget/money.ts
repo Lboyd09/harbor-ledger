@@ -38,6 +38,21 @@ export function formatCompact(n: number): string {
   return formatMoney(n);
 }
 
+/** Chart tick: "$0", "$500", "$12.5K", "$2M", "−$2K". */
+export function axisMoney(n: number): string {
+  if (!Number.isFinite(n) || Math.abs(n) < 0.5) return "$0";
+  const sign = n < 0 ? "−" : "";
+  const abs = Math.abs(n);
+  const trim = (value: number) => {
+    const rounded = Math.round(value * 10) / 10;
+    return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+  };
+  if (abs >= 1_000_000) return `${sign}$${trim(abs / 1_000_000)}M`;
+  if (abs >= 10_000) return `${sign}$${trim(abs / 1000)}K`;
+  if (abs >= 1000) return `${sign}$${trim(abs / 1000)}K`;
+  return `${sign}$${Math.round(abs)}`;
+}
+
 export function parseAmountToken(raw: string): number | null {
   if (raw == null) return null;
   let s = String(raw).trim();

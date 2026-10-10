@@ -65,6 +65,7 @@ export function WorkOptionalPage() {
       facts={g.tipFacts}
       assumptionIds={["withdrawal", "inflation"]}
       extraAssumptions={[
+        "Deposits at the end of each year.",
         "The number is your yearly spending divided by the withdrawal rate. At 4% that is 25 times a year of spending.",
         "Real growth = (1+return)÷(1+inflation)−1.",
         "Each year your money grows, then a year of saving is added. Everything is in today's dollars.",

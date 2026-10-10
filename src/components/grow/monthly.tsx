@@ -1,7 +1,7 @@
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { needsPrompt } from "@/lib/budget/calc-input";
 import { sensitivityOf, yearRows } from "@/lib/budget/grow-tables";
-import { formatCompact, formatMoney } from "@/lib/budget/money";
+import { axisMoney, formatMoney } from "@/lib/budget/money";
 import { Input } from "../ui/field";
 import { SharedRates } from "./editors";
 import { CalcFrame, Field, Sensitivity, YearTable } from "./frame";
@@ -30,7 +30,7 @@ export function MonthlyPage() {
       topic="monthly"
       facts={g.tipFacts}
       assumptionIds={["market-expected", "inflation"]}
-      extraAssumptions={[g.facts.monthlySaving.note]}
+      extraAssumptions={["Deposits at the end of each month.", g.facts.monthlySaving.note]}
       assumptionEditor={<SharedRates />}
       numbers={
         <div className="grid gap-2 sm:grid-cols-2">
@@ -51,7 +51,7 @@ export function MonthlyPage() {
             <LineChart data={g.both}>
               <CartesianGrid stroke="var(--color-border)" vertical={false} />
               <XAxis dataKey="year" tick={{ fontSize: 12, fill: "var(--color-muted)" }} />
-              <YAxis tick={{ fontSize: 11, fill: "var(--color-muted)" }} width={56} tickFormatter={(value) => formatCompact(Number(value))} />
+              <YAxis tick={{ fontSize: 11, fill: "var(--color-muted)" }} width={56} tickFormatter={(value) => axisMoney(Number(value))} />
               <Tooltip formatter={(v) => formatMoney(Number(Array.isArray(v) ? v[0] : v))} />
               <Line type="monotone" dataKey="contributed" stroke="var(--color-muted)" dot={false} isAnimationActive={g.lively} name="Put in" />
               <Line type="monotone" dataKey="balance" stroke="var(--color-primary)" strokeWidth={2} dot={false} isAnimationActive={g.lively} name="Balance" />

@@ -57,6 +57,7 @@ test("a suggestion needs two months, and coming up is the next 30 days", () => {
   ];
   const ready = suggestAmounts(categories, two, "2026-09");
   assert.equal(ready[0]?.suggested, 50);
+  assert.equal(suggestAmounts(categories, two, "2026-09", ["gas"]).length, 0);
   const bills: RecurringBill[] = [
     {
       merchantKey: "RENT",

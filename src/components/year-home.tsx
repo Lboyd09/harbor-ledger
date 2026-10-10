@@ -2,7 +2,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState, type ReactNode } from "react";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { categoryDrift, monthReview, subscriptionFlags, weekdayHeat } from "@/lib/budget/insights";
-import { formatMoney } from "@/lib/budget/money";
+import { axisMoney, formatMoney } from "@/lib/budget/money";
 import { monthShort } from "@/lib/budget/parse-date";
 import { buildYearWorkbook, monthsOfYear, statusLabel, type MonthStatus, type YearWorkbook } from "@/lib/budget/year";
 import type { Category, Transaction } from "@/lib/budget/types";
@@ -297,7 +297,7 @@ function YearCharts({ book }: { book: YearWorkbook }) {
               <LineChart data={line} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                 <CartesianGrid stroke="var(--color-border)" vertical={false} />
                 <XAxis dataKey="name" tick={{ fontSize: 12, fill: "var(--color-muted)" }} />
-                <YAxis tick={{ fontSize: 11, fill: "var(--color-muted)" }} width={48} />
+                <YAxis tick={{ fontSize: 11, fill: "var(--color-muted)" }} width={56} tickFormatter={(value) => axisMoney(Number(value))} />
                 <Tooltip
                   formatter={(v) => formatMoney(Number(Array.isArray(v) ? v[0] : v))}
                   contentStyle={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: 8 }}

@@ -276,7 +276,7 @@ function CategoryPanel({ categoryId, initialYm, onClose }: { categoryId: string;
       ) : null}
       {line ? <Picture line={line} /> : null}
       <MiniBars months={history} aLabel="Amount" bLabel="Spent" />
-      {category.kind === "expense" ? <Amounts category={category} ym={ym} line={line} /> : null}
+      {category.kind === "expense" ? <Amounts category={category} ym={ym} line={line} onClose={onClose} /> : null}
       <div className="mt-5">
         <h3 className="text-sm font-medium">Charges</h3>
         <div className="mt-2 flex gap-2" role="group" aria-label="Which charges">
@@ -373,7 +373,7 @@ function Picture({ line }: { line: SpendingLine }) {
   );
 }
 
-function Amounts({ category, ym, line }: { category: Category; ym: string; line: SpendingLine | null }) {
+function Amounts({ category, ym, line, onClose }: { category: Category; ym: string; line: SpendingLine | null; onClose: () => void }) {
   const updateCategory = useBudgetStore((s) => s.updateCategory);
   const setMonthPlan = useBudgetStore((s) => s.setMonthPlan);
   const patchProfile = useBudgetStore((s) => s.patchProfile);
@@ -396,6 +396,7 @@ function Amounts({ category, ym, line }: { category: Category; ym: string; line:
             aria-label={`Monthly amount for ${category.name}`}
             value={amountDraft(category.plannedMonthly)}
             placeholder="0"
+            onEscapeClose={onClose}
             onCommit={(draft) => {
               const before = category.plannedMonthly || 0;
               const next = usualAmountCommit(draft, before);

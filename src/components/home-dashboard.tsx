@@ -142,10 +142,12 @@ export function HomeDashboard() {
         <a href="/grow?q=cushion" data-tile className="min-w-0 rounded-lg border border-border bg-surface p-3">
           <p className="flex items-center text-sm text-muted">Cushion <InfoTip label="What is cushion?" text="Months of spending in cash." href="/help#cushion" /></p>
           <p className="money font-display tabular" data-money>{picture.cushionMonths == null ? "—" : `${picture.cushionMonths} mo`}</p>
+          <p className="text-xs text-muted">goal 3–6 mo</p>
         </a>
         <Link to="/grow" data-tile className="min-w-0 rounded-lg border border-border bg-surface p-3">
           <p className="text-sm text-muted">Saving</p>
-          <p className="money font-display tabular" data-money>{facts.savingsRate == null ? "—" : `${Math.round(facts.savingsRate * 100)}%`}</p>
+          <p className="money font-display tabular" data-money>{facts.savingsRate == null ? "—" : `${Math.round(facts.savingsRate * 100)}% of income`}</p>
+          <p className="text-xs text-muted">goal 15–20%</p>
         </Link>
         <Link to="/funds" data-tile className="min-w-0 rounded-lg border border-border bg-surface p-3 max-[419px]:col-span-2">
           <p className="text-sm text-muted">Net worth</p>
