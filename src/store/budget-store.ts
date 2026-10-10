@@ -1079,6 +1079,13 @@ export const useBudgetStore = create<State>()(
         const categories = buildPresetCategories(profile).map((c) =>
           c.slug === "food" ? { ...c, plannedMonthly: 0 } : c,
         );
+        const payCat = categories.find((c) => c.slug === "paycheck");
+        const sideCat = categories.find((c) => c.slug === "side-work");
+        profile.incomeStreams = (profile.incomeStreams ?? []).map((stream) => {
+          if (stream.id === "income_paycheck" && payCat) return { ...stream, categoryId: payCat.id };
+          if (stream.id === "income_side" && sideCat) return { ...stream, categoryId: sideCat.id };
+          return stream;
+        });
         const preview = parseCsvText(SAMPLE_CSV, "sample-chase.csv");
         const { added } = importNewRows({
           rows: preview.rows,

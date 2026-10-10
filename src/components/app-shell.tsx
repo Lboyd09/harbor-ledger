@@ -118,6 +118,7 @@ export function AppShell() {
   const textSize = useBudgetStore((s) => s.profile.textSize ?? "normal");
   const userId = user?.id ?? null;
   const publicAuth = path === "/login" || path === "/reset" || path === "/confirm";
+  const publicPages = publicAuth || path === "/privacy" || path === "/help" || path === "/demo" || path === "/welcome" || path.startsWith("/calculators");
 
   useEffect(() => {
     if (isPending) return;
@@ -143,7 +144,7 @@ export function AppShell() {
     return () => query.removeEventListener("change", paint);
   }, [accent, motion, textSize]);
 
-  if (publicAuth) {
+  if (publicPages) {
     return <Outlet />;
   }
 
@@ -217,7 +218,7 @@ export function AppShell() {
         </div>
       </header>
 
-      <main className="px-4 pt-4 pb-[calc(8.5rem+env(safe-area-inset-bottom))] md:ml-64 md:px-8 md:pb-10 md:pt-8">
+      <main className="px-4 pt-4 pb-[calc(10rem+env(safe-area-inset-bottom))] md:ml-64 md:px-8 md:pb-10 md:pt-8">
         {bannerReady && !user && !hideDeviceNote ? (
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-surface px-4 py-3">
             <p className="text-sm">Your budget is saved on this device. Sign in to keep it safe.</p>

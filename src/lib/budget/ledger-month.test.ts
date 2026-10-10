@@ -235,9 +235,9 @@ test("safe to spend is derived from the month ledger", () => {
   assert.equal(parts.safe, roundCents(parts.left - parts.stillPlanned - parts.fundsStillToAdd));
   assert.equal(safe.amount, parts.safe);
   assert.equal(parts.left, 750);
-  assert.equal(parts.stillPlanned, 1060);
+  assert.equal(parts.stillPlanned, 960);
   assert.equal(parts.fundsStillToAdd, 0);
-  assert.equal(parts.safe, -310);
+  assert.equal(parts.safe, -210);
 });
 
 function roundCents(value: number) {

@@ -68,7 +68,7 @@ export function groupPayees(transactions: Transaction[]): PayeeGroup[] {
         lastDate: g.lastDate,
         firstDate: g.firstDate,
         unassigned: g.unassigned,
-        likelyBill: g.count >= 3,
+        likelyBill: g.count >= 3 && g.totalOut > g.totalIn,
       };
     })
     .sort((a, b) => b.count - a.count || b.totalOut + b.totalIn - (a.totalOut + a.totalIn));

@@ -33,16 +33,22 @@ export function debtsInNetWorth(debts: DebtItem[], accounts: Account[], balances
 /** Rows the debt calculator starts from. Edits stay on the copy. */
 export function calculatorDebts(accounts: Account[], balances: BalancePoint[], debts: DebtItem[]): DebtItem[] {
   const rows: DebtItem[] = [];
+  const moneyDebts = debtsInNetWorth(debts, accounts, balances);
   for (const account of accounts) {
     const balance = owed(account, balances);
-    if (account.kind === "credit" && balance > 0) {
-      rows.push({ id: `plan_${account.id}`, name: account.name, balance, apr: 0, minimum: 0, origin: "plan" });
-    }
-    if (isLoanKind(account.kind) && balance > 0) {
-      rows.push({ id: `plan_${account.id}`, name: account.name, balance, apr: 0, minimum: 0, origin: "plan" });
-    }
+    const isCard = account.kind === "credit" && balance > 0;
+    const isLoan = isLoanKind(account.kind) && balance > 0;
+    if (!isCard && !isLoan) continue;
+    // Prefer a matching saved debt for the real rate and minimum. Never default to 0%.
+    const match = moneyDebts.find((debt) => debt.name.trim().toLowerCase() === account.name.trim().toLowerCase());
+    // Use the saved rate and minimum when we have them. A missing rate stays editable and is never treated as a real 0%.
+    const apr = match?.apr ?? 0;
+    const minimum = match?.minimum ?? 0;
+    rows.push({ id: `plan_${account.id}`, name: account.name, balance, apr, minimum, origin: "plan" });
   }
-  for (const debt of debtsInNetWorth(debts, accounts, balances)) {
+  for (const debt of moneyDebts) {
+    // Avoid duplicating a debt we already pulled from an account.
+    if (rows.some((row) => row.name.trim().toLowerCase() === debt.name.trim().toLowerCase())) continue;
     rows.push({ ...debt, origin: "money" });
   }
   return rows;

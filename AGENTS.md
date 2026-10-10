@@ -69,3 +69,5 @@ Do not run helper agents on your own. Use `reviewer`, `tester`, or `math-checker
 - `reviewer` is read-only. It reviews the current git diff against the task.
 - `tester` runs type-check, lint, test, and build, and may add or fix tests.
 - `math-checker` is read-only. It checks budget, savings, Roth, and debt-payoff math in the diff with numbers worked by hand.
+
+Never edit Vercel settings. In Vercel's ignore step, exit 1 builds and exit 0 skips.

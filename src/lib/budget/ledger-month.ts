@@ -384,11 +384,21 @@ export type SafeBreakdown = {
  */
 export function safeBreakdown(source: LedgerSource, ym: string): SafeBreakdown {
   const ledger = monthLedger(source, ym);
+  const linkedIds = new Set<string>();
+  for (const bucket of source.buckets ?? []) {
+    if (bucket.startMonth > ym) continue;
+    for (const id of bucket.categoryIds) linkedIds.add(id);
+  }
   let stillPlanned = 0;
   for (const line of ledger.spending) {
     if (line.planned > 0) stillPlanned += Math.max(0, line.planned - line.spent);
   }
-  stillPlanned = roundMoney(stillPlanned);
+  // Fund-linked categories are already reserved through fund funding in Left.
+  // Counting their planned amount here would double-count them.
+  const linkedPlanned = roundMoney(
+    ledger.spending.filter((line) => linkedIds.has(line.id)).reduce((sum, line) => sum + line.planned, 0),
+  );
+  stillPlanned = roundMoney(stillPlanned - linkedPlanned);
   const fundsStillToAdd = roundMoney(Math.max(0, ledger.fundFunding - ledger.totals.savedToFunds));
   const left = ledger.totals.leftOver;
   return { left, stillPlanned, fundsStillToAdd, safe: roundMoney(left - stillPlanned - fundsStillToAdd) };

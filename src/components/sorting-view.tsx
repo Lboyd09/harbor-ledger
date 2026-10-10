@@ -131,7 +131,6 @@ export function SortingView() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-display text-2xl font-semibold md:text-3xl">Sorting</h1>
         <p className="mt-2 max-w-2xl text-sm text-muted">
           Changes apply to every month.
         </p>

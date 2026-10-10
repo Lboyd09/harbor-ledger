@@ -1,4 +1,5 @@
 import { migrateLedgerAccounts, isAccountKind } from "./accounts.ts";
+import { mergeEmptyCash } from "./onboarding-plan.ts";
 import { migrateGoals } from "./buckets.ts";
 import { expectedMonthlyOf } from "./income.ts";
 import { normalizeIra } from "./ira.ts";
@@ -332,6 +333,23 @@ export function normalizeSnapshot(raw: unknown): LedgerSnapshot | null {
     transactions,
     imports,
   });
+  // Clean old saved data: merge duplicate empty Cash, move "other" loans into loan kinds, drop leftover calculator card.
+  let accounts = migrated.accounts;
+  let balances = migrated.balances;
+  const cashMerged = mergeEmptyCash(accounts, balances, transactions);
+  accounts = cashMerged.accounts;
+  balances = cashMerged.balances;
+  accounts = accounts.map((account) => {
+    if (account.kind !== "other") return account;
+    const latest = balances.filter((b) => b.accountId === account.id).sort((a, b) => b.date.localeCompare(a.date))[0];
+    const looksLikeLoan = /loan/i.test(account.name) || (latest && latest.amount < 0);
+    if (looksLikeLoan) return { ...account, kind: "personal_loan" as const };
+    return account;
+  });
+  const debts = normalizeDebts(inner.debts).filter((debt) => {
+    const isLeftoverCard = /card/i.test(debt.name) && Math.abs(debt.balance - 5000) < 1 && Math.abs(debt.apr - 24) < 0.1;
+    return !isLeftoverCard;
+  });
   return {
     profile,
     categories,
@@ -343,10 +361,10 @@ export function normalizeSnapshot(raw: unknown): LedgerSnapshot | null {
     moneyBuckets,
     bucketMoves: normalizeMoves(inner.bucketMoves),
     netWorth: normalizeNetWorth(inner.netWorth),
-    debts: normalizeDebts(inner.debts),
+    debts,
     ira: normalizeIra(inner.ira),
-    accounts: migrated.accounts,
-    balances: migrated.balances,
+    accounts,
+    balances,
     setAsides: normalizeSetAsides(inner.setAsides),
     activeMonth,
     activeWeek,

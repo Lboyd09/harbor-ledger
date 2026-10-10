@@ -27,7 +27,8 @@ export function DebtPage() {
   const [minimum, setMinimum] = useState("");
   const [extra, setExtra] = useState("50");
   const extraIn = readNumber(extra);
-  const extraN = Math.max(0, extraIn ?? 0);
+  const extraMissing = extra.trim() === "" || extraIn == null;
+  const extraN = extraMissing ? 0 : Math.max(0, extraIn);
   // A blank rate or minimum is not 0. Typing 0 on purpose is fine.
   const balanceIn = readNumber(balance);
   const aprIn = readNumber(apr);
@@ -82,14 +83,37 @@ export function DebtPage() {
       numbers={
         <div className="space-y-2">
           <Field label="Extra payment each month">
-            <Input className="mt-1 max-w-xs" inputMode="decimal" aria-label="Extra payment" placeholder="0" value={extra} onChange={(e) => setExtra(e.target.value)} />
+            <Input className="mt-1 max-w-xs" inputMode="decimal" aria-label="Extra payment" placeholder="Amount" value={extra} onChange={(e) => setExtra(e.target.value)} />
+            {extraMissing ? <p className="mt-1 text-xs text-muted" role="status">Enter an extra payment (0 is fine if you mean none).</p> : null}
           </Field>
-          <ul className="space-y-1 text-sm">
+          <ul className="space-y-2 text-sm">
             {working.map((debt) => (
-              <li key={debt.id} className="flex items-center justify-between gap-2">
-                <span>
-                  {debt.name} · {formatMoney(debt.balance)} · {debt.apr}%
+              <li key={debt.id} className="flex flex-wrap items-center gap-2">
+                <span className="min-w-0 flex-1">
+                  {debt.name} · {formatMoney(debt.balance)}
                 </span>
+                <Input
+                  aria-label={`${debt.name} rate`}
+                  inputMode="decimal"
+                  className="w-20"
+                  placeholder="Rate %"
+                  value={debt.apr === 0 ? "" : String(debt.apr)}
+                  onChange={(e) => {
+                    const next = readNumber(e.target.value);
+                    setRows(working.map((row) => row.id === debt.id ? { ...row, apr: next ?? 0 } : row));
+                  }}
+                />
+                <Input
+                  aria-label={`${debt.name} minimum`}
+                  inputMode="decimal"
+                  className="w-24"
+                  placeholder="Min"
+                  value={debt.minimum === 0 ? "" : String(debt.minimum)}
+                  onChange={(e) => {
+                    const next = readNumber(e.target.value);
+                    setRows(working.map((row) => row.id === debt.id ? { ...row, minimum: next ?? 0 } : row));
+                  }}
+                />
                 <button type="button" className="min-h-11 text-xs text-muted" onClick={() => setRows(working.filter((row) => row.id !== debt.id))}>
                   Remove
                 </button>
