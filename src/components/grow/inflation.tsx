@@ -4,7 +4,6 @@ import { inflated } from "@/lib/budget/grow-math";
 import { formatMoney } from "@/lib/budget/money";
 import { Input } from "../ui/field";
 import { CalcFrame, Field, Sensitivity, YearTable } from "./frame";
-import { tagOf } from "./source-tag";
 import { useGrow } from "./grow-context";
 
 export function InflationPage() {
@@ -32,7 +31,15 @@ export function InflationPage() {
   const yearCount = Math.max(0, Math.round(readNumber(years) ?? 0));
   const inflation = readNumber(rate) ?? 0;
   const result = inflated(pile, yearCount, inflation);
-  const source = g.facts.typicalSpendMonthly.value != null ? "from your spending" : tagOf(g.facts.cashSavings.source);
+  const typedAmount = readNumber(amount);
+  const yearlySpend = g.facts.typicalSpendMonthly.value != null ? Math.round(g.facts.typicalSpendMonthly.value * 12) : null;
+  const cashRounded = g.facts.cashSavings.value != null ? Math.round(g.facts.cashSavings.value) : null;
+  const source =
+    yearlySpend != null && typedAmount === yearlySpend
+      ? "from your spending"
+      : cashRounded != null && typedAmount === cashRounded
+        ? "from your accounts"
+        : undefined;
   return (
     <CalcFrame
       question="What will today's money buy later?"

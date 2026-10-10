@@ -9,7 +9,6 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/field";
 import { queueFundFromGoal } from "../fund-wizard-queue";
 import { CalcFrame, Field, Sensitivity, YearTable } from "./frame";
-import { tagOf } from "./source-tag";
 import { useGrow } from "./grow-context";
 
 export function GoalPage() {
@@ -56,7 +55,7 @@ export function GoalPage() {
             <Field label="Goal" tag={g.facts.typicalSpendMonthly.value != null ? "from your spending" : undefined}>
               <Input className="mt-1" inputMode="decimal" aria-label="Goal" value={target} onChange={(e) => setTarget(e.target.value)} />
             </Field>
-            <Field label="Already saved" tag={tagOf(g.facts.cashSavings.source)}>
+            <Field label="Already saved" tag={g.facts.cashSavings.value != null && readNumber(have) === Math.round(g.facts.cashSavings.value) ? "from your accounts" : undefined}>
               <Input className="mt-1" inputMode="decimal" aria-label="Already saved" value={have} onChange={(e) => setHave(e.target.value)} />
             </Field>
             <Field label="Months">

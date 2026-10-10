@@ -1,5 +1,6 @@
 import { needsPrompt, readNumber } from "@/lib/budget/calc-input";
 import { iraLimitCheck, rothVerdict, rothVsTraditional, rothWhatIfs } from "@/lib/budget/grow-math";
+import { reducedRothLimit } from "@/lib/budget/ira";
 import { formatMoney } from "@/lib/budget/money";
 import { InfoTip } from "../info-tip";
 import { RothBars } from "../grow-pictures";
@@ -7,16 +8,6 @@ import { Input } from "../ui/field";
 import { IraEditors, SharedRates } from "./editors";
 import { CalcFrame, Field, Sensitivity, YearTable } from "./frame";
 import { useGrow } from "./grow-context";
-
-function rothAllowed(limit: number, room: "full" | "partial" | "none", magi: number, joint: boolean, rules: { rothSingleStart: number; rothSingleEnd: number; rothJointStart: number; rothJointEnd: number }) {
-  if (room === "none") return 0;
-  if (room === "full") return limit;
-  const start = joint ? rules.rothJointStart : rules.rothSingleStart;
-  const end = joint ? rules.rothJointEnd : rules.rothSingleEnd;
-  const span = end - start;
-  if (span <= 0) return 0;
-  return Math.max(0, Math.round((limit * (end - magi)) / span / 10) * 10);
-}
 
 const METHOD_NOTE =
   "Both use the same pre-tax pay each year. Roth puts in what's left after today's tax and is tax-free later. Traditional puts in all of it and is taxed when you take it out. Deposits go in at the end of each year.";
@@ -43,9 +34,10 @@ export function RothPage() {
     inflation: g.inflationRate,
     today: g.today,
   };
-  const check = iraLimitCheck(g.annualN, g.taxNowN, g.limit);
+  const allowed = reducedRothLimit(g.ira, Math.max(0, readNumber(g.magi) ?? 0), g.joint, g.limit);
+  const rothCheck = iraLimitCheck(g.annualN, g.taxNowN, allowed);
+  const tradCheck = iraLimitCheck(g.annualN, g.taxNowN, g.limit);
   const verdict = rothVerdict(g.compare, g.taxNowN, g.taxLaterN);
-  const allowed = rothAllowed(g.limit, g.room, Math.max(0, readNumber(g.magi) ?? 0), g.joint, g.ira);
   const ahead = g.compare.roth - g.compare.traditional;
   const shortResult =
     Math.abs(ahead) < 1 ? "About the same after tax." : ahead > 0 ? `Roth leaves ${formatMoney(ahead)} more.` : `Traditional leaves ${formatMoney(-ahead)} more.`;
@@ -105,8 +97,8 @@ export function RothPage() {
             </p>
             {g.room === "full" ? <p className="text-muted">Full Roth allowed</p> : null}
             {g.room === "partial" ? <p className="text-muted">Partial Roth only</p> : null}
-            <p>{limitLine("Roth", check.rothIn, check.rothOver)}</p>
-            <p>{limitLine("Traditional", check.traditionalIn, check.traditionalOver)}</p>
+            <p>{limitLine("Roth", rothCheck.rothIn, rothCheck.rothOver)}</p>
+            <p>{limitLine("Traditional", tradCheck.traditionalIn, tradCheck.traditionalOver)}</p>
           </div>
         </div>
       }
