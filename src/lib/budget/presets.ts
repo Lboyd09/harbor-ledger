@@ -29,6 +29,9 @@ export type SpendBucket = {
   floor: number;
 };
 
+/** Fixed bills start fresh each month on a new budget. Existing budgets keep their own setting. */
+export const FRESH_EACH_MONTH = new Set(["housing", "utilities", "subscriptions", "debt"]);
+
 export const SPEND_BUCKETS: SpendBucket[] = [
   { slug: "housing", label: "Rent or mortgage", hint: "Skip if you do not pay housing", kind: "expense", rate: 0.3, floor: 800 },
   { slug: "food", label: "Groceries", hint: "Stores. Restaurants can be separate.", kind: "expense", rate: 0.08, floor: 160 },
@@ -137,6 +140,7 @@ export function buildPresetCategories(profile: Profile): Category[] {
     name: d.name,
     kind: d.kind,
     plannedMonthly: d.planned,
+    ...(d.kind === "expense" && FRESH_EACH_MONTH.has(d.slug) ? { carry: false as const } : {}),
   }));
 }
 

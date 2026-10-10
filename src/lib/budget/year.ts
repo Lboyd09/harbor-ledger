@@ -1,4 +1,5 @@
 import { formatMoney, roundMoney, roundPlan } from "./money.ts";
+import { countsTowardPlan, planTotal } from "./plans.ts";
 import { monthKeyFromDate, monthShort } from "./parse-date.ts";
 import { countsInCashflow, monthCash, sumByCategory } from "./totals.ts";
 import type { Category, Transaction } from "./types.ts";
@@ -178,7 +179,7 @@ export function buildYearWorkbook(
 ): YearWorkbook {
   const months = monthsOfYear(year);
   const yearTx = transactions.filter((t) => inYear(t, year));
-  const planExpensesUser = categories.filter((c) => c.kind === "expense").reduce((s, c) => s + c.plannedMonthly, 0);
+  const planExpensesUser = planTotal(categories);
 
   const incomeRows = categories
     .filter((c) => c.kind === "income")
@@ -193,8 +194,9 @@ export function buildYearWorkbook(
 
   const suggestedIncome = roundMoney(incomeRows.reduce((s, r) => s + r.typical, 0));
   const suggestedExpenses = roundMoney(expenseRows.reduce((s, r) => s + r.typical, 0));
-  const planIncome = roundMoney(incomeRows.reduce((s, r) => s + r.effectivePlan, 0));
-  const planExpenses = roundMoney(expenseRows.reduce((s, r) => s + r.effectivePlan, 0));
+  const counting = new Set(categories.filter((category) => countsTowardPlan(category, categories)).map((category) => category.id));
+  const planIncome = roundMoney(incomeRows.filter((row) => counting.has(row.id)).reduce((s, r) => s + r.effectivePlan, 0));
+  const planExpenses = roundMoney(expenseRows.filter((row) => counting.has(row.id)).reduce((s, r) => s + r.effectivePlan, 0));
   const usingSuggestedPlan = planExpensesUser <= 0 && suggestedExpenses > 0;
 
   const monthSummaries: YearMonthCell[] = months.map((ym) => {

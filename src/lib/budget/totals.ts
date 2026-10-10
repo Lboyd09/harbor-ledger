@@ -1,7 +1,7 @@
 import { monthLedger, yearLedger } from "./ledger-month.ts";
 import { roundMoney } from "./money.ts";
 import { monthKeyFromDate, weekKeyFromDate } from "./parse-date.ts";
-import { countsTowardPlan } from "./plans.ts";
+import { countsTowardPlan, planTotal } from "./plans.ts";
 import { plannedForPeriod } from "./period.ts";
 import { piecesOf } from "./splits.ts";
 import type { BudgetPeriod, Category, Transaction } from "./types.ts";
@@ -194,9 +194,8 @@ export function plannedTotals(categories: Category[], period: BudgetPeriod = "mo
   const income = categories
     .filter((c) => c.kind === "income" && countsTowardPlan(c, categories))
     .reduce((s, c) => s + plannedForPeriod(c.plannedMonthly, period), 0);
-  const expenses = categories
-    .filter((c) => c.kind === "expense" && countsTowardPlan(c, categories))
-    .reduce((s, c) => s + plannedForPeriod(c.plannedMonthly, period), 0);
+  const monthExpenses = planTotal(categories);
+  const expenses = period === "month" ? monthExpenses : plannedForPeriod(monthExpenses, period);
   return { income, expenses, leftover: income - expenses };
 }
 

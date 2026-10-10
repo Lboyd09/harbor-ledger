@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { needsPrompt, readNumber } from "@/lib/budget/calc-input";
+import { needsPrompt, optionalAmount, readNumber } from "@/lib/budget/calc-input";
 import { monthsToTarget, yearsToDouble } from "@/lib/budget/grow-math";
 import { formatMoney } from "@/lib/budget/money";
 import { useBudgetStore } from "@/store/budget-store";
@@ -17,7 +17,7 @@ function spanLabel(months: number) {
 }
 
 function reachLabel(months: number | null, hasTarget: boolean) {
-  if (!hasTarget) return "Enter a target";
+  if (!hasTarget) return "Add a target";
   if (months == null) return "Not within 50 years";
   if (months === 0) return "Already there";
   return spanLabel(months);
@@ -48,19 +48,21 @@ export function DoublePage() {
   const missing = needsPrompt([{ label: "a yearly rate", value: readNumber(rate) }], "how long it takes");
   const targetIn = readNumber(target);
   const hasTarget = targetIn != null && targetIn > 0;
-  const years = yearsToDouble(Number(rate) || 0);
-  const pile = Number(amount) || 0;
-  const savedN = Math.max(0, Number(saved) || 0);
+  const rateN = readNumber(rate) ?? 0;
+  const years = yearsToDouble(rateN);
+  const pile = optionalAmount(amount).amount;
+  const savedN = optionalAmount(saved).amount;
+  const monthlyN = optionalAmount(monthly).amount;
   const doubled = years == null ? 0 : pile * 2;
   const months = hasTarget
-    ? monthsToTarget({ principal: savedN, monthly: Number(monthly) || 0, apr: Number(rate) || 0, target: targetIn ?? 0 })
+    ? monthsToTarget({ principal: savedN, monthly: monthlyN, apr: rateN, target: targetIn ?? 0 })
     : null;
   const reach = reachLabel(months, hasTarget);
-  const reachSentence = hasTarget ? ` Reaching the target takes ${reach}.` : " Enter a target to see how long reaching it takes.";
+  const reachSentence = hasTarget ? ` Reaching the target takes ${reach}.` : " Add a target.";
   const amountTag = g.facts.cashSavings.value != null || g.facts.saved.value != null ? "from your accounts" : "typed";
   const goal = (funds ?? []).find((fund) => (fund.target ?? 0) > 0);
   function reachAt(apr: number, add: number) {
-    if (!hasTarget) return "Enter a target";
+    if (!hasTarget) return "Add a target";
     return reachLabel(monthsToTarget({ principal: savedN, monthly: add, apr, target: targetIn ?? 0 }), true);
   }
   return (
@@ -115,9 +117,9 @@ export function DoublePage() {
         <YearTable
           columns={["Change", "Years to double"]}
           rows={[
-            ["2 points lower", yearsToDouble((Number(rate) || 0) - 2) == null ? "—" : String(yearsToDouble((Number(rate) || 0) - 2))],
+            ["2 points lower", yearsToDouble(rateN - 2) == null ? "—" : String(yearsToDouble(rateN - 2))],
             ["As entered", years == null ? "—" : String(years)],
-            ["2 points higher", yearsToDouble((Number(rate) || 0) + 2) == null ? "—" : String(yearsToDouble((Number(rate) || 0) + 2))],
+            ["2 points higher", yearsToDouble(rateN + 2) == null ? "—" : String(yearsToDouble(rateN + 2))],
           ]}
         />
       }
@@ -125,11 +127,11 @@ export function DoublePage() {
         g.nerd && hasTarget ? (
           <Sensitivity
             rows={[
-              { label: "Return 2 points lower", value: reachAt((Number(rate) || 0) - 2, Number(monthly) || 0) },
+              { label: "Return 2 points lower", value: reachAt(rateN - 2, monthlyN) },
               { label: "Return as entered", value: reach },
-              { label: "Return 2 points higher", value: reachAt((Number(rate) || 0) + 2, Number(monthly) || 0) },
-              { label: "Monthly $100 less", value: reachAt(Number(rate) || 0, Math.max(0, (Number(monthly) || 0) - 100)) },
-              { label: "Monthly $100 more", value: reachAt(Number(rate) || 0, (Number(monthly) || 0) + 100) },
+              { label: "Return 2 points higher", value: reachAt(rateN + 2, monthlyN) },
+              { label: "Monthly $100 less", value: reachAt(rateN, Math.max(0, monthlyN - 100)) },
+              { label: "Monthly $100 more", value: reachAt(rateN, monthlyN + 100) },
             ]}
           />
         ) : null

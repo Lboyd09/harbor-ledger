@@ -4,7 +4,7 @@ import { displayMerchant } from "@/lib/budget/merchant";
 import { recurringBills } from "@/lib/budget/analytics-depth";
 import { formatMoney } from "@/lib/budget/money";
 import { monthLedger } from "@/lib/budget/ledger-month";
-import { comingUp } from "@/lib/budget/screen-plan";
+import { stillComingThisMonth, yearlyComingLine } from "@/lib/budget/screen-plan";
 import { groupMonth } from "@/lib/budget/month-view";
 import { monthKeyFromDate, monthLabel } from "@/lib/budget/parse-date";
 import type { CategoryUndo } from "@/lib/budget/sorting";
@@ -47,7 +47,7 @@ export function TransactionsPage() {
   const [paybackId, onPayback] = useState<string | null>(null);
   const [coach, setCoach] = useState(false);
   const today = todayIso();
-  const upcoming = comingUp(recurringBills(transactions, categories, today), today, 45);
+  const upcoming = stillComingThisMonth(recurringBills(transactions, categories, today), today, transactions);
   const stillComing = upcoming?.filter((item) => item.status !== "active" || item.nextDate.startsWith(ym)) ?? null;
 
   useEffect(() => {
@@ -113,12 +113,11 @@ export function TransactionsPage() {
               <li key={item.merchantKey}>
                 {item.description} · {formatMoney(item.usual)} · {item.nextDate}
                 {item.status === "late" ? " · this looks late" : ""}
-                {item.status === "stopped" ? " · this one stopped" : ""}
               </li>
             ))}
           </ul>
           <p className="mt-2 text-xs text-muted">
-            About {formatMoney(stillComing.reduce((sum, item) => sum + item.yearly, 0))} a year for the ones listed, from repeating charges.
+            {yearlyComingLine(stillComing)}.
           </p>
         </section>
       ) : null}

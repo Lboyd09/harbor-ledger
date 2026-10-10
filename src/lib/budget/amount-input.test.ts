@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { amountDraft, monthAmountCommit, parseAmountInput, usualAmountCommit } from "./amount-input.ts";
 import { monthLedger } from "./ledger-month.ts";
-import { freezePastUsual, patchCategory, planAmount, withMonthPlan } from "./plans.ts";
+import { freezePastUsual, patchCategory, planAmount, planTotal, withMonthPlan } from "./plans.ts";
 import type { Category, MoneyBucket, MonthBudget, Transaction } from "./types.ts";
 
 const groceries: Category = { id: "food", slug: "food", name: "Groceries", kind: "expense", plannedMonthly: 400 };
@@ -138,4 +138,13 @@ test("a new usual amount keeps earlier months", () => {
   assert.equal(kept.find((row) => row.ym === "2026-08")?.amount, 650);
   assert.equal(kept.find((row) => row.ym === "2026-09")?.amount, 400);
   assert.equal(planAmount(groceries, "2026-10", kept), 400);
+});
+
+test("plan total counts children once when a parent also has a number", () => {
+  const parent: Category = { id: "home", slug: "housing", name: "Home", kind: "expense", plannedMonthly: 500 };
+  const kids: Category[] = [
+    { id: "rent", slug: "rent", name: "Rent", kind: "expense", plannedMonthly: 300, parentId: "home" },
+    { id: "power", slug: "power", name: "Power", kind: "expense", plannedMonthly: 200, parentId: "home" },
+  ];
+  assert.equal(planTotal([parent, ...kids]), 500);
 });

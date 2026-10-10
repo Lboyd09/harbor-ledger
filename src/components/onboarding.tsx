@@ -2,7 +2,9 @@ import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { SignedIn, UserButton } from "@/lib/auth/gates";
 import { totalBalance } from "@/lib/budget/accounts";
+import { optionalAmount, readNumber } from "@/lib/budget/calc-input";
 import { formatMoney, roundMoney } from "@/lib/budget/money";
+import { planTotal } from "@/lib/budget/plans";
 import { newId } from "@/lib/budget/ids";
 import {
   CATEGORY_GROUPS,
@@ -115,7 +117,15 @@ export function Onboarding({ onExit }: { onExit?: () => void }) {
     }
     return next;
   }, [answers, fields.monthlyIncome, slugs]);
-  const plannedTotal = roundMoney(slugs.reduce((sum, slug) => sum + (shownAmounts[slug] ?? 0), 0));
+  const plannedTotal = planTotal(
+    slugs.map((slug) => ({
+      id: slug,
+      slug,
+      name: slug,
+      kind: "expense" as const,
+      plannedMonthly: shownAmounts[slug] ?? 0,
+    })),
+  );
   const incomeTotal = fields.monthlyIncome;
   const leftOver = roundMoney(incomeTotal - plannedTotal);
   const current = STEPS[step] ?? STEPS[0];
@@ -154,11 +164,14 @@ export function Onboarding({ onExit }: { onExit?: () => void }) {
     setCustomName("");
   }
 
-  function setAmount(slug: string, value: number) {
+  function setAmount(slug: string, value: number | null) {
     setAnswers((prev) => {
       const income = answersToProfile(prev).monthlyIncome;
       const base = prev.amountsTouched ? { ...suggestAmounts(prev, income), ...prev.amounts } : suggestAmounts(prev, income);
-      return { ...prev, amountsTouched: true, amounts: { ...base, [slug]: Math.max(0, value || 0) } };
+      const amounts = { ...base };
+      if (value == null) delete amounts[slug];
+      else amounts[slug] = Math.max(0, value);
+      return { ...prev, amountsTouched: true, amounts };
     });
   }
 
@@ -436,7 +449,7 @@ function AboutStep({ answers, onChange }: { answers: SetupAnswers; onChange: (pa
               value={answers.housingAmount == null ? "" : String(answers.housingAmount)}
               onChange={(event) => {
                 const raw = event.target.value.trim();
-                onChange({ housingAmount: raw === "" ? null : Math.max(0, Number(raw) || 0) });
+                onChange({ housingAmount: readNumber(raw) == null ? null : Math.max(0, readNumber(raw) as number) });
               }}
             />
           </Field>
@@ -450,7 +463,7 @@ function AboutStep({ answers, onChange }: { answers: SetupAnswers; onChange: (pa
           value={answers.age == null ? "" : String(answers.age)}
           onChange={(event) => {
             const raw = event.target.value.trim();
-            onChange({ age: raw === "" ? null : Math.max(0, Math.round(Number(raw) || 0)) });
+            onChange({ age: readNumber(raw) == null ? null : Math.max(0, Math.round(readNumber(raw) as number)) });
           }}
         />
         <button type="button" className="mt-2 min-h-11 text-sm font-medium text-primary" onClick={() => onChange({ age: null })}>
@@ -546,7 +559,11 @@ function IncomeStep({ answers, total, onChange }: { answers: SetupAnswers; total
               inputMode="decimal"
               value={row.amount ? String(row.amount) : ""}
               placeholder="0"
-              onChange={(event) => edit(index, { amount: Math.max(0, Number(event.target.value) || 0) })}
+              onChange={(event) => {
+                const read = optionalAmount(event.target.value);
+                if (read.invalid) return;
+                edit(index, { amount: Math.max(0, read.amount) });
+              }}
             />
           </Field>
           <Field label="How often">
@@ -684,7 +701,7 @@ function AmountsStep({
   income: number;
   planned: number;
   line: string;
-  onAmount: (slug: string, value: number) => void;
+  onAmount: (slug: string, value: number | null) => void;
   onFit: () => void;
 }) {
   const names = new Map(answers.customCategories.map((item) => [item.slug, item.name]));
@@ -731,7 +748,7 @@ function AmountsStep({
                   inputMode="decimal"
                   aria-label={`Monthly amount for ${name}`}
                   value={amount ? String(amount) : ""}
-                  onChange={(event) => onAmount(slug, Number(event.target.value) || 0)}
+                  onChange={(event) => onAmount(slug, readNumber(event.target.value))}
                 />
               </div>
               <input
@@ -742,7 +759,7 @@ function AmountsStep({
                 step={5}
                 value={Math.min(amount, max)}
                 aria-label={`Slider for ${name}`}
-                onChange={(event) => onAmount(slug, Number(event.target.value) || 0)}
+                onChange={(event) => onAmount(slug, readNumber(event.target.value) ?? 0)}
               />
               <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-chip" aria-hidden>
                 <div className="h-full bg-primary" style={{ width: `${width}%` }} />
@@ -824,7 +841,8 @@ function AccountsStep({
                     value={account.balance == null ? "" : String(account.balance)}
                     onChange={(event) => {
                       const raw = event.target.value.trim();
-                      const balance = raw === "" ? null : Math.max(0, Number(raw) || 0);
+                      const parsed = readNumber(raw);
+                      const balance = parsed == null ? null : Math.max(0, parsed);
                       const accounts = answers.accounts.map((row, i) => (i === index ? { ...row, balance } : row));
                       onChange({ accounts });
                     }}
@@ -879,7 +897,10 @@ function AccountsStep({
                     savings: {
                       id: plan?.id || newId("plan"),
                       name: plan?.name ?? "",
-                      target: Math.max(0, Number(event.target.value) || 0),
+                      target: (() => {
+                        const read = optionalAmount(event.target.value);
+                        return read.invalid ? (plan?.target ?? 0) : Math.max(0, read.amount);
+                      })(),
                       by: plan?.by ?? null,
                     },
                   })

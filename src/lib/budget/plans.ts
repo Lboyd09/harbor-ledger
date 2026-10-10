@@ -1,3 +1,4 @@
+import { roundMoney } from "./money.ts";
 import { shiftMonth } from "./parse-date.ts";
 import type { Category, CategoryKind, MonthBudget } from "./types.ts";
 
@@ -20,6 +21,16 @@ export function childrenOf(categories: Category[], parentId: string): Category[]
 /** A parent with splits does not add its own number again — the splits are the plan. */
 export function countsTowardPlan(category: Category, categories: Category[]): boolean {
   return !categories.some((c) => c.parentId === category.id);
+}
+
+/** One plan total. Parents that have children are left out; the children are the plan. */
+export function planTotal(categories: Category[], ym?: string | null, budgets: MonthBudget[] = []): number {
+  let total = 0;
+  for (const category of categories) {
+    if (category.kind !== "expense" || !countsTowardPlan(category, categories)) continue;
+    total += planAmount(category, ym ?? null, budgets);
+  }
+  return roundMoney(total);
 }
 
 export function categoryLabel(categories: Category[], id: string | null): string {

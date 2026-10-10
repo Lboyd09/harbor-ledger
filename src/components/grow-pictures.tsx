@@ -18,20 +18,20 @@ function todayIso() {
 export function YourMoney({
   accounts,
   balances,
-  netWorth,
+  netWorth: _snapshots,
 }: {
   accounts: Account[];
   balances: BalancePoint[];
   netWorth: NetWorthPoint[];
 }) {
+  void _snapshots;
   const view = accountRows(accounts, balances, todayIso());
   const byKind = new Map<AccountKind, number>();
   for (const row of view.rows) {
-    if (row.amount <= 0) continue;
+    if (row.owed || row.amount <= 0) continue;
     byKind.set(row.kind, (byKind.get(row.kind) ?? 0) + row.amount);
   }
   const parts = [...byKind.entries()].map(([kind, value]) => ({ id: kind, label: accountKindLabel(kind), value }));
-  const latest = netWorth.at(-1);
   return (
     <section className="rounded-lg border border-border bg-surface p-4">
       <h2 className="font-display text-xl font-semibold">Your money today</h2>
@@ -40,7 +40,6 @@ export function YourMoney({
         <Donut parts={parts} centerLabel={formatMoney(view.net, { signed: true })} />
       </div>
       <p className="mt-2 text-sm">Net across accounts: {formatMoney(view.net, { signed: true })}.</p>
-      {latest ? <p className="text-sm text-muted">Last net worth you typed: {formatMoney(latest.amount)} on {latest.date}.</p> : null}
     </section>
   );
 }

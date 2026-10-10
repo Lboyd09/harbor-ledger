@@ -9,6 +9,19 @@ import { Input } from "../ui/field";
 import { CalcFrame, YearTable } from "./frame";
 import { useGrow } from "./grow-context";
 
+function todayIso() {
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+}
+
+function daysSince(iso: string, today: string) {
+  const start = Date.parse(`${iso}T00:00:00Z`);
+  const end = Date.parse(`${today}T00:00:00Z`);
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return 999;
+  return Math.round((end - start) / 86400000);
+}
+
 export function WorthPage() {
   const g = useGrow();
   const addNetWorth = useBudgetStore((s) => s.addNetWorth);
@@ -19,10 +32,12 @@ export function WorthPage() {
   const latest = g.netWorth.at(-1);
   const series = netWorthSeries(g.accounts, g.balances);
   const fromAccounts = series.at(-1);
+  const today = todayIso();
+  const snapshotStale = !latest || daysSince(latest.date, today) > 30;
   return (
     <CalcFrame
       question="What do you own, minus what you owe?"
-      result={latest ? `Last snapshot you typed is ${formatMoney(latest.amount)} on ${latest.date}. Accounts minus loans are ${formatMoney(g.picture.net, { signed: true })}.` : `Accounts minus loans are ${formatMoney(g.picture.net, { signed: true })}.`}
+      result={`Accounts minus loans are ${formatMoney(g.picture.net, { signed: true })}.`}
       topic="worth"
       facts={g.tipFacts}
       assumptionIds={[]}
@@ -48,6 +63,15 @@ export function WorthPage() {
           >
             Save this snapshot
           </Button>
+          {snapshotStale ? (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => addNetWorth({ date: today, amount: g.picture.net, note: "From accounts" })}
+            >
+              Save today&apos;s net worth
+            </Button>
+          ) : null}
           <ul className="text-sm">
             {g.netWorth.map((point) => (
               <li key={point.id} className="flex justify-between gap-2 py-1">
@@ -76,9 +100,9 @@ export function WorthPage() {
         )
       }
       keyNumbers={[
-        { label: "Last snapshot", value: latest ? formatMoney(latest.amount) : "—" },
+        { label: "From accounts", value: formatMoney(g.picture.net, { signed: true }) },
         { label: "Snapshots", value: String(g.netWorth.length) },
-        { label: "Accounts", value: formatMoney(fromAccounts?.total ?? 0) },
+        { label: "Accounts", value: formatMoney(g.picture.net, { signed: true }) },
         { label: "Checking", value: formatMoney(fromAccounts?.byKind.checking ?? 0) },
         { label: "Savings", value: formatMoney(fromAccounts?.byKind.savings ?? 0) },
         { label: "Retirement", value: formatMoney((fromAccounts?.byKind.retirement ?? 0) + (fromAccounts?.byKind.investment ?? 0)) },

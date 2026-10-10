@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { bucketBalance, categorySpend, DEFAULT_FUND_VIEW, fundWindow, fullLineOf, fundingForMonth, goalPace, monthName } from "@/lib/budget/buckets";
+import { readNumber } from "@/lib/budget/calc-input";
 import { monthLedger } from "@/lib/budget/ledger-month";
 import { displayMerchant } from "@/lib/budget/merchant";
 import { formatMoney } from "@/lib/budget/money";
@@ -84,9 +85,27 @@ export function FundsView() {
       <div className="space-y-2">
         <h1 className="font-display text-2xl font-semibold md:text-3xl">Money</h1>
         <p className="text-sm text-muted">Goals, accounts, and what you own minus what you owe.</p>
-        <p className="text-sm">
-          Cash {formatMoney(picture.cash)} · Brokerage {formatMoney(picture.brokerage)} · Retirement {formatMoney(picture.retirement)} · Debts {formatMoney(-picture.debts, { signed: true })} · Net {formatMoney(picture.net, { signed: true })}
-        </p>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-5" aria-label="Money totals">
+          {(
+            [
+              ["Cash", picture.cash],
+              ["Brokerage", picture.brokerage],
+              ["Retirement", picture.retirement],
+              ["Debts", -picture.debts],
+              ["Net worth", picture.net],
+            ] as const
+          ).map(([label, amount]) => (
+            <button
+              key={label}
+              type="button"
+              className="rounded-lg border border-border bg-surface p-3 text-left"
+              onClick={() => setSection("accounts")}
+            >
+              <span className="block text-xs text-muted">{label}</span>
+              <span className="font-display text-lg tabular">{formatMoney(amount, { signed: true })}</span>
+            </button>
+          ))}
+        </div>
         <SectionTabs
           label="Money"
           items={[
@@ -194,7 +213,8 @@ function FundCard({ fund }: { fund: MoneyBucket }) {
         <FillJar pct={pct} negative={negative} overflow={overflow} celebrate={lively && goalHit} />
         <div className="min-w-0 flex-1">
           <div className="text-sm text-muted">{fund.name}</div>
-          <div className={`font-display text-3xl tabular ${negative ? "text-danger" : ""}`}>In this fund now: {formatMoney(balance)}</div>
+          <div className={`font-display text-3xl tabular ${negative ? "text-danger" : ""}`}>Fund balance {formatMoney(balance)}</div>
+          {negative ? <p className="mt-1 text-sm text-muted">Spent more than saved in this fund.</p> : null}
           <p className="mt-1 text-sm text-muted">
             {range.label}: {formatMoney(range.funded)} put in, {formatMoney(range.used)} used.
           </p>
@@ -308,7 +328,17 @@ function FundCard({ fund }: { fund: MoneyBucket }) {
           </label>
           <label className="block text-xs text-muted">
             Each month
-            <Input className="mt-1" inputMode="decimal" value={String(fund.monthly || "")} onChange={(e) => updateBucket(fund.id, { monthly: Number(e.target.value) || 0, yearly: null })} />
+            <Input
+              className="mt-1"
+              inputMode="decimal"
+              placeholder="0"
+              value={String(fund.monthly || "")}
+              onChange={(e) => {
+                const next = readNumber(e.target.value);
+                if (next == null) return;
+                updateBucket(fund.id, { monthly: Math.max(0, next), yearly: null });
+              }}
+            />
           </label>
           <p className="text-xs text-muted">A new amount starts next month. Months already funded stay as they were.</p>
           <label className="flex min-h-11 items-center gap-2 text-sm">

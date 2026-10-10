@@ -28,6 +28,10 @@ const ICONS: Record<AccountKind, typeof Landmark> = {
   investment: LineChart,
   retirement: Landmark,
   other: Wallet,
+  car_loan: Landmark,
+  student_loan: Landmark,
+  mortgage: Landmark,
+  personal_loan: Wallet,
 };
 
 const PICKS: { id: InvestmentPick; label: string }[] = [
@@ -109,7 +113,7 @@ export function AccountBoard() {
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
           <h2 className="font-display text-xl font-semibold">Your accounts</h2>
-          <p className="text-sm text-muted">Net {formatMoney(net, { signed: true })}. Loans of {formatMoney(picture.loans)} are subtracted. Cards are already part of the account balances.</p>
+          <p className="text-sm text-muted">Net {formatMoney(net, { signed: true })}. Debts of {formatMoney(picture.debts)} are subtracted. That is cards, loan accounts, and loans added on Money.</p>
         </div>
         <div className="flex gap-2">
           <Button size="sm" variant="outline" onClick={() => openQuickAdd("cash")}>
@@ -170,7 +174,7 @@ export function AccountBoard() {
           const apr = readNumber(loanApr);
           const minimum = loanMin.trim() ? readNumber(loanMin) : 0;
           if (!loanName.trim() || balance == null || balance <= 0 || apr == null || apr < 0 || minimum == null || minimum < 0) return;
-          addDebt({ name: loanName.trim(), balance, apr, minimum });
+          addDebt({ name: loanName.trim(), balance, apr, minimum, origin: "money" });
           setLoanName("");
           setLoanBalance("");
           setLoanApr("");

@@ -5,6 +5,7 @@ import { useCurrentUser } from "@/lib/auth/use-current-user";
 import { emailStatus, sendConfirmationEmail, sendOwnResetLink } from "@/lib/budget/email-links";
 import { deleteAccount, issueRecoveryCode } from "@/lib/budget/persist";
 import { HOUSEHOLD_LABELS, HOUSING_LABELS, STAGE_LABELS } from "@/lib/budget/presets";
+import { readNumber } from "@/lib/budget/calc-input";
 import { formatMoney } from "@/lib/budget/money";
 import { DEFAULT_INFLATION, DEFAULT_RETIRE_AGE, DEFAULT_WITHDRAWAL, PLANNING_MARKET } from "@/lib/budget/reference";
 import { TERMS } from "@/lib/copy/terms";
@@ -245,7 +246,16 @@ function NumberRow({
   return (
     <div className="flex flex-wrap items-end gap-2">
       <Field label={`${label} (default ${fallback})`}>
-        <Input inputMode="decimal" aria-label={label} value={String(value)} onChange={(e) => onChange(Number(e.target.value) || 0)} />
+        <Input
+          inputMode="decimal"
+          aria-label={label}
+          value={String(value)}
+          onChange={(e) => {
+            const next = readNumber(e.target.value);
+            if (next == null) return;
+            onChange(next);
+          }}
+        />
       </Field>
       <Button variant="outline" onClick={onReset}>Reset</Button>
     </div>

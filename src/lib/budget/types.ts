@@ -233,6 +233,8 @@ export type DebtItem = {
   /** Annual percentage rate, as a percent (18.9 means 18.9%). */
   apr: number;
   minimum: number;
+  /** "money" is a loan on Money. "plan" is a calculator copy and is not part of net worth. Missing means a saved loan, unless it matches a card. */
+  origin?: "money" | "plan";
 };
 
 /** Editable IRS-style figures. The math reads this object. It is not a set of hidden constants. */
@@ -276,7 +278,18 @@ export type SetAside = {
   amount: number;
 };
 
-export type AccountKind = "checking" | "savings" | "credit" | "cash" | "investment" | "retirement" | "other";
+export type AccountKind =
+  | "checking"
+  | "savings"
+  | "credit"
+  | "cash"
+  | "investment"
+  | "retirement"
+  | "other"
+  | "car_loan"
+  | "student_loan"
+  | "mortgage"
+  | "personal_loan";
 
 export type GrowthBand = "cautious" | "typical" | "bold";
 

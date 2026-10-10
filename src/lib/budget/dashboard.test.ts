@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { parseBackup } from "./backup.ts";
-import { accountRows, monthGlance, spanOverview, yearOverview } from "./dashboard.ts";
+import { accountRows, monthGlance, spanOverview, weeklySafe, yearOverview } from "./dashboard.ts";
 import { normalizeProfile, normalizeSnapshot } from "./normalize.ts";
 import { yearCash } from "./totals.ts";
 import type { Account, BalancePoint, Category, Transaction } from "./types.ts";
@@ -68,6 +68,13 @@ test("accountRows uses the latest point, marks stale balances, and keeps credit 
   assert.equal(card?.stale, true);
   assert.ok((card?.ageDays ?? 0) > 35);
   assert.equal(rows.net, 170);
+  const loan = accountRows(
+    [{ id: "car", name: "Car", kind: "car_loan", createdAt: "2026-01-01" }],
+    [{ id: "d", accountId: "car", date: "2026-09-01", amount: -9800, source: "entered" }],
+    "2026-10-03",
+  );
+  assert.equal(loan.rows[0]?.owed, true);
+  assert.equal(loan.net, -9800);
 });
 
 test("monthGlance counts over and on track, and carry-over over, even, and extra", () => {
@@ -142,4 +149,10 @@ test("old ledgers and backups still load when the new looks are absent", () => {
   const withLook = parseBackup({ ...old, profile: { ...old.profile, accent: "meadow" } });
   assert.equal(withLook.ok, true);
   if (withLook.ok) assert.equal(withLook.data.profile.accent, "tide");
+});
+
+test("weekly safe hides a shortfall and splits the rest of the month", () => {
+  assert.equal(weeklySafe(-2565, 14), null);
+  assert.equal(weeklySafe(0, 14), null);
+  assert.equal(weeklySafe(700, 14), 350);
 });

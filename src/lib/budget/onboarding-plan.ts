@@ -1,3 +1,4 @@
+import { isDemoAccount, isLoanKind } from "./accounts.ts";
 import { monthsInclusive, withMonthlyChange } from "./buckets.ts";
 import { expectedMonthlyOf } from "./income.ts";
 import { newId } from "./ids.ts";
@@ -475,7 +476,7 @@ export function buildSetup(
       createdAt: `${day}T00:00:00.000Z`,
     });
     if (account.balance != null && Number.isFinite(account.balance)) {
-      const owed = account.kind === "credit" ? -Math.abs(account.balance) : account.balance;
+      const owed = account.kind === "credit" || isLoanKind(account.kind) ? -Math.abs(account.balance) : account.balance;
       balances.push({
         id: account.balanceId || `bal_${account.id}`,
         accountId: account.id,
@@ -509,6 +510,26 @@ export function buildSetup(
   }
 
   return { profile, categories, extras: { accounts, balances, savingsPlans } };
+}
+
+/** Two empty auto-created Cash accounts become one. A balance, a charge, or a custom name stays put. */
+export function mergeEmptyCash(
+  accounts: Account[],
+  balances: BalancePoint[],
+  transactions: { accountId?: string | null }[] = [],
+): { accounts: Account[]; balances: BalancePoint[] } {
+  const used = new Set(transactions.map((row) => row.accountId).filter((id): id is string => Boolean(id)));
+  const empty = accounts.filter(
+    (account) =>
+      account.kind === "cash" &&
+      account.name === "Cash" &&
+      !account.institution &&
+      !used.has(account.id) &&
+      !balances.some((point) => point.accountId === account.id),
+  );
+  if (empty.length < 2) return { accounts, balances };
+  const drop = new Set(empty.slice(1).map((account) => account.id));
+  return { accounts: accounts.filter((account) => !drop.has(account.id)), balances };
 }
 
 export function mergeAccounts(existing: Account[], incoming: Account[]): Account[] {
@@ -590,7 +611,18 @@ export function applyCompleteSetup(
   categories: Category[],
   extras?: SetupExtras,
 ): LedgerSnapshot {
-  const demo = isDemoLedger(state);
+  const demo = state.profile.demo === true;
+  const userTransactions = demo ? [] : state.transactions;
+  const busyAccounts = new Set(userTransactions.map((row) => row.accountId).filter((id): id is string => Boolean(id)));
+  const keptAccounts = demo
+    ? []
+    : (state.accounts ?? []).filter((account) => !(isDemoAccount(account) && !busyAccounts.has(account.id)));
+  const keptIds = new Set(keptAccounts.map((account) => account.id));
+  const keptBalances = demo ? [] : (state.balances ?? []).filter((point) => keptIds.has(point.accountId));
+  const keptDebts = demo ? [] : (state.debts ?? []).filter((debt) => debt.id !== "debt_demo_card");
+  const keptWorth = demo ? [] : (state.netWorth ?? []).filter((point) => !point.id.startsWith("nw_demo"));
+  const keptMoves = demo ? [] : (state.bucketMoves ?? []);
+  const moveFunds = new Set(keptMoves.flatMap((move) => [move.fromId, move.toId]).filter((id): id is string => Boolean(id)));
   const idMap = new Map<string, string>();
   for (const old of state.categories) {
     const match = categories.find((c) => c.slug === old.slug) ?? categories.find((c) => c.name === old.name);
@@ -602,13 +634,18 @@ export function applyCompleteSetup(
     if (known.has(id)) return id;
     return idMap.get(id) ?? null;
   };
-  const keptBuckets = demo
-    ? []
-    : (state.moneyBuckets ?? []).map((bucket) => ({
-        ...bucket,
-        categoryIds: bucket.categoryIds.map((id) => idMap.get(id)).filter((id): id is string => Boolean(id)),
-      }));
+  const keptBuckets = (demo ? [] : (state.moneyBuckets ?? []).filter((bucket) => bucket.id !== "bucket_demo_groceries" || moveFunds.has(bucket.id))).map(
+    (bucket) => ({
+      ...bucket,
+      categoryIds: bucket.categoryIds.map((id) => idMap.get(id)).filter((id): id is string => Boolean(id)),
+    }),
+  );
   const moneyBuckets = mergeSavingsPlans(keptBuckets, extras?.savingsPlans ?? [], state.activeMonth);
+  const mergedAccounts = mergeEmptyCash(
+    mergeAccounts(keptAccounts, extras?.accounts ?? []),
+    mergeBalances(keptBalances, extras?.balances ?? []),
+    userTransactions,
+  );
   return {
     profile: {
       ...state.profile,
@@ -636,12 +673,12 @@ export function applyCompleteSetup(
     monthBudgets: demo ? [] : (state.monthBudgets ?? []),
     savingsGoals: demo ? [] : (state.savingsGoals ?? []),
     moneyBuckets,
-    bucketMoves: demo ? [] : (state.bucketMoves ?? []),
-    netWorth: demo ? [] : (state.netWorth ?? []),
-    debts: demo ? [] : (state.debts ?? []),
+    bucketMoves: keptMoves,
+    netWorth: keptWorth,
+    debts: keptDebts,
     ira: state.ira,
-    accounts: mergeAccounts(demo ? [] : (state.accounts ?? []), extras?.accounts ?? []),
-    balances: mergeBalances(demo ? [] : (state.balances ?? []), extras?.balances ?? []),
+    accounts: mergedAccounts.accounts,
+    balances: mergedAccounts.balances,
     activeMonth: state.activeMonth,
     activeWeek: state.activeWeek,
     setAsides: demo ? [] : (state.setAsides ?? []),

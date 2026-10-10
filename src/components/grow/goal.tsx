@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { needsPrompt, readNumber } from "@/lib/budget/calc-input";
+import { needsPrompt, optionalAmount, readNumber } from "@/lib/budget/calc-input";
 import { monthlyForGoal } from "@/lib/budget/grow-math";
 import { formatMoney } from "@/lib/budget/money";
 import { shiftMonth } from "@/lib/budget/parse-date";
@@ -32,9 +32,9 @@ export function GoalPage() {
     ],
     "the monthly amount",
   );
-  const goal = Number(target) || 0;
-  const saved = Number(have) || 0;
-  const monthCount = Math.max(0, Number(months) || 0);
+  const goal = readNumber(target) ?? 0;
+  const saved = optionalAmount(have).amount;
+  const monthCount = Math.max(0, readNumber(months) ?? 0);
   const need = monthlyForGoal(goal, saved, monthCount);
   const pct = goal > 0 ? Math.min(100, (saved / goal) * 100) : 0;
   const steps = Math.min(Math.max(0, Math.round(monthCount)), 36);

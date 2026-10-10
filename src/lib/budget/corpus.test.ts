@@ -213,7 +213,7 @@ test("analytics corpus", () => {
     { name: "forecast deterministic", ok: JSON.stringify(forecast) === JSON.stringify(forecastAgain) },
     { name: "forecast outside the month", ok: monthEndForecast({ transactions: pace, categories, ym: "2026-03", today: "2026-04-01" }) === null },
     { name: "forecast empty account", ok: monthEndForecast({ transactions: [], categories: categories.map((c) => ({ ...c, plannedMonthly: 0 })), ym: "2026-03", today: "2026-03-10" }) === null },
-    { name: "forecast month with no spending", ok: quietForecast?.projectedSpend === 0 && /nothing has gone out/i.test(quietForecast?.sentence ?? "") },
+    { name: "forecast month with no spending", ok: quietForecast?.projectedSpend === 0 && quietForecast.sentence === "" },
     { name: "forecast one-off is not a daily habit", ok: (forecast?.projectedSpend ?? 0) < 900 },
     { name: "forecast year boundary date", ok: januaryForecast != null && januaryForecast.today === "2026-01-16" },
     { name: "forecast fresh month", ok: freshForecast != null && freshForecast.spentSoFar > 0 },

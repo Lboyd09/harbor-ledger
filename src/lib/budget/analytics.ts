@@ -1,7 +1,8 @@
 import { rankedInsights, waitingUnlocks } from "./analytics-depth.ts";
+import { monthLedger } from "./ledger-month.ts";
 import { formatMoney, roundMoney } from "./money.ts";
 import { monthCash, monthsInData } from "./totals.ts";
-import { planAmount } from "./plans.ts";
+import { planAmount, planTotal } from "./plans.ts";
 import { weekdayName } from "./parse-date.ts";
 import type { Category, MonthBudget, Transaction } from "./types.ts";
 
@@ -30,6 +31,8 @@ export type MonthEndForecast = {
   /** Upper end of the pace band. */
   high: number;
   planned: number | null;
+  /** Expected income minus projected spending. */
+  projectedLeft: number;
   sentence: string;
 };
 
@@ -132,12 +135,7 @@ function expenses(transactions: Transaction[], ym?: string, through?: string): T
 }
 
 function plannedSpend(categories: Category[], ym: string, budgets: MonthBudget[]): number {
-  let total = 0;
-  for (const category of categories) {
-    if (category.kind !== "expense" || category.parentId) continue;
-    total += planAmount(category, ym, budgets);
-  }
-  return roundMoney(total);
+  return planTotal(categories, ym, budgets);
 }
 
 function isOneOff(row: Transaction, pool: Transaction[], siblings: Transaction[]): boolean {
@@ -172,23 +170,32 @@ export function monthEndForecast(input: {
   const rows = expenses(input.transactions, input.ym, input.today);
   const oneOffs = rows.filter((row) => isOneOff(row, expenses(input.transactions), rows));
   const oneOffTotal = roundMoney(oneOffs.reduce((sum, row) => sum + Math.abs(row.amount), 0));
-  const spentSoFar = roundMoney(rows.reduce((sum, row) => sum + Math.abs(row.amount), 0));
+  const throughToday = input.transactions.filter((row) => row.date <= input.today);
+  const spentSoFar = monthLedger(
+    { transactions: throughToday, categories: input.categories, budgets, style: "monthly" },
+    input.ym,
+  ).totals.spent;
   const paceBase = roundMoney(spentSoFar - oneOffTotal);
   const projectedSpend = roundMoney(oneOffTotal + paceBase * (parsed.days / parsed.day));
   const remaining = parsed.day > 0 ? paceBase * ((parsed.days - parsed.day) / parsed.day) : 0;
   const low = roundMoney(oneOffTotal + paceBase + remaining * 0.75);
   const high = roundMoney(oneOffTotal + paceBase + remaining * 1.25);
   const planned = plannedTotal > 0 ? plannedTotal : null;
-  let sentence: string;
-  if (spentSoFar <= 0.004) {
-    sentence = "Nothing has gone out yet. At this pace the month ends at $0.00.";
-  } else if (oneOffTotal > 0.004) {
-    sentence = `A one-time ${formatMoney(oneOffTotal)} is not treated as a daily habit. At this pace the month ends around ${formatMoney(projectedSpend)}.`;
-  } else {
-    sentence = `Spent ${formatMoney(spentSoFar)} so far. At this pace the month ends around ${formatMoney(projectedSpend)}.`;
+  const expectedIncome = roundMoney(
+    input.categories
+      .filter((category) => category.kind === "income")
+      .reduce((sum, category) => sum + planAmount(category, input.ym, budgets), 0),
+  );
+  const projectedLeft = roundMoney(expectedIncome - projectedSpend);
+  let sentence = "";
+  if (spentSoFar > 0.004) {
+    const ending =
+      projectedLeft < -0.004
+        ? `On pace to end ${formatMoney(Math.abs(projectedLeft))} short.`
+        : `On pace to end with ${formatMoney(projectedLeft)} left.`;
+    sentence = `Spending on pace for ${formatMoney(projectedSpend)} this month. ${ending}`;
   }
-  if (planned != null) sentence = `${sentence} The plan is ${formatMoney(planned)}.`;
-  return { ym: input.ym, today: input.today, spentSoFar, projectedSpend, low, high, planned, sentence };
+  return { ym: input.ym, today: input.today, spentSoFar, projectedSpend, low, high, planned, projectedLeft, sentence };
 }
 
 /** The largest rise in a repeating charge. Null until some name has been seen at least three times. */

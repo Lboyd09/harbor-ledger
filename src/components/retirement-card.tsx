@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { factNote, readNumber } from "@/lib/budget/calc-input";
 import { formatMoney } from "@/lib/budget/money";
+import { moneyPicture } from "@/lib/budget/picture";
 import { figureLine, FIGURES } from "@/lib/budget/reference";
 import { projectRetirement, retirementInputFrom, retirementMonteCarlo, retirementSensitivity } from "@/lib/budget/retirement";
 import { useBudgetStore } from "@/store/budget-store";
@@ -16,6 +17,11 @@ function money(value: string) {
 
 export function RetirementCard() {
   const facts = usePlannerFacts();
+  const accounts = useBudgetStore((s) => s.accounts ?? []);
+  const balances = useBudgetStore((s) => s.balances ?? []);
+  const debts = useBudgetStore((s) => s.debts ?? []);
+  const invested = moneyPicture({ accounts, balances, debts });
+  const investedSplit = `Retirement ${formatMoney(invested.retirement)} + Brokerage ${formatMoney(invested.brokerage)}.`;
   const nerd = useBudgetStore((s) => s.profile.detail === "nerd");
   const lively = useLivelyMotion();
   const [touched, setTouched] = useState(false);
@@ -157,9 +163,9 @@ export function RetirementCard() {
           <span className="mt-1 block">{factNote(facts.retireAge)}</span>
         </label>
         <label className="text-xs text-muted">
-          Saved so far
-          <Input className="mt-1" inputMode="decimal" aria-label="Saved so far" value={saved} onChange={(e) => edit(setSaved, e.target.value)} />
-          <span className="mt-1 block">{factNote(facts.saved)}</span>
+          Invested so far (retirement + brokerage)
+          <Input className="mt-1" inputMode="decimal" aria-label="Invested so far" value={saved} onChange={(e) => edit(setSaved, e.target.value)} />
+          <span className="mt-1 block">{factNote(facts.saved)} {investedSplit}</span>
         </label>
         <label className="text-xs text-muted">
           Saving each month

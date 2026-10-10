@@ -22,20 +22,20 @@
 - [x] 0.2 · #244 · Fix AGENTS.md · Done (3c4ef75)
 - [x] 0.3 · #245 · Clear eslint warnings · Done (3c4ef75)
 - [x] 0.4 · #207 · Make npm test run cleanly · Done (3c4ef75)
-- [ ] 1.1 · #214 #83 #167 #168 #131 · Debt calculator must not change net worth
-- [ ] 1.2 · #225 #33 #136 #84 #85 #167 #169 #81 #173 · One calculation for all of Money's totals
-- [ ] 1.3 · #223 #61 · Safe to spend and Left agree or explain
-- [ ] 1.4 · #224 #64 #189 · Label carried-over overspending
-- [ ] 1.5 · #65 #216 #250 #221 #139 · Leftover suggestions only when the month is positive
-- [ ] 1.6 · #229 #26 · Blank boxes must not count as 0
-- [ ] 1.7 · #227 · Today's weekly line
-- [ ] 1.8 · #226 · Fund balance vs category left
-- [ ] 1.9 · #178 · Budget Spent mismatch
-- [ ] 1.10 · #19 #58 #69 · Month-end forecast sentence
-- [ ] 1.11 · #59 #241 · Still coming this month
-- [ ] 1.12 · #18 #161 · One plan total
-- [ ] 1.13 · #230 · Debt calculator empty default
-- [ ] 1.14 · #71 · Demo leftovers in real budgets
+- [x] 1.1 · #214 #83 #167 #168 #131 · Debt calculator must not change net worth · Done (252e581)
+- [x] 1.2 · #225 #33 #136 #84 #85 #167 #169 #81 #173 · One calculation for all of Money's totals · Done (46c53d0)
+- [x] 1.3 · #223 #61 · Safe to spend and Left agree or explain · Done (46c53d0)
+- [x] 1.4 · #224 #64 #189 · Label carried-over overspending · Done (46c53d0)
+- [x] 1.5 · #65 #216 #250 #221 #139 · Leftover suggestions only when the month is positive · Done (46c53d0)
+- [x] 1.6 · #229 #26 · Blank boxes must not count as 0 · Done (46c53d0)
+- [x] 1.7 · #227 · Today's weekly line · Done (46c53d0)
+- [x] 1.8 · #226 · Fund balance vs category left · Done (46c53d0)
+- [x] 1.9 · #178 · Budget Spent mismatch · Done (46c53d0)
+- [x] 1.10 · #19 #58 #69 · Month-end forecast sentence · Done (46c53d0)
+- [x] 1.11 · #59 #241 · Still coming this month · Done (46c53d0)
+- [x] 1.12 · #18 #161 · One plan total · Done (46c53d0)
+- [x] 1.13 · #230 · Debt calculator empty default · Done (252e581)
+- [x] 1.14 · #71 · Demo leftovers in real budgets · Done (46c53d0)
 - [ ] 2.1 · #228 #48 #55 #98 #127 · Nothing overflows or hides behind the tab bar
 - [ ] 2.2 · #60 · Device banner shows once
 - [ ] 2.3 · #97 · Text-size setting
