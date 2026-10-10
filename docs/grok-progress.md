@@ -45,7 +45,7 @@
 - [x] 3.1 · #187 #120 #247 #248 #253 #43 #44 #41 #246 #251 #249 #250 #40 #39 #220 · Shared InfoTip, footnotes, calculator frame · Done (e529f31)
 - [ ] 3.2 · #111 #112 #113 #114 #115 #116 #117 #118 #119 #107 #121 #122 #184 #238 #240 · Wording overrides
 - [x] 3.3 · #232 #129 · Plan text · Done (c915cf6)
-- [ ] 3.4 · #242 #249 #74 #129 · Today, Budget, Transactions, Year, Sorting text
+- [x] 3.4 · #242 #249 #74 #129 · Today, Budget, Transactions, Year, Sorting text · Done (c5dc256)
 - [ ] 3.5 · #239 #251 #252 #254 #129 · Money, Settings, Import, Setup, Sign-in text
 - [ ] 4.1 · #150 #162 #17 #35 #36 · Shared my-numbers and household fixture
 - [ ] 4.2 · #20 #132 #133 #232 · Retirement answer in today's dollars
