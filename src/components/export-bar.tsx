@@ -93,7 +93,7 @@ export function ExportBar() {
     <div className="space-y-6">
       <section className="space-y-3 rounded-lg border border-border bg-surface p-4">
         <h2 className="font-display text-lg font-semibold">Google Sheets and Excel</h2>
-        <p className="text-sm text-muted">One workbook for Excel and Google Sheets, plus a CSV. Totals match Home.</p>
+        <p className="text-sm text-muted">Excel / Sheets workbook, plus CSV</p>
         <div className="flex flex-wrap gap-2">
           <Button size="sm" onClick={exportWorkbook} disabled={busy}>
             {busy ? "Building…" : "Excel"}

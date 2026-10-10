@@ -84,7 +84,7 @@ export function FundsView() {
     <div className="space-y-4">
       <div className="space-y-2">
         <h1 className="font-display text-2xl font-semibold md:text-3xl">Money</h1>
-        <p className="text-sm text-muted">Goals, accounts, and what you own minus what you owe.</p>
+
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-5" aria-label="Money totals">
           {(
             [
@@ -127,13 +127,13 @@ export function FundsView() {
         <div>
           <p className="font-display text-xl">Across all funds: {formatMoney(total)}</p>
           <p className="mt-1 text-sm text-muted">
-            This month put in {formatMoney(ledger.totals.savedToFunds)}. Used {formatMoney(used)}.
+            +{formatMoney(ledger.totals.savedToFunds)} in · {formatMoney(used)} used
           </p>
         </div>
       ) : (
         <section className="rounded-lg border border-dashed border-line px-4 py-6 text-center">
           <EmptyArt kind="funds" />
-          <p className="text-sm">A fund is money you set aside. What you do not spend stays in it.</p>
+          <p className="text-sm" title="A fund is money you set aside. What you do not spend stays in it.">No funds yet.</p>
           <Button className="mt-3" onClick={() => { setLinked(null); setWizard(true); }}>
             Add a fund
           </Button>
@@ -216,7 +216,7 @@ function FundCard({ fund }: { fund: MoneyBucket }) {
           <div className={`font-display text-3xl tabular ${negative ? "text-danger" : ""}`}>Fund balance {formatMoney(balance)}</div>
           {negative ? <p className="mt-1 text-sm text-muted">Spent more than saved in this fund.</p> : null}
           <p className="mt-1 text-sm text-muted">
-            {range.label}: {formatMoney(range.funded)} put in, {formatMoney(range.used)} used.
+            {range.label}: +{formatMoney(range.funded)} / −{formatMoney(range.used)}
           </p>
           <p className={`mt-1 text-sm ${range.status === "over" ? "text-warn" : "text-muted"}`}>{status}</p>
         </div>
@@ -228,26 +228,26 @@ function FundCard({ fund }: { fund: MoneyBucket }) {
             tone={pace.left <= 0 ? "good" : "primary"}
             label={
               pace.left <= 0
-                ? "The goal is reached."
+                ? "Goal reached"
                 : pace.required != null && fund.by
-                  ? `${formatMoney(pace.required)} a month gets you there by ${monthName(fund.by)} ${fund.by.slice(0, 4)}.`
+                  ? `${formatMoney(pace.required)}/mo to hit it by ${monthName(fund.by)} ${fund.by.slice(0, 4)}`
                   : pace.projected
-                    ? `At the current amount, about ${monthName(pace.projected)} ${pace.projected.slice(0, 4)}.`
-                    : `${formatMoney(pace.left)} still to go.`
+                    ? `On pace for ${monthName(pace.projected)} ${pace.projected.slice(0, 4)}`
+                    : `${formatMoney(pace.left)} to go`
             }
           />
         </div>
       ) : null}
       {showNudge ? (
         <p className="mt-3 text-sm">
-          {extra > 0 ? `${formatMoney(extra)} extra in this fund. ` : "This goal is reached. "}
+          Goal reached · {formatMoney(extra)} extra ·{" "}
           <a className="font-medium text-primary" href={`/grow?lump=${Math.round(extra > 0 ? extra : balance)}`}>
-            Want to see what it could grow to?
+            Grow it
           </a>{" "}
           <button type="button" className="text-muted underline-offset-2 hover:underline" onClick={() => updateBucket(fund.id, { nudgeDismissedYm: ym })}>
             Not now
           </button>
-          <span className="mt-1 block text-xs text-muted">An estimate, not financial advice.</span>
+
         </p>
       ) : null}
       <div className="mt-3 flex gap-1" role="tablist" aria-label={`${fund.name} view`}>
@@ -298,11 +298,12 @@ function FundCard({ fund }: { fund: MoneyBucket }) {
               Next
             </Button>
           </div>
-          <p className="text-sm">Put in {formatMoney(putIn)}. Used {formatMoney(used)}. At month end: {formatMoney(endBalance)}.</p>
+          <p className="text-sm">In {formatMoney(putIn)} · Used {formatMoney(used)} · Fund balance {formatMoney(endBalance)}</p>
           {fromBudget ? (
-            <p className="text-sm text-muted">
-              From this month’s budget: {formatMoney(fromBudget.funding)} funding, {formatMoney(fromBudget.setAsides)} set aside, {formatMoney(fromBudget.spent)} spent by linked categories.
-            </p>
+            <details className="text-sm text-muted">
+              <summary>From this month</summary>
+              <p>{formatMoney(fromBudget.funding)} funding · {formatMoney(fromBudget.setAsides)} set aside · {formatMoney(fromBudget.spent)} spent</p>
+            </details>
           ) : null}
           <ul className="divide-y divide-border rounded-md border border-border">
             {rows.map((t) => (
@@ -340,10 +341,10 @@ function FundCard({ fund }: { fund: MoneyBucket }) {
               }}
             />
           </label>
-          <p className="text-xs text-muted">A new amount starts next month. Months already funded stay as they were.</p>
+          <p className="text-xs text-muted">Starts next month.</p>
           <label className="flex min-h-11 items-center gap-2 text-sm">
             <input type="checkbox" checked={Boolean(fund.paused)} onChange={(e) => updateBucket(fund.id, { paused: e.target.checked })} />
-            {fund.paused ? "Paused. Turn this off to add money again." : "Pause. Nothing is added until you turn this off."}
+            {fund.paused ? "Paused" : "Pause"}
           </label>
           <div>
             <div className="text-sm font-medium">Spending that comes out of this fund</div>
@@ -358,7 +359,7 @@ function FundCard({ fund }: { fund: MoneyBucket }) {
                   </button>
                 </li>
               ))}
-              {linked.length === 0 ? <li className="text-muted">Nothing is attached. Spending stays on the monthly budget.</li> : null}
+              {linked.length === 0 ? <li className="text-muted">No linked spending.</li> : null}
             </ul>
             {available.length ? (
               <Select className="mt-2" aria-label={`Attach a category to ${fund.name}`} value="" onChange={(e) => { if (e.target.value) linkBucketCategory(fund.id, e.target.value); }}>
@@ -401,7 +402,7 @@ function MoveMoney({ fund, ym }: { fund: MoneyBucket; ym: string }) {
     <div className="space-y-3 rounded-md border border-border p-3">
       <div>
         <div className="text-sm font-medium">Move money in</div>
-        <p className="mt-1 text-xs text-muted">This is not income and not spending. It only moves money you already have.</p>
+        <p className="mt-1 text-xs text-muted" title="This is not income and not spending. It only moves money you already have.">Moves money you already have.</p>
         <div className="mt-2 grid gap-2 sm:grid-cols-3">
           <Select aria-label="Move from" value={fromId} onChange={(e) => setFromId(e.target.value)}>
             <option value="">Not given a job yet</option>
@@ -447,7 +448,7 @@ function MoveMoney({ fund, ym }: { fund: MoneyBucket; ym: string }) {
           </div>
         </div>
       ) : (
-        <p className="text-xs text-muted">Add another fund if you want to move money out of this one.</p>
+        <p className="text-xs text-muted">Needs a second fund.</p>
       )}
     </div>
   );

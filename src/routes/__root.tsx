@@ -20,7 +20,7 @@ export const Route = createRootRoute({
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
       { title: APP_NAME },
-      { name: "description", content: "Import bank CSVs, assign every dollar a job, and read week-to-week habits." },
+      { name: "description", content: "A private budget from your bank's download. No bank login." },
       { name: "theme-color", content: "#1f4d38" },
     ],
     links: [

@@ -15,7 +15,7 @@ async function sendMail(to: string, subject: string, text: string, html: string)
     return {
       configured: false as const,
       sent: false as const,
-      error: "Email is not connected yet. Add RESEND_API_KEY and HARBOR_FROM_EMAIL where BudgetFlow is hosted.",
+      error: "Email isn't available yet.",
     };
   }
   const res = await fetch("https://api.resend.com/emails", {
@@ -30,7 +30,7 @@ async function sendMail(to: string, subject: string, text: string, html: string)
     return {
       configured: true as const,
       sent: false as const,
-      error: "The mail service refused the message. Check that HARBOR_FROM_EMAIL is a domain you verified in Resend.",
+      error: "The mail service refused the message.",
     };
   }
   return { configured: true as const, sent: true as const, error: null };
@@ -129,7 +129,7 @@ export const requestPasswordReset = createServerFn({ method: "POST" })
       return {
         ok: false as const,
         configured: false,
-        error: "Email is not connected yet. Sign in and use Account to get a reset link on the page, or add RESEND_API_KEY and HARBOR_FROM_EMAIL where BudgetFlow is hosted.",
+        error: "Email reset isn't available yet.",
       };
     }
     if (!data.email.includes("@")) return { ok: true as const, configured: true };

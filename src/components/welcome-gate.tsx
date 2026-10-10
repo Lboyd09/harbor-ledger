@@ -33,7 +33,7 @@ export function WelcomeGate() {
       </div>
       <h1 className="mt-4 font-display text-3xl font-semibold md:text-4xl">Let's set up your budget</h1>
       <p className="mt-3 text-muted">
-        A few questions about you, then the app does most of the work. About five minutes. Nothing connects to your bank.
+        5 minutes. No bank login.
       </p>
       <div className="mt-8">
         <Button className="w-full" onClick={() => setStarted(true)}>

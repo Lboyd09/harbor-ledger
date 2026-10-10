@@ -128,7 +128,7 @@ export function FundWizard({
       {step === 0 ? (
         <div className="space-y-3">
           <h1 className="font-display text-2xl font-semibold">What are you setting money aside for?</h1>
-          <p className="text-sm text-muted">A name makes this fund easy to find later.</p>
+
           <div className="flex flex-wrap gap-2">
             {NAMES.map((label) => (
               <button
@@ -166,7 +166,7 @@ export function FundWizard({
       {step === 1 ? (
         <div className="space-y-3">
           <h1 className="font-display text-2xl font-semibold">Is there a goal amount?</h1>
-          <p className="text-sm text-muted">A goal is optional. You can just keep adding each month.</p>
+          <p className="text-sm text-muted">Optional.</p>
           <div className="grid gap-2 sm:grid-cols-2">
             <button type="button" className={`min-h-16 rounded-lg border p-3 text-left ${wantsGoal === true ? "border-primary bg-chip" : "border-border bg-surface"}`} onClick={() => setWantsGoal(true)}>
               Yes, there is an amount
@@ -225,7 +225,7 @@ export function FundWizard({
       {step === 2 ? (
         <div className="space-y-3">
           <h1 className="font-display text-2xl font-semibold">How much goes in each month?</h1>
-          <p className="text-sm text-muted">This is added on the 1st. The first month is added right away.</p>
+          <p className="text-sm text-muted">Added on the 1st, starting now.</p>
           <div className="flex gap-2">
             <button type="button" className={`min-h-11 rounded-md px-3 text-sm ${per === "month" ? "bg-primary text-primary-fg" : "border border-border bg-surface"}`} onClick={() => setPer("month")}>
               Each month
@@ -251,7 +251,7 @@ export function FundWizard({
       {step === 3 ? (
         <div className="space-y-3">
           <h1 className="font-display text-2xl font-semibold">Should spending come out of this fund?</h1>
-          <p className="text-sm text-muted">Pick Groceries for a food fund. Skip this for plain savings. A category you pick will no longer have a monthly amount, so it is not counted twice.</p>
+          <p className="text-sm text-muted">Optional. e.g. Groceries for a food fund.</p>
           <ul className="space-y-2">
             {available.map((c) => {
               const on = chosen.includes(c.id);
@@ -284,7 +284,7 @@ export function FundWizard({
       {step === 4 ? (
         <div className="space-y-3">
           <h1 className="font-display text-2xl font-semibold">Is there money in it already?</h1>
-          <p className="text-sm text-muted">Optional. This is money you already set aside, before this month’s add.</p>
+          <p className="text-sm text-muted">Optional. Already saved.</p>
           <Input aria-label="Money already in the fund" inputMode="decimal" placeholder="0" value={opening} onChange={(e) => setOpening(e.target.value)} />
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" onClick={() => setStep(3)}>

@@ -185,7 +185,7 @@ export function ImportWizard() {
       <div>
         <h1 className="font-display text-2xl font-semibold md:text-3xl">Import a bank file</h1>
         <p className="mt-2 max-w-2xl text-sm text-muted">
-          BudgetFlow reads a file you download from the bank. It does not log in. Each file belongs to one account.
+          No bank login. Just a downloaded file.
         </p>
       </div>
 
@@ -214,9 +214,7 @@ export function ImportWizard() {
             ))}
             <option value="new">Add a new account</option>
           </Select>
-        ) : (
-          <p className="text-sm text-muted">Add the account this file belongs to.</p>
-        )}
+        ) : null}
 
         {showNew ? (
           <div className="grid gap-3 sm:grid-cols-2">
@@ -280,7 +278,7 @@ export function ImportWizard() {
           <CsvHelp />
           <label className="flex min-h-32 cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-line bg-surface px-4 text-center">
             <span className="font-medium">Drop a .csv here, or tap to choose</span>
-            <span className="mt-1 text-sm text-muted">One account per file. Columns can be fixed after the preview.</span>
+
             <input
               type="file"
               accept=".csv,text/csv,text/plain"
@@ -387,7 +385,7 @@ export function ImportWizard() {
       {result?.needsBalance && result.accountId && !balanceSaved ? (
         <section className="space-y-3 rounded-lg border border-border bg-surface p-4">
           <h2 className="font-display text-lg font-semibold">What is the balance in this account now?</h2>
-          <p className="text-sm text-muted">The file did not include one. You can skip this.</p>
+          <p className="text-sm text-muted">Optional.</p>
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label={accounts.find((a) => a.id === result.accountId)?.kind === "credit" ? "What you owe" : "Balance"}>
               <Input inputMode="decimal" value={typedBalance} onChange={(e) => setTypedBalance(e.target.value)} />

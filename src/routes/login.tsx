@@ -81,10 +81,7 @@ function Login() {
       <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-5 py-10">
         <p className="text-sm font-medium uppercase tracking-widest text-muted">BudgetFlow</p>
         <h1 className="mt-3 font-display text-3xl font-semibold">Confirm your email</h1>
-        <p className="mt-3 text-sm text-muted">
-          Mail is not connected on this host yet, so the confirmation link is here instead of in an inbox. After you add
-          Resend, this step emails the link and you will not see it on the page. You do not need a paper code.
-        </p>
+        <p className="mt-3 text-sm text-muted">Confirm here:</p>
         <a href={confirmLink} className="mt-6 break-all rounded-lg border border-border bg-surface px-4 py-4 text-sm text-primary">
           {confirmLink}
         </a>
@@ -101,12 +98,12 @@ function Login() {
         <div>
           <p className="text-sm font-medium uppercase tracking-widest text-muted">BudgetFlow</p>
           <h1 className="mt-6 max-w-md font-display text-4xl font-semibold leading-tight">
-            {fromOnboarding ? "Your outlook is ready. Keep it." : "A private ledger for the files your bank already gives you."}
+            {fromOnboarding ? "Your plan is ready. Save it." : "Your budget, without a bank login."}
           </h1>
           <p className="mt-4 max-w-md text-muted">
             {fromOnboarding
-              ? "Create an account so this setup is not stuck on this phone. Then import a CSV whenever you want."
-              : "Import a CSV, assign every dollar a job, and read the month and the year. Nothing logs into a bank."}
+              ? "Save it to use on any device."
+              : "See what's safe to spend. No bank login."}
           </p>
           {fromOnboarding && profile.completedOnboarding ? (
             <dl className="mt-8 max-w-sm space-y-2 text-sm">
@@ -130,9 +127,9 @@ function Login() {
           ) : null}
         </div>
         <ul className="max-w-sm space-y-3 text-sm text-muted">
-          <li>Saved to your account after you sign up — not this browser alone.</li>
-          <li>Keyword matching you can override — no model guessing.</li>
-          <li>{showBroker ? "Google, X, or email." : "Email and password."} Confirm the email from Account. Password reset is a link, not a code you have to write down.</li>
+          <li>No bank login</li>
+          <li>Works with any bank CSV</li>
+          <li>Delete anytime</li>
         </ul>
       </section>
 
@@ -148,10 +145,10 @@ function Login() {
         </h2>
         <p className="mt-2 text-sm text-muted">
           {fromOnboarding
-            ? "Optional, but this is how the ledger follows you off this device."
+            ? "Optional. Syncs across devices."
             : mode === "in"
-              ? "Your ledger stays on this account."
-              : "Takes a minute. Then confirm the email from Account."}
+              ? "Your budget stays on this account."
+              : "Optional. Syncs across devices."}
         </p>
 
         {authEnabled && showBroker ? (
