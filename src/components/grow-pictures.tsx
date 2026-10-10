@@ -2,7 +2,8 @@ import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YA
 import { accountKindLabel } from "@/lib/budget/accounts";
 import { accountRows } from "@/lib/budget/dashboard";
 import type { LumpPoint } from "@/lib/budget/lump";
-import { formatMoney } from "@/lib/budget/money";
+import { formatCompact, formatMoney } from "@/lib/budget/money";
+import { InfoTip } from "./info-tip";
 import type { Account, AccountKind, BalancePoint, NetWorthPoint } from "@/lib/budget/types";
 import { useState } from "react";
 import { Donut } from "./visuals/donut";
@@ -187,20 +188,19 @@ export function GrowthArea({
   today: boolean;
   lively: boolean;
 }) {
-  const last = points.at(-1);
   const pct = (n: number) => `${Math.round(n * 1000) / 10}%`;
-  const years = last?.year ?? 0;
   return (
     <figure>
-      <p className="text-sm">
-        {`After ${years} ${years === 1 ? "year" : "years"} at ${pct(rate)} it is about ${formatMoney(last?.mid ?? 0)} before tax${today ? ", in today's dollars" : ""}. The shaded band shows ${pct(rate - 0.02)} to ${pct(rate + 0.02)}. The flat band is the ${formatMoney(last?.putIn ?? 0)} you put in. An estimate, not financial advice.`}
+      <p className="flex items-center text-sm">
+        {`Band: ${pct(rate - 0.02)}–${pct(rate + 0.02)}${today ? " · today's dollars" : ""}`}
+        <InfoTip label="About this chart" text="Before tax, at the rate you typed and 2 points either side. The put-in row does not grow." />
       </p>
       <div className="chart-rise mt-2 h-52 w-full">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={points}>
             <CartesianGrid stroke="var(--color-border)" vertical={false} />
             <XAxis dataKey="year" tick={{ fontSize: 12, fill: "var(--color-muted)" }} />
-            <YAxis tick={{ fontSize: 11, fill: "var(--color-muted)" }} width={48} />
+            <YAxis tick={{ fontSize: 11, fill: "var(--color-muted)" }} width={56} tickFormatter={(value) => formatCompact(Number(value))} />
             <Tooltip formatter={(v) => formatMoney(Number(Array.isArray(v) ? v[0] : v))} />
             <Area type="monotone" dataKey="high" name="2 points higher" stroke="var(--color-muted)" fill="var(--color-primary)" fillOpacity={0.12} isAnimationActive={lively} />
             <Area type="monotone" dataKey="mid" name="Rate you typed" stroke="var(--color-primary)" fill="var(--color-primary)" fillOpacity={0.28} isAnimationActive={lively} />
@@ -210,7 +210,7 @@ export function GrowthArea({
         </ResponsiveContainer>
       </div>
       <ShowNumbers
-        caption="Before tax, at the rate you typed and 2 points either side. The put-in row does not grow."
+        caption=""
         columns={["Year", "Put in", "2 points lower", "Rate you typed", "2 points higher"]}
         rows={points.map((point) => [String(point.year), formatMoney(point.putIn), formatMoney(point.low), formatMoney(point.mid), formatMoney(point.high)])}
       />
@@ -223,7 +223,7 @@ export function RothBars({ roth, traditional, taxNow, taxLater }: { roth: number
   return (
     <figure>
       <p className="text-sm">
-        {winner} Tax now is {taxNow}%. Tax later is {taxLater}%. An estimate, not financial advice.
+        {winner} Tax now {taxNow}%. Tax later {taxLater}%.
       </p>
       <div className="mt-2">
         <StackedBar
@@ -257,22 +257,20 @@ export function PayoffRace({
   return (
     <figure>
       <p className="text-sm">
-        {same
-          ? `Both orders finish in ${avaMonths} months with the same interest. An estimate, not financial advice.`
-          : `${less} costs ${formatMoney(gap)} less interest in this estimate. An estimate, not financial advice.`}
+        {same ? "Same interest either way." : `${less === "Highest interest first" ? "Highest-rate first" : "Smallest balance first"} saves ${formatMoney(gap)}`}
       </p>
-      <svg viewBox="0 0 100 48" className="mt-2 h-28 w-full" role="img" aria-label={`Smallest balance first ${snowMonths} months. Highest interest first ${avaMonths} months.`}>
-        <line x1="0" y1="16" x2={snowX} y2="8" stroke="var(--color-primary)" strokeWidth="2" />
-        <line x1="0" y1="32" x2={avaX} y2="24" stroke="var(--color-warn)" strokeWidth="2" />
-        <text x="1" y="14" fontSize="4" fill="var(--color-fg)">
+      <svg viewBox="0 0 320 120" className="mt-2 h-36 w-full" role="img" aria-label="Payoff comparison">
+        <text x="8" y="22" fontSize="14" fill="var(--color-fg)">
           Smallest balance first
         </text>
-        <text x="1" y="46" fontSize="4" fill="var(--color-fg)">
+        <line x1="8" y1="40" x2={8 + snowX * 3} y2="40" stroke="var(--color-primary)" strokeWidth="10" strokeLinecap="round" />
+        <text x="8" y="72" fontSize="14" fill="var(--color-fg)">
           Highest interest first
         </text>
+        <line x1="8" y1="90" x2={8 + avaX * 3} y2="90" stroke="var(--color-warn)" strokeWidth="10" strokeLinecap="round" />
       </svg>
       <ShowNumbers
-        caption="Two payoff orders. Shorter is finished sooner."
+        caption=""
         columns={["Order", "Months", "Interest"]}
         rows={[
           ["Smallest balance first", String(snowMonths), formatMoney(snowInterest)],

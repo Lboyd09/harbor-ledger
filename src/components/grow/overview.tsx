@@ -3,7 +3,7 @@ import { EmptyArt } from "../visuals/empty-art";
 import { Button } from "../ui/button";
 import { Link } from "@tanstack/react-router";
 import { useGrow } from "./grow-context";
-import { GROW_PAGES, type GrowPage } from "./session-state";
+import type { GrowPage } from "./session-state";
 
 const TILES: { id: GrowPage; label: string; hint: string }[] = [
   { id: "retire", label: "Plan for retirement", hint: "Where you stand, and the gap." },
@@ -21,7 +21,7 @@ export function Overview() {
       {!transactions.length && accounts.length === 0 ? (
         <div className="rounded-lg border border-dashed border-line px-4 py-6 text-center">
           <EmptyArt kind="grow" />
-          <p className="text-sm">Nothing of your own is here yet. Add a file, or open a calculator and type a number.</p>
+          <p className="text-sm">Add a file, or type numbers.</p>
           <Link to="/import" className="mt-3 inline-flex">
             <Button>Add your first bank file</Button>
           </Link>
@@ -42,9 +42,7 @@ export function Overview() {
           </button>
         ))}
       </div>
-      <p className="text-xs text-muted">
-        More calculators are in the Grow menu: {GROW_PAGES.filter((page) => page.id !== "overview").map((page) => page.label).join(", ")}.
-      </p>
+
     </div>
   );
 }

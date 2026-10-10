@@ -2,7 +2,7 @@ import { useState } from "react";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { readNumber } from "@/lib/budget/calc-input";
 import { netWorthSeries } from "@/lib/budget/grow-tables";
-import { formatMoney } from "@/lib/budget/money";
+import { formatCompact, formatMoney } from "@/lib/budget/money";
 import { useBudgetStore } from "@/store/budget-store";
 import { Button } from "../ui/button";
 import { Input } from "../ui/field";
@@ -89,7 +89,7 @@ export function WorthPage() {
               <LineChart data={g.netWorth.map((point) => ({ name: point.date.slice(0, 7), Amount: point.amount }))}>
                 <CartesianGrid stroke="var(--color-border)" vertical={false} />
                 <XAxis dataKey="name" tick={{ fontSize: 11, fill: "var(--color-muted)" }} />
-                <YAxis tick={{ fontSize: 11, fill: "var(--color-muted)" }} width={48} />
+                <YAxis tick={{ fontSize: 11, fill: "var(--color-muted)" }} width={56} tickFormatter={(value) => formatCompact(Number(value))} />
                 <Tooltip formatter={(v) => formatMoney(Number(Array.isArray(v) ? v[0] : v))} />
                 <Line type="monotone" dataKey="Amount" stroke="var(--color-primary)" dot={false} isAnimationActive={g.lively} />
               </LineChart>

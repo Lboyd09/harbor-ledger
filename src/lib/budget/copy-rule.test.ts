@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { test } from "node:test";
-import { copyProblems } from "./copy-rule.ts";
+import { allowedLongCopy, copyProblems } from "./copy-rule.ts";
 
 function files(dir: string, out: string[] = []) {
   for (const name of readdirSync(dir)) {
@@ -24,4 +24,16 @@ test("visible sentences stay short and avoid banned words", () => {
     for (const problem of copyProblems(readFileSync(file, "utf8"))) problems.push(`${file}: ${problem}`);
   }
   assert.deepEqual(problems, []);
+});
+
+test("user-facing strings over 160 characters fail, except errors and destructive confirmations", () => {
+  const sentence = "Please read this note before you continue with the plan screen today.";
+  const long = `<p>${sentence} ${sentence} ${sentence}</p>`;
+  assert.ok(copyProblems(long).some((problem) => problem.startsWith("long:")));
+  assert.deepEqual(copyProblems(`<p>${sentence}</p>`), []);
+  const emptyFile = `<p>That file was empty. ${sentence} ${sentence}</p>`;
+  assert.equal(allowedLongCopy(`That file was empty. ${sentence}`), true);
+  assert.deepEqual(copyProblems(emptyFile), []);
+  const wipe = `<p>Type RESET to erase this device and remove the budget from this phone. ${sentence}</p>`;
+  assert.deepEqual(copyProblems(wipe), []);
 });

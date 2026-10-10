@@ -47,3 +47,22 @@ export function rothRoom(rules: IraRules, magi: number, joint: boolean): "full" 
   if (magi >= end) return "none";
   return "partial";
 }
+
+/**
+ * Reduced Roth limit in the phase-out (IRS Pub 590-A):
+ * round the remaining amount up to the next $10, then raise a positive result under $200 to $200.
+ */
+export function reducedRothLimit(rules: IraRules, magi: number, joint: boolean, limit: number): number {
+  const room = rothRoom(rules, magi, joint);
+  if (room === "none" || !(limit > 0)) return 0;
+  if (room === "full") return limit;
+  const start = joint ? rules.rothJointStart : rules.rothSingleStart;
+  const end = joint ? rules.rothJointEnd : rules.rothSingleEnd;
+  const span = end - start;
+  if (!(span > 0)) return 0;
+  const raw = limit - (limit * (magi - start)) / span;
+  if (!(raw > 0)) return 0;
+  const rounded = Math.ceil((raw - 1e-9) / 10) * 10;
+  if (rounded > 0 && rounded < 200) return Math.min(limit, 200);
+  return Math.min(limit, rounded);
+}

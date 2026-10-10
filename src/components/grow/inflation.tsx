@@ -4,7 +4,6 @@ import { inflated } from "@/lib/budget/grow-math";
 import { formatMoney } from "@/lib/budget/money";
 import { Input } from "../ui/field";
 import { CalcFrame, Field, Sensitivity, YearTable } from "./frame";
-import { tagOf } from "./source-tag";
 import { useGrow } from "./grow-context";
 
 export function InflationPage() {
@@ -32,11 +31,20 @@ export function InflationPage() {
   const yearCount = Math.max(0, Math.round(readNumber(years) ?? 0));
   const inflation = readNumber(rate) ?? 0;
   const result = inflated(pile, yearCount, inflation);
-  const source = g.facts.typicalSpendMonthly.value != null ? "from your spending" : tagOf(g.facts.cashSavings.source);
+  const typedAmount = readNumber(amount);
+  const yearlySpend = g.facts.typicalSpendMonthly.value != null ? Math.round(g.facts.typicalSpendMonthly.value * 12) : null;
+  const cashRounded = g.facts.cashSavings.value != null ? Math.round(g.facts.cashSavings.value) : null;
+  const source =
+    yearlySpend != null && typedAmount === yearlySpend
+      ? "from your spending"
+      : cashRounded != null && typedAmount === cashRounded
+        ? "from your accounts"
+        : undefined;
   return (
     <CalcFrame
       question="What will today's money buy later?"
-      result={`${formatMoney(pile)} buys about ${formatMoney(result.buyingPower)} in ${yearCount} years if prices rise ${inflation} percent.`}
+      headline={missing ? undefined : { value: `${formatMoney(result.buyingPower)} of buying power`, sub: `in ${yearCount} yrs at ${inflation}%` }}
+      result=""
       missing={missing}
       topic="inflation"
       facts={g.tipFacts}
@@ -46,10 +54,10 @@ export function InflationPage() {
           <Field label="Amount today" tag={source}>
             <Input className="mt-1" aria-label="Amount today" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
           </Field>
-          <Field label="Years" tag="typed">
+          <Field label="Years">
             <Input className="mt-1" aria-label="Inflation years" inputMode="decimal" value={years} onChange={(e) => setYears(e.target.value)} />
           </Field>
-          <Field label="Inflation %" tag={g.facts.inflation.source === "typed" ? "typed" : "typed"}>
+          <Field label="Inflation %">
             <Input className="mt-1" aria-label="Inflation percent" inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)} />
           </Field>
         </div>

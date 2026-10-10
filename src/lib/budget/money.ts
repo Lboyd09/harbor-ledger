@@ -20,6 +20,24 @@ export function formatMoney(n: number, opts?: { signed?: boolean; dashZero?: boo
   return body;
 }
 
+/** Short labels for big Plan numbers and chart ticks: $3.0M, $2.0M, $12K. */
+export function formatCompact(n: number): string {
+  if (!Number.isFinite(n)) return "—";
+  const sign = n < 0 ? "-" : "";
+  const abs = Math.abs(n);
+  if (abs >= 1_000_000) {
+    const millions = abs / 1_000_000;
+    const body = millions >= 10 ? String(Math.round(millions)) : millions.toFixed(1);
+    return `${sign}$${body}M`;
+  }
+  if (abs >= 10_000) {
+    const thousands = abs / 1000;
+    const body = thousands >= 100 ? String(Math.round(thousands)) : thousands >= 10 ? String(Math.round(thousands)) : thousands.toFixed(1);
+    return `${sign}$${body}K`;
+  }
+  return formatMoney(n);
+}
+
 export function parseAmountToken(raw: string): number | null {
   if (raw == null) return null;
   let s = String(raw).trim();

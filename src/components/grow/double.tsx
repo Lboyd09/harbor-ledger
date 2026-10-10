@@ -58,9 +58,14 @@ export function DoublePage() {
     ? monthsToTarget({ principal: savedN, monthly: monthlyN, apr: rateN, target: targetIn ?? 0 })
     : null;
   const reach = reachLabel(months, hasTarget);
-  const reachSentence = hasTarget ? ` Reaching the target takes ${reach}.` : " Add a target.";
-  const amountTag = g.facts.cashSavings.value != null || g.facts.saved.value != null ? "from your accounts" : "typed";
-  const goal = (funds ?? []).find((fund) => (fund.target ?? 0) > 0);
+  const accountPile = g.facts.cashSavings.value ?? g.facts.saved.value;
+  const accountRounded = accountPile == null ? null : Math.round(accountPile);
+  const amountTag = accountRounded != null && readNumber(amount) === accountRounded ? "from your accounts" : undefined;
+  const savedTag = accountRounded != null && readNumber(saved) === accountRounded ? "from your accounts" : undefined;
+  const monthlyTag =
+    g.facts.monthlySaving.value != null && readNumber(monthly) === Math.round(g.facts.monthlySaving.value)
+      ? tagOf(g.facts.monthlySaving.source)
+      : undefined;
   function reachAt(apr: number, add: number) {
     if (!hasTarget) return "Add a target";
     return reachLabel(monthsToTarget({ principal: savedN, monthly: add, apr, target: targetIn ?? 0 }), true);
@@ -68,7 +73,8 @@ export function DoublePage() {
   return (
     <CalcFrame
       question="How long to double, or to reach a number?"
-      result={years == null ? "The rate has to be above zero." : `${readNumber(amount) == null ? "Money" : formatMoney(pile)} doubles in about ${years} years.${reachSentence}`}
+      headline={years == null || missing ? undefined : { value: `${years} yrs`, sub: hasTarget ? `Target in ${reach}` : "Add a target." }}
+      result={years == null ? "The rate has to be above zero." : hasTarget ? `Doubles in ${years} yrs · target in ${reach}` : `Doubles in ${years} yrs. Add a target.`}
       missing={missing}
       topic="double"
       facts={g.tipFacts}
@@ -79,16 +85,16 @@ export function DoublePage() {
           <Field label="Amount" tag={amountTag}>
             <Input className="mt-1" aria-label="Amount to double" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
           </Field>
-          <Field label="Yearly rate %" tag="typed">
+          <Field label="Yearly rate %">
             <Input className="mt-1" aria-label="Double rate" inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)} />
           </Field>
-          <Field label="Already saved" tag={savedN > 0 ? amountTag : "typed"}>
+          <Field label="Already saved" tag={savedTag}>
             <Input className="mt-1" aria-label="Already saved for the target" inputMode="decimal" value={saved} onChange={(e) => setSaved(e.target.value)} />
           </Field>
-          <Field label="Add each month" tag={tagOf(g.facts.monthlySaving.source)}>
+          <Field label="Add each month" tag={monthlyTag}>
             <Input className="mt-1" aria-label="Monthly add toward the target" inputMode="decimal" value={monthly} onChange={(e) => setMonthly(e.target.value)} />
           </Field>
-          <Field label="Target" tag={goal ? "from a savings goal" : "typed"}>
+          <Field label="Target">
             <Input className="mt-1" aria-label="Target amount" inputMode="decimal" value={target} onChange={(e) => setTarget(e.target.value)} />
           </Field>
         </div>

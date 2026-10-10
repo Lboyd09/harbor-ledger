@@ -9,7 +9,6 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/field";
 import { queueFundFromGoal } from "../fund-wizard-queue";
 import { CalcFrame, Field, Sensitivity, YearTable } from "./frame";
-import { tagOf } from "./source-tag";
 import { useGrow } from "./grow-context";
 
 export function GoalPage() {
@@ -44,21 +43,22 @@ export function GoalPage() {
     <div className="space-y-3">
       <CalcFrame
         question="What should you set aside each month?"
-        result={goal > 0 ? `Set aside ${formatMoney(need)} each month for ${monthCount} months.` : "Type the price. Already saved starts from a savings account when one exists."}
+        headline={goal > 0 && !missing ? { value: `${formatMoney(need)}/mo`, sub: `${monthCount} months` } : undefined}
+        result={goal > 0 ? "" : "Enter the price."}
         missing={missing}
         topic="goal"
         facts={g.tipFacts}
         assumptionIds={[]}
-        extraAssumptions={[g.facts.cashSavings.note, g.facts.typicalSpendMonthly.note, "A goal is extra savings. It is not a budget category."]}
+        extraAssumptions={[g.facts.cashSavings.note, g.facts.typicalSpendMonthly.note].filter((line) => line.trim())}
         numbers={
           <div className="grid gap-2 sm:grid-cols-3">
-            <Field label="Goal" tag={g.facts.typicalSpendMonthly.value != null ? "from your spending" : "typed"}>
+            <Field label="Goal" tag={g.facts.typicalSpendMonthly.value != null ? "from your spending" : undefined}>
               <Input className="mt-1" inputMode="decimal" aria-label="Goal" value={target} onChange={(e) => setTarget(e.target.value)} />
             </Field>
-            <Field label="Already saved" tag={tagOf(g.facts.cashSavings.source)}>
+            <Field label="Already saved" tag={g.facts.cashSavings.value != null && readNumber(have) === Math.round(g.facts.cashSavings.value) ? "from your accounts" : undefined}>
               <Input className="mt-1" inputMode="decimal" aria-label="Already saved" value={have} onChange={(e) => setHave(e.target.value)} />
             </Field>
-            <Field label="Months" tag="typed">
+            <Field label="Months">
               <Input className="mt-1" inputMode="decimal" aria-label="Goal months" value={months} onChange={(e) => setMonths(e.target.value)} />
             </Field>
           </div>

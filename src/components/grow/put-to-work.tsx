@@ -2,6 +2,7 @@ import { yearRows } from "@/lib/budget/grow-tables";
 import { debtFirstNote, growLump, lumpPath, lumpWhatIfs, readLump } from "@/lib/budget/lump";
 import { debtsInNetWorth } from "@/lib/budget/real-debts";
 import { formatMoney } from "@/lib/budget/money";
+import { InfoTip } from "../info-tip";
 import { GrowthArea, PlaceMap } from "../grow-pictures";
 import { Input } from "../ui/field";
 import { SharedRates } from "./editors";
@@ -23,20 +24,18 @@ export function PutToWork() {
       : g.surplus.balance > 0 && typedAmount === Math.round(g.surplus.balance)
         ? "from your budget"
         : "typed";
-  const dollars = g.today ? " in today's dollars" : "";
   let result = read.ok ? "" : read.prompt;
+  let headline: { value: string; sub?: string } | undefined;
   if (input && out) {
     const start = formatMoney(input.amount);
-    const span = `${input.years} ${input.years === 1 ? "year" : "years"}`;
     if (out.months === 0) {
-      result = `With 0 years there is no time to grow, so it stays ${start}.`;
+      result = `0 years: stays ${start}.`;
     } else {
-      result = `Left alone for ${span} at ${pct(input.rate)} a year, ${start} grows to about ${formatMoney(out.shownBeforeTax)}${dollars}, before tax.`;
-      if (out.taxOnGain > 0) {
-        result += ` In a taxable account, after ${pct(input.gainTax)} tax on the gain, you'd keep about ${formatMoney(out.shownAfterTax)}.`;
-      } else if (out.gain > 0) {
-        result += " With no tax on the gain, you keep all of it.";
-      }
+      headline = {
+        value: `${formatMoney(out.shownBeforeTax)} in ${input.years} yrs`,
+        sub: out.taxOnGain > 0 ? `${formatMoney(out.shownAfterTax)} after tax` : "Before tax",
+      };
+      result = "";
     }
   }
   const debtNote = input ? debtFirstNote(debtsInNetWorth(g.debts, g.accounts, g.balances), input.rate) : null;
@@ -44,12 +43,13 @@ export function PutToWork() {
   return (
     <CalcFrame
       question="What if this amount is left alone?"
-      result={debtNote ? `${result} ${debtNote}` : result}
+      headline={headline}
+      result={result}
       topic="work"
       facts={g.tipFacts}
       assumptionIds={g.today ? ["inflation"] : []}
       extraAssumptions={[
-        "It grows every month at the yearly rate you typed, divided by 12, the same way as Add every month. Nothing is added or taken out.",
+        "Grows monthly at rate ÷ 12.",
         "Tax on the gain is taken once, when you sell at the end. Long-term gains are often taxed at 0%, 15% or 20%. Check your own rate.",
         "In a Roth or other tax-free account you would keep the before-tax amount, within the yearly limits.",
         ...(g.today ? ["Today's dollars divide by inflation for each year."] : []),
@@ -60,19 +60,25 @@ export function PutToWork() {
           <Field label="Amount" tag={amountTag}>
             <Input className="mt-1" inputMode="decimal" aria-label="Amount" value={g.principal} onChange={(e) => g.setPrincipal(e.target.value)} />
           </Field>
-          <Field label="Years" tag="typed">
+          <Field label="Years">
             <Input className="mt-1" inputMode="decimal" aria-label="Years" value={g.years} onChange={(e) => g.setYears(e.target.value)} />
           </Field>
-          <Field label="Yearly return %" tag="typed">
+          <Field label="Yearly return %">
             <Input className="mt-1" inputMode="decimal" aria-label="Yearly return" value={g.rate} onChange={(e) => g.setRate(e.target.value)} />
           </Field>
-          <Field label="Tax on the gain %" tag="when you sell, in a taxable account">
+          <Field label="Tax on the gain %, taxable account">
             <Input className="mt-1" inputMode="decimal" aria-label="Tax on the gain" value={g.gainTax} onChange={(e) => g.setGainTax(e.target.value)} />
           </Field>
         </div>
       }
       picture={
         <div className="space-y-3">
+          {debtNote ? (
+            <p className="flex items-center text-sm">
+              High-rate debt first
+              <InfoTip label="Why debt comes first" text={debtNote} />
+            </p>
+          ) : null}
           <PlaceMap />
           {input && out && out.months > 0 ? <GrowthArea points={lumpPath(input)} rate={input.rate} today={input.today} lively={g.lively} /> : null}
         </div>

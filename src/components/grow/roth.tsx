@@ -1,19 +1,13 @@
-import { needsPrompt } from "@/lib/budget/calc-input";
+import { needsPrompt, readNumber } from "@/lib/budget/calc-input";
 import { iraLimitCheck, rothVerdict, rothVsTraditional, rothWhatIfs } from "@/lib/budget/grow-math";
+import { reducedRothLimit } from "@/lib/budget/ira";
 import { formatMoney } from "@/lib/budget/money";
+import { InfoTip } from "../info-tip";
 import { RothBars } from "../grow-pictures";
 import { Input } from "../ui/field";
 import { IraEditors, SharedRates } from "./editors";
 import { CalcFrame, Field, Sensitivity, YearTable } from "./frame";
 import { useGrow } from "./grow-context";
-
-const ROOM_TEXT = {
-  full: "Your income allows the full Roth amount.",
-  partial: "Your income is in the phase-out range, so only part of the Roth amount may be allowed.",
-  none: "Your income is above the Roth limit, so a direct Roth contribution isn't allowed.",
-} as const;
-
-const ROOM_SHORT = { full: "Full amount", partial: "Part of it", none: "Not allowed" } as const;
 
 const METHOD_NOTE =
   "Both use the same pre-tax pay each year. Roth puts in what's left after today's tax and is tax-free later. Traditional puts in all of it and is taxed when you take it out. Deposits go in at the end of each year.";
@@ -40,8 +34,13 @@ export function RothPage() {
     inflation: g.inflationRate,
     today: g.today,
   };
-  const check = iraLimitCheck(g.annualN, g.taxNowN, g.limit);
+  const allowed = reducedRothLimit(g.ira, Math.max(0, readNumber(g.magi) ?? 0), g.joint, g.limit);
+  const rothCheck = iraLimitCheck(g.annualN, g.taxNowN, allowed);
+  const tradCheck = iraLimitCheck(g.annualN, g.taxNowN, g.limit);
   const verdict = rothVerdict(g.compare, g.taxNowN, g.taxLaterN);
+  const ahead = g.compare.roth - g.compare.traditional;
+  const shortResult =
+    Math.abs(ahead) < 1 ? "About the same after tax." : ahead > 0 ? `Roth leaves ${formatMoney(ahead)} more.` : `Traditional leaves ${formatMoney(-ahead)} more.`;
   const limitLine = (name: string, amount: number, over: number) =>
     `${name}: ${formatMoney(amount)} a year goes in, ${over > 0 ? `${formatMoney(over)} over the limit` : "within the limit"}.`;
   const rows = Array.from({ length: Math.min(Math.floor(g.yearCount), 30) }, (_, index) => {
@@ -52,7 +51,15 @@ export function RothPage() {
   return (
     <CalcFrame
       question="Roth or traditional, after tax?"
-      result={verdict}
+      headline={
+        missing
+          ? undefined
+          : {
+              value: formatMoney(Math.max(g.compare.roth, g.compare.traditional)),
+              sub: g.compare.roth === g.compare.traditional ? "Same either way" : g.compare.roth > g.compare.traditional ? "Roth, after tax" : "Traditional, after tax",
+            }
+      }
+      result={shortResult}
       missing={missing}
       topic="roth"
       facts={g.tipFacts}
@@ -66,31 +73,32 @@ export function RothPage() {
       }
       numbers={
         <div className="grid gap-2 sm:grid-cols-2">
-          <Field label="Pre-tax amount each year" tag="typed">
+          <Field label="Pre-tax amount each year">
             <Input className="mt-1" inputMode="decimal" aria-label="Yearly amount" value={g.annual} onChange={(e) => g.setAnnual(e.target.value)} />
           </Field>
-          <Field label="Years" tag="typed">
+          <Field label="Years">
             <Input className="mt-1" inputMode="decimal" aria-label="Years" value={g.years} onChange={(e) => g.setYears(e.target.value)} />
           </Field>
-          <Field label="Tax now %" tag="typed">
+          <Field label="Tax now %">
             <Input className="mt-1" inputMode="decimal" aria-label="Tax now" value={g.taxNow} onChange={(e) => g.setTaxNow(e.target.value)} />
           </Field>
-          <Field label="Tax later %" tag="typed">
+          <Field label="Tax later %">
             <Input className="mt-1" inputMode="decimal" aria-label="Tax later" value={g.taxLater} onChange={(e) => g.setTaxLater(e.target.value)} />
           </Field>
         </div>
       }
       picture={
         <div className="space-y-3">
-          <p className="text-xs text-muted">{METHOD_NOTE}</p>
+          <InfoTip label="Why this result" text={verdict} />
           <RothBars roth={g.compare.roth} traditional={g.compare.traditional} taxNow={g.taxNow} taxLater={g.taxLater} />
           <div className="space-y-1 text-sm" aria-label="Yearly limit">
             <p className="font-medium">
-              You can put in up to {formatMoney(g.limit)} this year ({g.ira.year} IRS limit).
+              {g.room === "none" ? "Over the Roth income limit" : `You can put in up to ${formatMoney(allowed)} this year`}
             </p>
-            <p>{limitLine("Roth", check.rothIn, check.rothOver)}</p>
-            <p>{limitLine("Traditional", check.traditionalIn, check.traditionalOver)}</p>
-            <p className="text-muted">{ROOM_TEXT[g.room]}</p>
+            {g.room === "full" ? <p className="text-muted">Full Roth allowed</p> : null}
+            {g.room === "partial" ? <p className="text-muted">Partial Roth only</p> : null}
+            <p>{limitLine("Roth", rothCheck.rothIn, rothCheck.rothOver)}</p>
+            <p>{limitLine("Traditional", tradCheck.traditionalIn, tradCheck.traditionalOver)}</p>
           </div>
         </div>
       }
@@ -100,7 +108,7 @@ export function RothPage() {
         { label: "Roth, you put in", value: formatMoney(g.compare.rothContributed) },
         { label: "Traditional, you put in", value: formatMoney(g.compare.traditionalContributed) },
         { label: "You can put in", value: `Up to ${formatMoney(g.limit)} a year` },
-        { label: "Roth at your income", value: ROOM_SHORT[g.room] },
+        { label: "Roth at your income", value: g.room === "none" ? "Over the limit" : `Up to ${formatMoney(allowed)}` },
       ]}
       years={<YearTable columns={["Year", "Roth put in", "Roth value", "Traditional put in", "Traditional after tax"]} rows={rows} />}
       advanced={

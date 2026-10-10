@@ -13,12 +13,12 @@ export function CushionPage() {
   const target = monthly * months;
   const pct = target > 0 ? Math.min(100, (saved / target) * 100) : 0;
   const covered = monthly > 0 ? saved / monthly : 0;
-  const result = monthly > 0
-    ? `${formatMoney(saved)} covers about ${covered.toFixed(1)} months. ${months} months is ${formatMoney(target)}.`
-    : "Import a few months of spending. This uses that average.";
+  const result = monthly > 0 ? "" : "Import 3 months to see this.";
   return (
     <CalcFrame
       question="How big should the cushion be?"
+      info={{ label: "What is a cushion?", text: "Cash for a few months of spending.", href: "/help#cushion" }}
+      headline={monthly > 0 ? { value: `${covered.toFixed(1)} months covered`, sub: `Goal ${formatMoney(target)}` } : undefined}
       result={result}
       topic="cushion"
       facts={g.tipFacts}

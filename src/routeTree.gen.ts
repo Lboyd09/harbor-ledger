@@ -14,6 +14,7 @@ import { Route as BudgetRouteImport } from './routes/budget'
 import { Route as ConfirmRouteImport } from './routes/confirm'
 import { Route as FundsRouteImport } from './routes/funds'
 import { Route as GrowRouteImport } from './routes/grow'
+import { Route as HelpRouteImport } from './routes/help'
 import { Route as ImportRouteImport } from './routes/import'
 import { Route as ImportsRouteImport } from './routes/imports'
 import { Route as LoginRouteImport } from './routes/login'
@@ -46,6 +47,11 @@ const FundsRoute = FundsRouteImport.update({
 const GrowRoute = GrowRouteImport.update({
   id: '/grow',
   path: '/grow',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HelpRoute = HelpRouteImport.update({
+  id: '/help',
+  path: '/help',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ImportRoute = ImportRouteImport.update({
@@ -95,6 +101,7 @@ export interface FileRoutesByFullPath {
   '/confirm': typeof ConfirmRoute
   '/funds': typeof FundsRoute
   '/grow': typeof GrowRoute
+  '/help': typeof HelpRoute
   '/import': typeof ImportRoute
   '/imports': typeof ImportsRoute
   '/login': typeof LoginRoute
@@ -110,6 +117,7 @@ export interface FileRoutesByTo {
   '/confirm': typeof ConfirmRoute
   '/funds': typeof FundsRoute
   '/grow': typeof GrowRoute
+  '/help': typeof HelpRoute
   '/import': typeof ImportRoute
   '/imports': typeof ImportsRoute
   '/login': typeof LoginRoute
@@ -126,6 +134,7 @@ export interface FileRoutesById {
   '/confirm': typeof ConfirmRoute
   '/funds': typeof FundsRoute
   '/grow': typeof GrowRoute
+  '/help': typeof HelpRoute
   '/import': typeof ImportRoute
   '/imports': typeof ImportsRoute
   '/login': typeof LoginRoute
@@ -143,6 +152,7 @@ export interface FileRouteTypes {
     | '/confirm'
     | '/funds'
     | '/grow'
+    | '/help'
     | '/import'
     | '/imports'
     | '/login'
@@ -158,6 +168,7 @@ export interface FileRouteTypes {
     | '/confirm'
     | '/funds'
     | '/grow'
+    | '/help'
     | '/import'
     | '/imports'
     | '/login'
@@ -173,6 +184,7 @@ export interface FileRouteTypes {
     | '/confirm'
     | '/funds'
     | '/grow'
+    | '/help'
     | '/import'
     | '/imports'
     | '/login'
@@ -189,6 +201,7 @@ export interface RootRouteChildren {
   ConfirmRoute: typeof ConfirmRoute
   FundsRoute: typeof FundsRoute
   GrowRoute: typeof GrowRoute
+  HelpRoute: typeof HelpRoute
   ImportRoute: typeof ImportRoute
   ImportsRoute: typeof ImportsRoute
   LoginRoute: typeof LoginRoute
@@ -234,6 +247,13 @@ declare module '@tanstack/react-router' {
       path: '/grow'
       fullPath: '/grow'
       preLoaderRoute: typeof GrowRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/help': {
+      id: '/help'
+      path: '/help'
+      fullPath: '/help'
+      preLoaderRoute: typeof HelpRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/import': {
@@ -301,6 +321,7 @@ const rootRouteChildren: RootRouteChildren = {
   ConfirmRoute: ConfirmRoute,
   FundsRoute: FundsRoute,
   GrowRoute: GrowRoute,
+  HelpRoute: HelpRoute,
   ImportRoute: ImportRoute,
   ImportsRoute: ImportsRoute,
   LoginRoute: LoginRoute,

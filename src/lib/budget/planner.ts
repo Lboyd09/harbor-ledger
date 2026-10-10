@@ -107,7 +107,7 @@ export function plannerFacts(input: {
         : { value: age, source: "typed", note: `From birth year ${profile.birthYear}.` },
     retireAge:
       profile.retireAge != null
-        ? { value: profile.retireAge, source: "typed", note: "Saved in Account." }
+        ? { value: profile.retireAge, source: "typed", note: "Saved in Settings." }
         : { value: DEFAULT_RETIRE_AGE, source: "default", note: "Full Social Security age for a birth year of 1960 or later. Earlier years have a lower full age." },
     saved: foundSaved
       ? { value: roundMoney(saved), source: "from your accounts", note: "Retirement and investment balances." }
