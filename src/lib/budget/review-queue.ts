@@ -227,7 +227,5 @@ export function queueStats(queue: ReviewGroup[]): QueueStats {
 
 export function coverSentence(stats: QueueStats): string {
   if (!stats.groups) return "Nothing left to sort.";
-  const percent = Math.round(stats.coveredShareOfFirstN * 100);
-  const names = stats.names;
-  return `${names} ${names === 1 ? "name covers" : "names cover"} ${percent} percent of what's left to sort.`;
+  return `${stats.charges} ${stats.charges === 1 ? "charge" : "charges"} to sort`;
 }

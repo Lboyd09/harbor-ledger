@@ -13,6 +13,7 @@ import { comingUp } from "@/lib/budget/screen-plan";
 import { useBudgetStore } from "@/store/budget-store";
 import { CategorizeCoach } from "./categorize-coach";
 import { Button } from "./ui/button";
+import { InfoTip } from "./info-tip";
 import { EmptyArt } from "./visuals/empty-art";
 
 function todayIso() {
@@ -126,7 +127,7 @@ export function HomeDashboard() {
         <h1 className="font-display text-2xl font-semibold md:text-3xl">Today</h1>
         <EmptyArt kind="home" />
         <h2 className="font-display text-3xl font-semibold">Nothing here yet</h2>
-        <p className="text-sm text-muted">Add a bank file, or open Budget to set amounts from setup.</p>
+        <p className="text-sm text-muted">Add a bank file to see your money.</p>
         <Link to="/import">
           <Button>Add a bank file</Button>
         </Link>
@@ -137,10 +138,9 @@ export function HomeDashboard() {
   return (
     <div className="mx-auto max-w-xl space-y-4">
       <h1 className="font-display text-2xl font-semibold md:text-3xl">Today</h1>
-      <p className="text-sm text-muted">What you can spend, what needs you, and the bills that are coming.</p>
       <section className="grid grid-cols-2 gap-2 text-sm min-[420px]:grid-cols-3" aria-label="Your numbers">
         <a href="/grow?q=cushion" data-tile className="min-w-0 rounded-lg border border-border bg-surface p-3">
-          <p className="text-sm text-muted">Cushion</p>
+          <p className="flex items-center text-sm text-muted">Cushion <InfoTip label="What is cushion?" text="Months of spending in cash." href="/help#cushion" /></p>
           <p className="money font-display tabular" data-money>{picture.cushionMonths == null ? "—" : `${picture.cushionMonths} mo`}</p>
         </a>
         <Link to="/grow" data-tile className="min-w-0 rounded-lg border border-border bg-surface p-3">
@@ -154,7 +154,7 @@ export function HomeDashboard() {
       </section>
       {sample ? (
         <section className="rounded-lg border border-border bg-surface p-4">
-          <p className="text-sm">This is the sample budget. Starting your own replaces it.</p>
+          <p className="text-sm">Sample budget. Start yours anytime.</p>
           <Button className="mt-3" onClick={() => reopenSetup()}>
             Start my budget
           </Button>
@@ -163,7 +163,7 @@ export function HomeDashboard() {
 
       <section className={`rounded-lg border p-4 ${safe.amount < 0 ? "border-danger/40 bg-danger/10" : "border-border bg-surface"}`}>
         <div className="flex items-start justify-between gap-3">
-          <p className="text-sm text-muted">Safe to spend</p>
+          <p className="flex items-center text-sm text-muted">Safe to spend <InfoTip label="What is safe to spend?" text="Income so far − planned bills − overspending." href="/help#safe-to-spend" /></p>
           <button
             type="button"
             className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full border border-border text-sm"
@@ -174,7 +174,7 @@ export function HomeDashboard() {
           </button>
         </div>
         <p className={`money-hero font-display font-semibold tabular ${safe.amount < 0 ? "text-danger" : ""}`} data-money>{formatMoney(safe.amount)}</p>
-        {weekly != null ? <p className="mt-1 text-sm">≈ {formatMoney(weekly)} a week until month end.</p> : null}
+        {weekly != null && safe.amount > 0 ? <p className="mt-1 text-sm">≈ {formatMoney(weekly)} a week</p> : null}
         {why ? (
           <p className="mt-2 text-sm text-muted">
             Left now {formatMoney(breakdown.left, { signed: true })} · Still planned {formatMoney(-breakdown.stillPlanned, { signed: true })} · Safe to spend {formatMoney(breakdown.safe, { signed: true })}
@@ -188,7 +188,7 @@ export function HomeDashboard() {
           <ul className="mt-2 space-y-2 text-sm">
             {queue.length ? <li>{coverSentence(stats)}</li> : null}
             {over.map((line) => (
-              <li key={line.id}>You're over on {line.name} by {formatMoney(Math.abs(line.left))}.</li>
+              <li key={line.id}>{line.name}: {formatMoney(Math.abs(line.left))} over</li>
             ))}
           </ul>
         ) : (
@@ -219,7 +219,7 @@ export function HomeDashboard() {
             ))}
           </ul>
         ) : (
-          <p className="mt-2 text-sm text-muted">No bills due in the next few weeks.</p>
+          <p className="mt-2 text-sm text-muted">No bills due soon.</p>
         )}
       </section>
 

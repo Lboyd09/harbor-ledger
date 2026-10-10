@@ -10,7 +10,7 @@ function PastImports() {
   return (
     <div className="space-y-6">
       <HomeMenu current="imports" />
-      <p className="max-w-xl text-sm text-muted">Files already brought in. Nothing here deletes a charge.</p>
+      <p className="max-w-xl text-sm text-muted">Your imported files</p>
       {imports.length === 0 ? (
         <p className="text-sm">
           No files yet.{" "}

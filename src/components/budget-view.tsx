@@ -105,12 +105,12 @@ export function BudgetView({ page }: { page: "month" | "amounts" | "transactions
               </li>
             ))
           ) : (
-            <li className="text-muted">Nothing put into a fund this month.</li>
+            <li className="text-muted">No fund savings yet</li>
           )}
         </ul>
       ) : null}
       {ledger.fundMoves !== 0 ? (
-        <p className="text-sm text-muted">{formatMoney(ledger.fundMoves)} moved between funds, not counted as new savings.</p>
+        <p className="text-sm text-muted" title="Moves between funds are not new savings.">{formatMoney(ledger.fundMoves)} moved between funds</p>
       ) : null}
       {page === "month" ? <FreshBillCard /> : null}
       {page === "month" ? <LeftoversCard /> : null}
@@ -136,7 +136,7 @@ export function BudgetView({ page }: { page: "month" | "amounts" | "transactions
         </section>
       ) : null}
       {coach ? <CategorizeCoach onClose={() => setCoach(false)} /> : null}
-      {page === "amounts" ? <AmountsPage showStyle /> : page === "transactions" ? <TransactionsPage /> : <AmountsPage showStyle={false} />}
+      {page === "transactions" ? <TransactionsPage /> : <AmountsPage />}
     </div>
   );
 }

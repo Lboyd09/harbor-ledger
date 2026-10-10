@@ -326,9 +326,9 @@ export function Section({
                     </div>
                     <p className={cn("text-sm", status === "over" ? "text-danger" : "text-muted")}>
                       {status === "over"
-                        ? `You're ${formatMoney(Math.abs(row.out))} over. Next month has ${formatMoney(allowance?.cutBack ? Math.abs(row.out) : Math.abs(row.out))} less, so this is the one to watch.`
+                        ? `${formatMoney(Math.abs(row.out))} over · next month −${formatMoney(Math.abs(row.out))}`
                         : status === "extra"
-                          ? `${formatMoney(row.out)} extra stays here for next month.`
+                          ? `+${formatMoney(row.out)} carries to next month`
                           : "Right on track."}
                     </p>
                   </div>
@@ -336,7 +336,7 @@ export function Section({
                 {linked ? (
                   <p className="mt-2 text-xs text-muted">
                     This is a fund. What you don’t spend stays.{" "}
-                    <Link to="/funds" className="text-primary">See it in Funds</Link>
+                    <Link to="/funds" className="text-primary">See fund</Link>
                   </p>
                 ) : null}
               </div>
@@ -455,13 +455,13 @@ export function RowTools({
       {t.status === "reimbursement" ? (
         <div className="rounded-md border border-border bg-bg p-3">
           <p className="font-medium">This was paid back{note ? ` — ${note}` : ""}.</p>
-          <p className="mt-1 text-muted">It is not spending and the matching deposit is not income.</p>
+          <p className="mt-1 text-muted">Left out of spending and income.</p>
           <Button className="mt-2" size="sm" variant="outline" onClick={() => { useBudgetStore.getState().undoPaidBack(t.id); onNotice("Counted as spending again."); }}>
             Undo — count it again
           </Button>
         </div>
       ) : (
-        <p className="text-muted">Pick a category above, then choose just this charge, this month, or the default. Nothing changes until you tap Apply.</p>
+        <p className="text-muted">Pick a category, then Apply.</p>
       )}
       {t.pinned === "charge" || t.pinned === "month" ? (
         <Quiet
@@ -478,7 +478,7 @@ export function RowTools({
         {t.status === "refund" ? (
           <Quiet onClick={() => { patchTransaction(t.id, { status: "posted" }); onNotice("Counted as a normal charge again."); }}>Not money back</Quiet>
         ) : tone === "out" && t.status === "posted" && !pieces ? (
-          <Quiet onClick={() => { patchTransaction(t.id, { status: "refund" }); onNotice("Marked as money a store gave back. It lowers spending and is not income."); }}>
+          <Quiet onClick={() => { patchTransaction(t.id, { status: "refund" }); onNotice("Refund · lowers spending"); }}>
             Store gave this back
           </Quiet>
         ) : null}
@@ -486,7 +486,7 @@ export function RowTools({
           <Quiet onClick={() => { countAsIncome(t.id); onNotice("Counted as income."); }}>Count as income</Quiet>
         ) : null}
         {tone === "in" && !paycheck && t.status === "posted" ? (
-          <Quiet onClick={() => { patchTransaction(t.id, { status: "transfer" }); onNotice("Hidden from income. It is listed under Left out of income."); }}>Not income</Quiet>
+          <Quiet onClick={() => { patchTransaction(t.id, { status: "transfer" }); onNotice("Moved to Left out of income."); }}>Not income</Quiet>
         ) : null}
         <Quiet danger onClick={() => deleteTransaction(t.id)}>Remove</Quiet>
       </div>
@@ -518,7 +518,6 @@ function SplitEditor({
   const [aAmt, setAAmt] = useState(String(existing?.[0]?.amount ?? half));
   const [bAmt, setBAmt] = useState(String(existing?.[1]?.amount ?? rest));
   const kind = tone === "in" ? "income" : "expense";
-  const overall = categories.find((c) => c.id === t.categoryId);
 
   useEffect(() => {
     if (openNow) setOn(true);
@@ -530,21 +529,20 @@ function SplitEditor({
     const a = Number(aAmt);
     const b = Number(bAmt);
     if (!aCat || !bCat) return onNotice("Pick a category for each piece.");
-    if (aCat === bCat) return onNotice("Pick two different categories. The overall category can still be one of them.");
+    if (aCat === bCat) return onNotice("Pick two different categories.");
     if (!Number.isFinite(a) || !Number.isFinite(b) || a <= 0 || b <= 0) return onNotice("Both amounts need to be more than zero.");
     if (Math.abs(a + b - abs) > 0.05) return onNotice(`The two amounts need to add up to ${formatMoney(abs)}.`);
     setSplits(t.id, [
       { categoryId: aCat, amount: a },
       { categoryId: bCat, amount: b },
     ]);
-    onNotice("Divided. The overall category stays, and only this row changed.");
+    onNotice("Split saved.");
   }
 
   return (
     <div className="max-w-md space-y-2 rounded-md border border-border bg-bg p-3">
       <p className="font-medium">Two categories, one row</p>
       <p className="text-xs text-muted">
-        {overall ? `${overall.name} stays the overall category. ` : ""}
         The pieces count in this month only. They have to add up to {formatMoney(abs)}.
       </p>
       <div className="grid gap-2 sm:grid-cols-[1fr_6rem]">
@@ -598,10 +596,10 @@ function PaybackMatch({
       <p className="font-medium">Which deposit paid this back?</p>
       <p className="text-sm text-muted">
         {close && suggested
-          ? `${displayMerchant(suggested.description)} on ${dayLabel(suggested.date)} is ${formatMoney(suggested.amount)}, close to this charge. Tap it, then confirm. Both rows leave income and spending.`
+          ? `Best match: ${displayMerchant(suggested.description)}, ${dayLabel(suggested.date)}, ${formatMoney(suggested.amount)}`
           : suggested
-            ? `Nothing lines up with ${formatMoney(Math.abs(t.amount))}. The nearest deposit is first. Pick it only if that money really paid this.`
-            : "There is no deposit to match. You can still leave this purchase out of spending."}
+            ? "No exact match. Closest first."
+            : "No deposit to match."}
       </p>
       {list.length ? (
         <ul className="max-h-48 space-y-1 overflow-y-auto">
@@ -623,7 +621,7 @@ function PaybackMatch({
       ) : null}
       <Input value={label} placeholder="Note, optional" aria-label="Payback note" onChange={(e) => setLabel(e.target.value)} />
       <div className="flex flex-wrap gap-2">
-        <Button size="sm" disabled={!chosen && list.length > 0} onClick={() => { markPaidBack(t.id, chosen || null, label); onNotice(chosen ? "Matched. Both rows are out of this month." : "That purchase is out of spending."); onClose(); }}>
+        <Button size="sm" disabled={!chosen && list.length > 0} onClick={() => { markPaidBack(t.id, chosen || null, label); onNotice(chosen ? "Matched." : "That purchase is out of spending."); onClose(); }}>
           {chosen ? "These cancel each other out" : "Leave this purchase out of spending"}
         </Button>
         <Button size="sm" variant="ghost" onClick={onClose}>Cancel</Button>
@@ -657,7 +655,7 @@ export function EmptyMonth({ ym, transactions, onJump }: { ym: string; transacti
           </button>
         </p>
       ) : (
-        <p className="mt-1 text-muted">Import a CSV when this month’s file arrives, or move to another month.</p>
+        <p className="mt-1 text-muted">No charges yet. Import this month’s file.</p>
       )}
     </div>
   );
@@ -739,7 +737,7 @@ export function MonthSheet({ rows, categories, ym }: { rows: Transaction[]; cate
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="font-display text-xl font-semibold">This month, line by line</h2>
-          <p className="mt-1 text-sm text-muted">Income and expenses are separate columns. Paid back means the row is on the sheet but not in the totals.</p>
+          <details className="mt-1 text-sm text-muted"><summary>About these columns</summary><p>Income and expenses are separate. Paid back stays on the sheet but not in the totals.</p></details>
         </div>
         <Button variant="outline" size="sm" onClick={download}>Download this month</Button>
       </div>

@@ -28,16 +28,14 @@ export type BudgetLead = {
 export function budgetLead(input: { plannedSpend: number; usualIncome: number; typicalSpend: number | null; typicalMonths: number }): BudgetLead {
   const incomeMissing = !(input.usualIncome > 0);
   const sentence = incomeMissing
-    ? `Planned spending is ${formatMoney(input.plannedSpend)}. Income is not entered yet.`
-    : `Planned ${formatMoney(input.plannedSpend)} of about ${formatMoney(input.usualIncome)} usual income.`;
+    ? `${formatMoney(input.plannedSpend)} planned · add income`
+    : `${formatMoney(input.plannedSpend)} planned of ${formatMoney(input.usualIncome)} income`;
   let cover: string | null = null;
   let warn = false;
   if (input.typicalSpend != null && input.typicalSpend > 0 && input.typicalMonths >= 3) {
     const pct = Math.round((input.plannedSpend / input.typicalSpend) * 100);
     warn = pct > 150;
-    cover = warn
-      ? `A typical month in this file is ${formatMoney(input.typicalSpend)}. The plan is ${pct} percent of that. That is far off, so treat it as a warning.`
-      : `Plan covers ${pct} percent of a typical month's spending.`;
+    cover = warn ? `Plan is ${pct}% of a usual month` : null;
   }
   return { sentence, cover, incomeMissing, warn };
 }
@@ -102,21 +100,13 @@ export function suggestAmounts(
       if (spent > 0.5) series.push(spent);
     }
     if (!series.length) continue;
-    if (series.length < 2) {
-      out.push({
-        id: category.id,
-        name: category.name,
-        suggested: null,
-        sentence: `${category.name} shows up, but one month is not enough to suggest an amount.`,
-      });
-      continue;
-    }
+    if (series.length < 2) continue;
     const suggested = roundMoney(median(series));
     out.push({
       id: category.id,
       name: category.name,
       suggested,
-      sentence: `${category.name} averages ${formatMoney(suggested)} a month. Add it?`,
+      sentence: `${category.name}: usually ${formatMoney(suggested)}/mo`,
     });
   }
   return out.sort((a, b) => (b.suggested ?? 0) - (a.suggested ?? 0) || a.name.localeCompare(b.name));
@@ -393,7 +383,7 @@ export function surplusSuggestions(source: LedgerSource, ym: string): SurplusSug
       name: line.name,
       amount,
       fundLabel: `Add ${shown} to a fund`,
-      growLabel: "See what it could grow to",
+      growLabel: "Grow it",
       fromEarlier,
     });
   }

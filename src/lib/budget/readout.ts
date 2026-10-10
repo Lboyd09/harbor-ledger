@@ -79,8 +79,8 @@ export function incomeRows(input: {
     }
     const detail =
       mark > 0.004
-        ? `Received ${formatMoney(amount)}. Usual is ${formatMoney(mark)}. Income is not carried over.`
-        : `Received ${formatMoney(amount)}. No usual amount yet. Income is not carried over.`;
+        ? `Received ${formatMoney(amount)}. Usual is ${formatMoney(mark)}.`
+        : `Received ${formatMoney(amount)}. No usual amount yet.`;
     const fill = mark > 0.004 ? (amount / mark) * 100 : amount > 0 ? 100 : 0;
     return { id: line.id, name: line.name, primary, detail, tone, amount, mark, fill };
   });

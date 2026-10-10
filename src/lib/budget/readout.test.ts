@@ -32,7 +32,7 @@ test("income is compared with usual and is not carried over", () => {
   const pay = rows.find((row) => row.id === "pay");
   assert.ok(pay);
   assert.equal(pay.primary, "$200.00 less than usual");
-  assert.match(pay.detail, /not carried over/i);
+  assert.match(pay.detail, /Usual is/);
   assert.doesNotMatch(pay.detail, /left|rollover|fund/i);
 });
 

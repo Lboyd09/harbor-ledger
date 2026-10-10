@@ -153,7 +153,7 @@ export function BudgetMenu({
   return (
     <div className="min-w-0 space-y-2">
       <h1 className="font-display text-2xl font-semibold md:text-3xl">Budget</h1>
-      <p className="text-sm text-muted">This month, the charges, and a bank file.</p>
+
       <SectionTabs
         label="Budget"
         items={[
@@ -164,7 +164,7 @@ export function BudgetMenu({
         ]}
       />
       <details>
-        <summary className="min-h-11 cursor-pointer text-sm text-muted">More: year, sorting, past imports</summary>
+        <summary className="min-h-11 cursor-pointer text-sm text-muted">More</summary>
         <SectionTabs
           label="More budget pages"
           items={[

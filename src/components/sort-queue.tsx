@@ -175,7 +175,7 @@ export function SortQueue({
           <p className="mt-1 text-sm text-muted">
             {choice.length
               ? `${choice.length} ${choice.length === 1 ? "name is" : "names are"} still unsorted.`
-              : "Nothing in this list is still waiting on a category."}
+              : "All sorted."}
           </p>
           {choice.length ? (
             <Button className="mt-3" variant="outline" onClick={() => setSkipped([])}>
@@ -241,7 +241,7 @@ export function SortQueue({
           <button type="button" className="min-h-11 text-sm text-muted underline-offset-2 hover:underline" onClick={skip}>
             Skip for now
           </button>
-          <p className="mt-2 text-xs text-muted">Keys: 1, 2, or 3 pick a choice. S skips. Z undoes.</p>
+          <p className="mt-2 hidden text-xs text-muted md:block" title="1, 2, or 3 pick a choice. S skips. Z undoes.">Keys</p>
         </div>
       ) : null}
 

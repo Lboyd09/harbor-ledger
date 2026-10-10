@@ -7,12 +7,14 @@ import type { Category, Transaction } from "./types.ts";
 
 test("the budget lead names the plan and stays quiet when income is missing", () => {
   const ready = budgetLead({ plannedSpend: 1800, usualIncome: 3000, typicalSpend: 2000, typicalMonths: 4 });
-  assert.match(ready.sentence, /Planned/);
+  assert.match(ready.sentence, /planned of/);
   assert.match(ready.sentence, /3,000/);
-  assert.match(ready.cover ?? "", /percent/);
+  assert.equal(ready.cover, null);
+  const hot = budgetLead({ plannedSpend: 4000, usualIncome: 3000, typicalSpend: 2000, typicalMonths: 4 });
+  assert.match(hot.cover ?? "", /%/);
   const thin = budgetLead({ plannedSpend: 400, usualIncome: 0, typicalSpend: null, typicalMonths: 1 });
   assert.equal(thin.incomeMissing, true);
-  assert.match(thin.sentence, /not entered yet/i);
+  assert.match(thin.sentence, /add income/i);
   assert.equal(thin.cover, null);
 });
 
@@ -48,8 +50,7 @@ test("a suggestion needs two months, and coming up is the next 30 days", () => {
     },
   ];
   const thin = suggestAmounts(categories, one, "2026-09");
-  assert.equal(thin[0]?.suggested, null);
-  assert.match(thin[0]?.sentence ?? "", /not enough/i);
+  assert.equal(thin.length, 0);
   const two = [
     ...one,
     { ...one[0], id: "2", date: "2026-08-02", fingerprint: "2", amount: -60 },

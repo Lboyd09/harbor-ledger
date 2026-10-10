@@ -33,7 +33,7 @@ export function AddCharge({ onClose }: { onClose: () => void }) {
       return;
     }
     if (date > today) {
-      setError("That date is still in the future. Use today, or pick a past day.");
+      setError("Pick today or an earlier day.");
       return;
     }
     addCashCharge({ categoryId, amount: value, date, description: what.trim() || "Cash" });
@@ -50,7 +50,7 @@ export function AddCharge({ onClose }: { onClose: () => void }) {
         }}
       >
         <h2 className="font-display text-xl font-semibold">Add a transaction</h2>
-        <p className="text-sm text-muted">Cash you spent. It lands in this month’s budget.</p>
+        <p className="text-sm text-muted">Cash you spent</p>
         <Field label="Amount">
           <Input inputMode="decimal" aria-label="Amount" value={amount} onChange={(e) => setAmount(e.target.value)} autoFocus />
         </Field>

@@ -47,7 +47,7 @@ test("the queue is biggest dollars first and names a cover line", () => {
   const stats = queueStats(queue);
   assert.equal(stats.groups, queue.length);
   assert.ok(stats.coveredShareOfFirstN >= 0.6 || stats.names === stats.groups);
-  assert.match(coverSentence(stats), /cover/);
+  assert.match(coverSentence(stats), /to sort/);
   const shell = queue.find((group) => group.ids.includes("d"));
   assert.ok(shell?.candidates.some((item) => item.categoryId === "gas"));
 });
