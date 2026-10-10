@@ -138,18 +138,18 @@ export function HomeDashboard() {
     <div className="mx-auto max-w-xl space-y-4">
       <h1 className="font-display text-2xl font-semibold md:text-3xl">Today</h1>
       <p className="text-sm text-muted">What you can spend, what needs you, and the bills that are coming.</p>
-      <section className="grid grid-cols-3 gap-2 text-sm" aria-label="Your numbers">
-        <Link to="/grow" className="rounded-lg border border-border bg-surface p-3">
-          <p className="text-xs text-muted">Cushion</p>
-          <p className="font-display text-lg tabular">{picture.cushionMonths == null ? "—" : `${picture.cushionMonths} mo`}</p>
+      <section className="grid grid-cols-2 gap-2 text-sm min-[420px]:grid-cols-3" aria-label="Your numbers">
+        <a href="/grow?q=cushion" data-tile className="min-w-0 rounded-lg border border-border bg-surface p-3">
+          <p className="text-sm text-muted">Cushion</p>
+          <p className="money font-display tabular" data-money>{picture.cushionMonths == null ? "—" : `${picture.cushionMonths} mo`}</p>
+        </a>
+        <Link to="/grow" data-tile className="min-w-0 rounded-lg border border-border bg-surface p-3">
+          <p className="text-sm text-muted">Saving</p>
+          <p className="money font-display tabular" data-money>{facts.savingsRate == null ? "—" : `${Math.round(facts.savingsRate * 100)}%`}</p>
         </Link>
-        <Link to="/grow" className="rounded-lg border border-border bg-surface p-3">
-          <p className="text-xs text-muted">Saving</p>
-          <p className="font-display text-lg tabular">{facts.savingsRate == null ? "—" : `${Math.round(facts.savingsRate * 100)}%`}</p>
-        </Link>
-        <Link to="/funds" className="rounded-lg border border-border bg-surface p-3">
-          <p className="text-xs text-muted">Net worth</p>
-          <p className="font-display text-lg tabular">{formatMoney(picture.net, { signed: true })}</p>
+        <Link to="/funds" data-tile className="min-w-0 rounded-lg border border-border bg-surface p-3 max-[419px]:col-span-2">
+          <p className="text-sm text-muted">Net worth</p>
+          <p className="money break-words font-display tabular" data-money>{formatMoney(picture.net, { signed: true })}</p>
         </Link>
       </section>
       {sample ? (
@@ -173,7 +173,7 @@ export function HomeDashboard() {
             ?
           </button>
         </div>
-        <p className={`font-display text-4xl font-semibold tabular ${safe.amount < 0 ? "text-danger" : ""}`}>{formatMoney(safe.amount)}</p>
+        <p className={`money-hero font-display font-semibold tabular ${safe.amount < 0 ? "text-danger" : ""}`} data-money>{formatMoney(safe.amount)}</p>
         {weekly != null ? <p className="mt-1 text-sm">≈ {formatMoney(weekly)} a week until month end.</p> : null}
         {why ? (
           <p className="mt-2 text-sm text-muted">

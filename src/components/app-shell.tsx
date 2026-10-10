@@ -42,7 +42,8 @@ function AddButton() {
     <>
       <button
         type="button"
-        className="fixed bottom-20 right-4 z-20 inline-flex size-14 items-center justify-center rounded-full bg-primary text-3xl text-primary-fg shadow-lg md:bottom-8"
+        data-app-chrome=""
+        className="fixed right-4 z-20 inline-flex size-14 items-center justify-center rounded-full bg-primary text-3xl text-primary-fg shadow-lg bottom-[calc(4.75rem+env(safe-area-inset-bottom))] md:bottom-8"
         aria-label="Add a transaction"
         onClick={() => setOpen(true)}
       >
@@ -60,7 +61,7 @@ function AuthSlot() {
     return (
       <Link
         to="/login"
-        className="tap inline-flex min-h-9 items-center justify-center rounded-md border border-border bg-surface px-3 text-sm font-medium"
+        className="tap inline-flex min-h-11 min-w-11 items-center justify-center rounded-md border border-border bg-surface px-3 text-sm font-medium"
       >
         Sign in
       </Link>
@@ -72,7 +73,13 @@ function AuthSlot() {
 function SavePill() {
   const saveState = useBudgetStore((s) => s.saveState);
   const { user } = useCurrentUserState();
-  if (!user) return <span className="text-xs text-muted">On this device</span>;
+  if (!user) {
+    return (
+      <Link to="/login" className="inline-flex min-h-11 items-center text-sm text-muted">
+        On this device · Sign in
+      </Link>
+    );
+  }
   if (saveState === "saving") return <span className="text-xs text-muted">Saving</span>;
   if (saveState === "saved") return <span className="text-xs text-muted">Saved</span>;
   if (saveState === "error") return <span className="text-xs text-danger">Save failed</span>;
@@ -95,16 +102,20 @@ export function AppShell() {
   const done = useBudgetStore((s) => s.profile.completedOnboarding);
   const path = useRouterState({ select: (s) => s.location.pathname });
   const current = sectionLabel(path);
-  const [hideDeviceNote, setHideDeviceNote] = useState(() => {
+  const [bannerReady, setBannerReady] = useState(false);
+  const [hideDeviceNote, setHideDeviceNote] = useState(false);
+  useEffect(() => {
     try {
-      return sessionStorage.getItem("bf-hide-device") === "1";
+      setHideDeviceNote(localStorage.getItem("budgetflow-ui-banner-closed") === "1");
     } catch {
-      return false;
+      setHideDeviceNote(false);
     }
-  });
+    setBannerReady(true);
+  }, []);
   const ledgerName = useBudgetStore((s) => s.profile.ledgerName);
   const accent = useBudgetStore((s) => s.profile.accent ?? "harbor");
   const motion = useBudgetStore((s) => s.profile.motion ?? "lively");
+  const textSize = useBudgetStore((s) => s.profile.textSize ?? "normal");
   const userId = user?.id ?? null;
   const publicAuth = path === "/login" || path === "/reset" || path === "/confirm";
 
@@ -123,13 +134,14 @@ export function AppShell() {
       const mode = accent === "auto" && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dusk" : accent === "auto" ? "harbor" : accent;
       root.dataset.accent = mode;
       root.dataset.motion = motion;
+      root.style.fontSize = textSize === "xlarge" ? "135%" : textSize === "large" ? "118%" : "100%";
     };
     paint();
     if (accent !== "auto") return;
     const query = window.matchMedia("(prefers-color-scheme: dark)");
     query.addEventListener("change", paint);
     return () => query.removeEventListener("change", paint);
-  }, [accent, motion]);
+  }, [accent, motion, textSize]);
 
   if (publicAuth) {
     return <Outlet />;
@@ -188,38 +200,38 @@ export function AppShell() {
         </div>
       </aside>
 
-      <header className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-bg/90 px-4 py-3 backdrop-blur md:hidden">
-        <div className="flex items-center gap-2">
-          <HarborMark className="size-5 text-primary" />
-          <div>
-            <div className="font-display text-lg font-semibold">BudgetFlow</div>
-            <div className="text-xs text-muted">{current}</div>
+      <header className="sticky top-0 z-10 flex min-w-0 flex-wrap items-center justify-between gap-x-2 gap-y-1 border-b border-border bg-bg/90 px-4 py-3 backdrop-blur md:hidden">
+        <div className="flex min-w-0 items-center gap-2">
+          <HarborMark className="size-5 shrink-0 text-primary" />
+          <div className="min-w-0">
+            <div className="truncate font-display text-lg font-semibold">BudgetFlow</div>
+            <div className="truncate text-xs text-muted">{current}</div>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
           <SavePill />
-          <Link to="/settings" aria-label="Settings" className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md text-muted">
+          <Link to="/settings" aria-label="Settings" className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-md text-muted">
             <Settings className="size-5" />
           </Link>
-          <AuthSlot />
+          {user ? <AuthSlot /> : null}
         </div>
       </header>
 
-      <main className="px-4 pb-28 pt-4 md:ml-64 md:px-8 md:pb-10 md:pt-8">
-        {!user && !hideDeviceNote ? (
+      <main className="px-4 pt-4 pb-[calc(8.5rem+env(safe-area-inset-bottom))] md:ml-64 md:px-8 md:pb-10 md:pt-8">
+        {bannerReady && !user && !hideDeviceNote ? (
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-surface px-4 py-3">
-            <p className="text-sm">This budget stays on this device until you sign in.</p>
+            <p className="text-sm">Your budget is saved on this device. Sign in to keep it safe.</p>
             <div className="flex gap-2">
-              <Link to="/login" className="text-sm font-medium text-primary">
-                Sign in to save
+              <Link to="/login" className="inline-flex min-h-11 items-center text-sm font-medium text-primary">
+                Sign in
               </Link>
               <button
                 type="button"
-                className="min-h-11 px-2 text-sm text-muted"
+                className="min-h-11 min-w-11 px-2 text-sm text-muted"
                 onClick={() => {
                   setHideDeviceNote(true);
                   try {
-                    sessionStorage.setItem("bf-hide-device", "1");
+                    localStorage.setItem("budgetflow-ui-banner-closed", "1");
                   } catch {
                     /* private mode */
                   }
@@ -235,7 +247,7 @@ export function AppShell() {
         </div>
       </main>
 
-      <nav className="safe-nav fixed inset-x-0 bottom-0 z-10 grid grid-cols-4 border-t border-border bg-surface md:hidden">
+      <nav role="tablist" aria-label="Sections" data-app-chrome="" className="safe-nav fixed inset-x-0 bottom-0 z-10 grid grid-cols-4 border-t border-border bg-surface md:hidden">
         {NAV.map((item) => {
           const Icon = item.icon;
           const on = navOn(item.to, path);
@@ -243,8 +255,10 @@ export function AppShell() {
             <Link
               key={item.to}
               to={item.to}
+              role="tab"
+              aria-selected={on}
               className={cn(
-                "flex min-h-14 flex-col items-center justify-center gap-0.5 text-xs",
+                "flex min-h-14 min-w-11 flex-col items-center justify-center gap-0.5 text-sm",
                 on ? "text-primary" : "text-muted",
               )}
             >

@@ -287,7 +287,7 @@ export function Section({
               <div className={cn("border-l-4 px-4 py-3", g.open ? "border-warn" : tone === "in" ? "border-good" : "border-danger")}>
                 <button
                   type="button"
-                  className="flex w-full flex-wrap items-start justify-between gap-3 text-left"
+                  className="flex min-h-11 w-full flex-wrap items-start justify-between gap-3 text-left"
                   aria-expanded={expanded}
                   onClick={() => setOpenGroups((cur) => ({ ...cur, [g.id]: !expanded }))}
                 >

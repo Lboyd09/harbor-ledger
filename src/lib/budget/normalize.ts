@@ -155,6 +155,7 @@ export function normalizeProfile(raw: unknown): Profile {
     budgetPeriod,
     accent: STORED_LOOK[asString(p.accent)] ?? "harbor",
     motion: MOTIONS.includes(p.motion as HarborMotion) ? (p.motion as HarborMotion) : "lively",
+    textSize: p.textSize === "large" || p.textSize === "xlarge" ? p.textSize : "normal",
     detail: DETAILS.includes(p.detail as DetailMode) ? (p.detail as DetailMode) : "simple",
     detailChosen: asBool(p.detailChosen, false),
     budgetStyle: p.budgetStyle === "buckets" ? "buckets" : ("monthly" as BudgetStyle),

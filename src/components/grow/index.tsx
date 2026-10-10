@@ -134,7 +134,11 @@ function GrowShell() {
               }))}
             />
           </details>
-        ) : null}
+        ) : (
+          <button type="button" disabled className="inline-flex min-h-11 items-center text-left text-sm text-muted">
+            Nothing to fine-tune
+          </button>
+        )}
       </div>
       <GrowPageBody page={page === "overview" ? "retire" : page} />
     </div>

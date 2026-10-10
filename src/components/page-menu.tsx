@@ -115,7 +115,7 @@ export function PageMenu({ title, items }: { title: string; items: PageMenuItem[
 
 export function SectionTabs({ label, items }: { label: string; items: PageMenuItem[] }) {
   return (
-    <nav className="flex gap-2 overflow-x-auto pb-1" aria-label={label}>
+    <nav className="flex w-full min-w-0 max-w-full gap-2 overflow-x-auto pb-1" aria-label={label}>
       {items.map((item) => {
         const className = cn(
           "inline-flex min-h-11 shrink-0 items-center rounded-full border px-3 text-sm",

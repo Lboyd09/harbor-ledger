@@ -10,7 +10,7 @@ import { formatMoney } from "@/lib/budget/money";
 import { DEFAULT_INFLATION, DEFAULT_RETIRE_AGE, DEFAULT_WITHDRAWAL, PLANNING_MARKET } from "@/lib/budget/reference";
 import { TERMS } from "@/lib/copy/terms";
 import { CarryStartControl } from "./carry-start";
-import type { DetailMode, HarborLook, HarborMotion } from "@/lib/budget/types";
+import type { DetailMode, HarborLook, HarborMotion, TextSize } from "@/lib/budget/types";
 import { useBudgetStore } from "@/store/budget-store";
 import { ExportBar } from "./export-bar";
 import { Button } from "./ui/button";
@@ -96,6 +96,16 @@ export function SettingsView() {
             );
           })}
         </div>
+        <Field label="Text size">
+          <Select
+            value={profile.textSize ?? "normal"}
+            onChange={(e) => patchProfile({ textSize: e.target.value as TextSize })}
+          >
+            <option value="normal">Normal</option>
+            <option value="large">Large</option>
+            <option value="xlarge">Extra large</option>
+          </Select>
+        </Field>
         <Field label="Motion">
           <Select
             value={profile.motion ?? "lively"}

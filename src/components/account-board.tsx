@@ -248,13 +248,13 @@ export function AccountBoard() {
                         ) : null}
                         <div className="mt-2 flex flex-wrap gap-2">
                           {accountAcceptsFile(account.kind) ? (
-                            <Link to="/import" className="inline-flex min-h-11 items-center text-sm font-medium text-primary">
+                            <Link to="/import" className="tap inline-flex min-h-11 min-w-11 items-center justify-center rounded-md border border-border bg-surface px-3 text-sm font-medium">
                               Add a file
                             </Link>
                           ) : null}
                           <button
                             type="button"
-                            className="min-h-11 text-sm font-medium text-primary"
+                            className="tap inline-flex min-h-11 min-w-11 items-center justify-center rounded-md border border-border bg-surface px-3 text-sm font-medium"
                             onClick={() => {
                               setBalanceId(balanceId === row.id ? null : row.id);
                               setAmount("");

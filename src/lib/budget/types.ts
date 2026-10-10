@@ -8,6 +8,8 @@ export type BudgetPeriod = "week" | "month";
 export type TxStatus = "posted" | "refund" | "transfer" | "reimbursement";
 export type HarborLook = "harbor" | "dusk" | "tide" | "auto";
 export type HarborMotion = "calm" | "lively";
+/** Root type size, on top of the browser's own zoom. Missing means normal. */
+export type TextSize = "normal" | "large" | "xlarge";
 /** How much of the ledger to show. Missing on older ledgers — treat as simple. */
 export type DetailMode = "simple" | "nerd";
 /** Which Plan page opens first. "monthly" starts fresh. "buckets" carries leftovers. Missing means monthly. */
@@ -46,6 +48,8 @@ export type Profile = {
   accent?: HarborLook;
   /** Motion level. Missing on older ledgers — treat as lively. */
   motion?: HarborMotion;
+  /** Type size. Missing on older ledgers — treat as normal. */
+  textSize?: TextSize;
   /** Simple hides the extra tools. Missing means simple. */
   detail?: DetailMode;
   /** True after the person picks Simple or Nerd. Missing means they have not chosen yet. */
