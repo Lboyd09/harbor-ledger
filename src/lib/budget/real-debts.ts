@@ -23,7 +23,9 @@ function matchesCard(debt: DebtItem, accounts: Account[], balances: BalancePoint
 export function debtsInNetWorth(debts: DebtItem[], accounts: Account[], balances: BalancePoint[]): DebtItem[] {
   return debts.filter((debt) => {
     if (debt.origin === "plan") return false;
-    if (matchesCard(debt, accounts, balances)) return false;
+    // A loan added on Money always counts, even when the balance matches a card.
+    // Only a stored row with no origin is a calculator copy when it matches a card.
+    if (debt.origin !== "money" && matchesCard(debt, accounts, balances)) return false;
     return true;
   });
 }

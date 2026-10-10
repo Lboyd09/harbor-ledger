@@ -1,4 +1,5 @@
-import { latestBalance, totalBalance } from "./accounts.ts";
+import { isLoanKind, latestBalance } from "./accounts.ts";
+import { moneyPicture } from "./picture.ts";
 import { monthLedger, yearLedger } from "./ledger-month.ts";
 import { expectedIncomeForMonth } from "./income.ts";
 import { roundMoney } from "./money.ts";
@@ -14,6 +15,24 @@ export type YearOverview = {
   left: number;
   savingsRate: number;
 };
+
+/**
+ * Safe to spend spread over the weeks still in the month.
+ * Weeks are days left ÷ 7, and at least one. Zero or negative safe hides the line.
+ */
+export function weeklySafe(safe: number, daysLeft: number): number | null {
+  if (!(safe > 0) || !Number.isFinite(daysLeft)) return null;
+  const weeks = Math.max(1, daysLeft / 7);
+  return roundMoney(safe / weeks);
+}
+
+/** Days after today, through the last day of today's month. */
+export function daysLeftInMonth(today: string): number {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(today);
+  if (!match) return 0;
+  const last = new Date(Date.UTC(Number(match[1]), Number(match[2]), 0)).getUTCDate();
+  return Math.max(0, last - Number(match[3]));
+}
 
 /** Full calendar year from the twelve month ledgers. */
 export function yearOverview(
@@ -102,14 +121,14 @@ export function accountRows(accounts: Account[], balances: BalancePoint[], today
       name: account.name,
       kind: account.kind,
       amount: latest?.amount ?? 0,
-      owed: account.kind === "credit",
+      owed: account.kind === "credit" || isLoanKind(account.kind) || (account.kind === "other" && (latest?.amount ?? 0) < 0),
       asOf: latest?.date ?? null,
       source: latest ? (latest.source === "file" ? "from a file" : "typed in") : null,
       ageDays,
       stale: ageDays != null && ageDays > 35,
     };
   });
-  return { rows, net: totalBalance(accounts, balances) };
+  return { rows, net: moneyPicture({ accounts, balances }).net };
 }
 
 export type MonthGlance = {

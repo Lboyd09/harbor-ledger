@@ -218,6 +218,7 @@ test("a credit file balance is stored negative and an entered card balance is wh
   assert.equal(enteredBalanceAmount("credit", 80), -80);
   assert.equal(enteredBalanceAmount("credit", -80), -80);
   assert.equal(enteredBalanceAmount("checking", 80), 80);
+  assert.equal(enteredBalanceAmount("car_loan", 9800), -9800);
 });
 
 test("removeAccount refuses when a transaction or import points at the account", () => {

@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { debtTimeline } from "@/lib/budget/grow-tables";
-import { firstMissing, readNumber } from "@/lib/budget/calc-input";
+import { firstMissing, optionalAmount, readNumber } from "@/lib/budget/calc-input";
 import { debtWhatIfs, extraNeeded, paymentBelowInterest, simulatePayoff } from "@/lib/budget/grow-math";
 import { formatMoney } from "@/lib/budget/money";
 import { currentMonthKey, monthShort, shiftMonth } from "@/lib/budget/parse-date";
@@ -26,7 +26,8 @@ export function DebtPage() {
   const [apr, setApr] = useState("");
   const [minimum, setMinimum] = useState("");
   const [extra, setExtra] = useState("50");
-  const extraN = Math.max(0, Number(extra) || 0);
+  const extraRead = optionalAmount(extra);
+  const extraN = Math.max(0, extraRead.amount);
   // A blank rate or minimum is not 0. Typing 0 on purpose is fine.
   const balanceIn = readNumber(balance);
   const aprIn = readNumber(apr);
@@ -74,14 +75,14 @@ export function DebtPage() {
       numbers={
         <div className="space-y-2">
           <Field label="Extra payment each month" tag="typed">
-            <Input className="mt-1 max-w-xs" inputMode="decimal" aria-label="Extra payment" value={extra} onChange={(e) => setExtra(e.target.value)} />
+            <Input className="mt-1 max-w-xs" inputMode="decimal" aria-label="Extra payment" placeholder="0" value={extra} onChange={(e) => setExtra(e.target.value)} />
           </Field>
           <ul className="space-y-1 text-sm">
             {working.map((debt) => (
               <li key={debt.id} className="flex items-center justify-between gap-2">
                 <span>
                   {debt.name} · {formatMoney(debt.balance)} · {debt.apr}%
-                  {debt.origin === "plan" || debt.origin === "money" ? " · from your accounts" : ""}
+                  {fromAccounts.some((row) => row.id === debt.id) ? " · from your accounts" : ""}
                 </span>
                 <button type="button" className="min-h-11 text-xs text-muted" onClick={() => setRows(working.filter((row) => row.id !== debt.id))}>
                   Remove

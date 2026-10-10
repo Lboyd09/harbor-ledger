@@ -231,16 +231,19 @@ export function extraNeeded(debts: DebtItem[], extra: number, method: DebtMethod
     .filter((debt) => debt.balance > 0 && debt.minimum <= 0)
     .reduce((sum, debt) => sum + cents((debt.balance * Math.max(0, debt.apr)) / 100 / 12), 0);
   const floor = interestFloor > 0 ? Math.ceil(interestFloor + 0.01) : 0;
-  if (!simulatePayoff(debts, extra, method).unfinished) return floor > extra ? floor : 0;
+  const typed = Math.max(0, extra);
+  // Floor is the total extra that covers the first month of interest, not an amount on top of what was already typed.
+  const gap = floor > typed ? Math.ceil(floor - typed) : 0;
+  if (!simulatePayoff(debts, typed, method).unfinished) return 0;
   let low = 0;
   let high = Math.max(1, Math.ceil(debts.reduce((sum, d) => sum + Math.max(0, d.balance), 0)) + 1);
-  while (simulatePayoff(debts, extra + high, method).unfinished) high *= 2;
+  while (simulatePayoff(debts, typed + high, method).unfinished) high *= 2;
   while (high - low > 1) {
     const mid = Math.floor((low + high) / 2);
-    if (simulatePayoff(debts, extra + mid, method).unfinished) low = mid;
+    if (simulatePayoff(debts, typed + mid, method).unfinished) low = mid;
     else high = mid;
   }
-  return Math.max(high, floor);
+  return Math.max(high, gap);
 }
 
 /** True when the monthly budget doesn't even cover the first month's interest. */

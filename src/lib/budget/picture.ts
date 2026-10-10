@@ -52,7 +52,7 @@ export function moneyPicture(input: {
   let loanAccounts = 0;
   for (const account of input.accounts) {
     const amount = latestBalance(account.id, input.balances)?.amount ?? 0;
-    if (account.kind === "checking" || account.kind === "savings" || account.kind === "cash") cash += Math.max(0, amount);
+    if (account.kind === "checking" || account.kind === "savings" || account.kind === "cash") cash += amount;
     if (account.kind === "investment") brokerage += Math.max(0, amount);
     if (account.kind === "retirement") retirement += Math.max(0, amount);
     if (account.kind === "credit") cards += Math.max(0, -amount);

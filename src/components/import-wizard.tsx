@@ -3,6 +3,7 @@ import {
   ACCOUNT_KIND_OPTIONS,
   accountAcceptsFile,
   accountKindLabel,
+  defaultImportAccount,
   creditFileSignLooksWrong,
   storedFileBalance,
 } from "@/lib/budget/accounts";
@@ -36,9 +37,8 @@ function todayInput() {
 }
 
 function defaultAccountId(accounts: Account[], imports: ImportBatch[]): string {
-  if (accounts.length === 1) return accounts[0].id;
   const recent = imports.find((batch) => batch.accountId && accounts.some((account) => account.id === batch.accountId));
-  return recent?.accountId ?? "";
+  return defaultImportAccount(accounts, recent?.accountId ?? null);
 }
 
 export function ImportWizard() {

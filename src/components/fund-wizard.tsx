@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { fullLineOf, goalPace, monthName, monthsInclusive } from "@/lib/budget/buckets";
+import { readNumber } from "@/lib/budget/calc-input";
 import { formatMoney, roundMoney } from "@/lib/budget/money";
 import { currentMonthKey } from "@/lib/budget/parse-date";
 import type { MoneyBucket } from "@/lib/budget/types";
@@ -58,10 +59,13 @@ export function FundWizard({
   const yearNow = Number(start.slice(0, 4));
   const years = Array.from({ length: 16 }, (_, i) => String(yearNow + i));
   const by = byMonth && byYear ? `${byYear}-${byMonth}` : null;
-  const targetN = Number(target) > 0 ? Number(target) : 0;
+  const targetRead = readNumber(target);
+  const targetN = targetRead != null && targetRead > 0 ? targetRead : 0;
   const span = by && by >= start ? monthsInclusive(start, by) : 0;
   const suggested = wantsGoal && targetN > 0 && span > 0 ? Math.ceil((targetN / span) * 100) / 100 : null;
-  const typed = Number(amount) || 0;
+  const amountRead = readNumber(amount);
+  const openingRead = readNumber(opening);
+  const typed = amountRead ?? 0;
   const monthly = per === "year" ? roundMoney(typed / 12) : roundMoney(typed);
   const yearly = per === "year" && typed > 0 ? roundMoney(typed) : null;
   const taken = new Set(funds.flatMap((b) => b.categoryIds));
@@ -80,6 +84,7 @@ export function FundWizard({
   }
 
   function create() {
+    if (amountRead == null) return;
     const id = addBucket({
       name: name.trim(),
       monthly,
@@ -88,7 +93,7 @@ export function FundWizard({
       target: wantsGoal && targetN > 0 ? targetN : null,
       by: wantsGoal ? by : null,
       startMonth: start,
-      opening: Math.max(0, Number(opening) || 0),
+      opening: openingRead == null ? 0 : Math.max(0, openingRead),
       fullLine: null,
     });
     if (!id) return;
@@ -105,7 +110,7 @@ export function FundWizard({
     target: wantsGoal && targetN > 0 ? targetN : null,
     by: wantsGoal ? by : null,
     startMonth: start,
-    opening: Math.max(0, Number(opening) || 0),
+    opening: openingRead == null ? 0 : Math.max(0, openingRead),
     fullLine: null,
   };
   const line = fullLineOf(preview);
@@ -318,7 +323,7 @@ export function FundWizard({
             <Button variant="outline" onClick={() => setStep(4)}>
               Back
             </Button>
-            <Button onClick={create}>Create fund</Button>
+            <Button onClick={create} disabled={amountRead == null}>Create fund</Button>
           </div>
         </div>
       ) : null}

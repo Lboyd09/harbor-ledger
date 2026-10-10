@@ -2,10 +2,11 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { amountDraft, monthAmountCommit, usualAmountCommit } from "@/lib/budget/amount-input";
 import { earliestDataMonth, monthLedger, type LedgerSource, type SpendingLine } from "@/lib/budget/ledger-month";
+import { bucketBalance } from "@/lib/budget/buckets";
 import { categoryStory, carryConsequence, surplusSuggestions } from "@/lib/budget/screen-plan";
 import { groupMonth } from "@/lib/budget/month-view";
 import { merchantFamily } from "@/lib/budget/merchant";
-import { formatMoney } from "@/lib/budget/money";
+import { formatMoney, roundMoney } from "@/lib/budget/money";
 import { monthLabel, shiftMonth } from "@/lib/budget/parse-date";
 import { hasMonthOverride, planAmount } from "@/lib/budget/plans";
 import { categoryCarries } from "@/lib/budget/style";
@@ -95,7 +96,7 @@ export function LeftoversCard({ limit = 3 }: { limit?: number }) {
       <ul className="mt-3 space-y-3">
         {suggestions.map((item) => (
           <li key={item.categoryId}>
-            <LeftoverActions categoryId={item.categoryId} name={item.name} amount={item.amount} ym={ym} onSaved={(id) => setUndo({ id, name: item.name })} />
+            <LeftoverActions categoryId={item.categoryId} name={item.name} amount={item.amount} ym={ym} fromEarlier={item.fromEarlier} onSaved={(id) => setUndo({ id, name: item.name })} />
           </li>
         ))}
       </ul>
@@ -108,20 +109,23 @@ function LeftoverActions({
   name,
   amount,
   ym,
+  fromEarlier,
   onSaved,
 }: {
   categoryId: string;
   name: string;
   amount: number;
   ym: string;
+  fromEarlier?: number | null;
   onSaved?: (id: string) => void;
 }) {
   const funds = useBudgetStore((s) => s.moneyBuckets) ?? [];
   const addSetAside = useBudgetStore((s) => s.addSetAside);
   const navigate = useNavigate();
-  const [fundId, setFundId] = useState(funds[0]?.id ?? "");
+  const preferred = funds.find((item) => /emergency|cushion|rainy/i.test(item.name)) ?? null;
+  const [fundId, setFundId] = useState(preferred?.id ?? "");
   const shown = formatMoney(amount);
-  const fund = funds.find((item) => item.id === fundId) ?? funds[0];
+  const fund = funds.find((item) => item.id === fundId) ?? null;
 
   function add() {
     if (!fund) return;
@@ -133,19 +137,21 @@ function LeftoverActions({
     <div className="text-sm">
       <p>
         {name} has {shown} that can move.
+        {fromEarlier != null ? ` includes ${formatMoney(fromEarlier)} from earlier.` : ""}
       </p>
       <div className="mt-2 flex flex-wrap items-center gap-2">
         {funds.length ? (
           <>
             <Select aria-label={`Fund for ${name}`} value={fund?.id ?? ""} onChange={(e) => setFundId(e.target.value)}>
+              <option value="">Choose a fund</option>
               {funds.map((item) => (
                 <option key={item.id} value={item.id}>
                   {item.name}
                 </option>
               ))}
             </Select>
-            <Button size="sm" onClick={add}>
-              Add {shown} to {fund?.name}
+            <Button size="sm" onClick={add} disabled={!fund}>
+              Add {shown} to {fund?.name ?? "a fund"}
             </Button>
           </>
         ) : (
@@ -175,8 +181,6 @@ function CategoryPanel({ categoryId, initialYm, onClose }: { categoryId: string;
   const [openId, setOpenId] = useState<string | null>(null);
   const [fullId, setFullId] = useState<string | null>(null);
   const [note, setNote] = useState("");
-  const [asideUndo, setAsideUndo] = useState<{ id: string; name: string } | null>(null);
-  const removeSetAside = useBudgetStore((s) => s.removeSetAside);
   const transactions = useBudgetStore((s) => s.transactions);
   const categories = useBudgetStore((s) => s.categories);
   const monthBudgets = useBudgetStore((s) => s.monthBudgets);
@@ -205,10 +209,6 @@ function CategoryPanel({ categoryId, initialYm, onClose }: { categoryId: string;
   const ledger = useMemo(() => monthLedger(source, ym), [source, ym]);
   const line = ledger.spending.find((row) => row.id === categoryId) ?? null;
   const story = line ? categoryStory(line) : null;
-  const suggestion = useMemo(
-    () => surplusSuggestions(source, ym).find((item) => item.categoryId === categoryId) ?? null,
-    [source, ym, categoryId],
-  );
   const history = useMemo(() => {
     const cache = new Map();
     const rows: { ym: string; a: number; b: number }[] = [];
@@ -267,46 +267,21 @@ function CategoryPanel({ categoryId, initialYm, onClose }: { categoryId: string;
       </div>
       {story ? (
         <p className="mt-3 text-sm">
-          <span className="font-medium">{story.headline}</span> {story.detail}
+          <span className="font-medium">This month: {story.thisMonth}.</span>
+          {story.fromEarlier !== 0 ? ` From earlier: ${formatMoney(story.fromEarlier)}.` : ` ${story.detail}`}
         </p>
       ) : (
         <p className="mt-3 text-sm text-muted">Income is compared with what usually comes in. It does not carry.</p>
       )}
       {linked ? (
         <a className="mt-2 inline-flex min-h-11 items-center text-sm font-medium text-primary" href={`/funds#fund-${linked.id}`}>
-          In {linked.name}
+          Fund balance {formatMoney(bucketBalance(linked, ym, transactions, categories, bucketMoves ?? []))}
+          {line ? ` · Left this month ${formatMoney(roundMoney(line.planned - line.spent))}` : ""}
         </a>
       ) : null}
       {line ? <Picture line={line} /> : null}
       <MiniBars months={history} aLabel="Amount" bLabel="Spent" />
       {category.kind === "expense" ? <Amounts category={category} ym={ym} line={line} /> : null}
-      {suggestion ? (
-        <div className="mt-4 rounded-md border border-border p-3">
-          <p className="text-sm font-medium">Put leftovers to work</p>
-          <LeftoverActions
-            categoryId={category.id}
-            name={category.name}
-            amount={suggestion.amount}
-            ym={ym}
-            onSaved={(id) => setAsideUndo({ id, name: category.name })}
-          />
-        </div>
-      ) : null}
-      {asideUndo ? (
-        <p className="mt-3 flex flex-wrap items-center gap-2 text-sm">
-          <span>{asideUndo.name} was set aside.</span>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => {
-              removeSetAside(asideUndo.id);
-              setAsideUndo(null);
-            }}
-          >
-            Undo
-          </Button>
-        </p>
-      ) : null}
       <div className="mt-5">
         <h3 className="text-sm font-medium">Charges</h3>
         <div className="mt-2 flex gap-2" role="group" aria-label="Which charges">

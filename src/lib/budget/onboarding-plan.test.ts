@@ -5,6 +5,7 @@ import {
   answersFromLedger,
   answersToProfile,
   applyCompleteSetup,
+  mergeEmptyCash,
   blankAnswers,
   buildSetup,
   fitToIncome,
@@ -14,7 +15,7 @@ import {
   type SetupAnswers,
 } from "./onboarding-plan.ts";
 import { roundPlan } from "./money.ts";
-import { DEFAULT_PROFILE } from "./presets.ts";
+import { buildPresetCategories, DEFAULT_PROFILE } from "./presets.ts";
 import type { Category, Transaction } from "./types.ts";
 
 function answers(patch: Partial<SetupAnswers> = {}): SetupAnswers {
@@ -272,6 +273,7 @@ test("starting your own budget wipes demo paychecks, debts, and the net worth sn
     },
   ];
   start.debts = [{ id: "debt_demo_card", name: "Store card", balance: 640, apr: 19.9, minimum: 25 }];
+  start.accounts = [{ id: "acct_demo_bank", name: "Demo bank file", kind: "checking", createdAt: "2026-01-01T00:00:00.000Z" }];
   start.netWorth = [{ id: "nw_demo_2", date: "2026-09-30", amount: 5100, note: "After the car fund" }];
   start.moneyBuckets = [
     {
@@ -291,8 +293,56 @@ test("starting your own budget wipes demo paychecks, debts, and the net worth sn
   assert.equal(next.profile.demo, false);
   assert.equal(next.transactions.length, 0);
   assert.equal(next.debts.length, 0);
+  assert.equal(next.accounts.some((account) => account.id === "acct_demo_bank" || /demo bank file/i.test(account.name)), false);
   assert.equal(next.netWorth.length, 0);
   assert.equal(next.moneyBuckets.some((bucket) => bucket.id === "bucket_demo_groceries"), false);
   const paycheck = next.categories.find((category) => category.slug === "paycheck");
   assert.equal(paycheck?.plannedMonthly, 4200);
+  const fresh = buildPresetCategories({ ...DEFAULT_PROFILE, housing: "rent", buckets: ["housing", "food"] });
+  assert.equal(fresh.find((category) => category.slug === "housing")?.carry, false);
+});
+
+test("two empty auto-created cash accounts fold into one", () => {
+  const accounts = [
+    { id: "a", name: "Cash", kind: "cash" as const, createdAt: "2026-01-01T00:00:00.000Z" },
+    { id: "b", name: "Cash", kind: "cash" as const, createdAt: "2026-01-02T00:00:00.000Z" },
+    { id: "c", name: "Cash", kind: "cash" as const, institution: "Wallet", createdAt: "2026-01-03T00:00:00.000Z" },
+  ];
+  const merged = mergeEmptyCash(accounts, []);
+  assert.deepEqual(merged.accounts.map((account) => account.id), ["a", "c"]);
+  const withCharge = mergeEmptyCash(accounts, [], [{ accountId: "b" }]);
+  assert.deepEqual(withCharge.accounts.map((account) => account.id), ["a", "b", "c"]);
+});
+
+test("a leftover demo card is removed and a real paycheck stays", () => {
+  const built = buildSetup(answers({ categoriesTouched: true, categorySlugs: ["food"] }), DEFAULT_PROFILE, { today: "2026-10-07" });
+  const start = emptySnapshot();
+  start.profile = { ...start.profile, demo: false, ledgerName: "My budget" };
+  start.transactions = [
+    {
+      id: "pay",
+      date: "2026-09-01",
+      description: "PAYROLL",
+      merchantKey: "PAYROLL",
+      amount: 2000,
+      sourceLabel: "Checking",
+      fingerprint: "pay",
+      categoryId: "pay",
+      accountId: "chk",
+      userSet: false,
+      notes: "",
+      excluded: false,
+      status: "posted",
+    },
+  ];
+  start.debts = [{ id: "debt_demo_card", name: "Store card", balance: 640, apr: 19.9, minimum: 25 }];
+  start.accounts = [
+    { id: "chk", name: "Checking", kind: "checking", createdAt: "2026-01-01T00:00:00.000Z" },
+    { id: "acct_demo_bank", name: "Demo bank file", kind: "checking", createdAt: "2026-01-01T00:00:00.000Z" },
+  ];
+  const next = applyCompleteSetup(start, built.profile, built.categories, built.extras);
+  assert.equal(next.transactions.length, 1);
+  assert.equal(next.debts.length, 0);
+  assert.equal(next.accounts.some((account) => account.id === "chk"), true);
+  assert.equal(next.accounts.some((account) => account.id === "acct_demo_bank"), false);
 });

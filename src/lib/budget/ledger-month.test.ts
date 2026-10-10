@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { monthLedger, safeFromLedger, yearLedger } from "./ledger-month.ts";
+import { monthEndForecast } from "./analytics.ts";
+import { monthLedger, safeBreakdown, safeFromLedger, yearLedger } from "./ledger-month.ts";
 import type { Category, MoneyBucket, Transaction } from "./types.ts";
 
 const pay: Category = { id: "pay", slug: "paycheck", name: "Paycheck", kind: "income", plannedMonthly: 2000 };
@@ -221,7 +222,51 @@ test("safe to spend is derived from the month ledger", () => {
     },
     "2026-07",
   );
-  assert.equal(safe.amount, 1000 - 1100 - 100 - 10);
+  const parts = safeBreakdown(
+    {
+      transactions,
+      categories: [pay, rent, food],
+      buckets: [bucket],
+      moves: [{ id: "m", ym: "2026-07", amount: 10, fromId: null, toId: "g" }],
+      style: "monthly",
+    },
+    "2026-07",
+  );
+  assert.equal(parts.safe, roundCents(parts.left - parts.stillPlanned - parts.fundsStillToAdd));
+  assert.equal(safe.amount, parts.safe);
+  assert.equal(parts.left, 750);
+  assert.equal(parts.stillPlanned, 1060);
+  assert.equal(parts.fundsStillToAdd, 0);
+  assert.equal(parts.safe, -310);
+});
+
+function roundCents(value: number) {
+  return Math.round(value * 100) / 100;
+}
+
+test("a manual cash charge is in both spent figures", () => {
+  const base = [
+    tx({ id: "in", date: "2026-07-01", amount: 1000, categoryId: "pay" }),
+    tx({ id: "g", date: "2026-07-02", amount: -40, categoryId: "food" }),
+  ];
+  const cash = tx({ id: "cash", date: "2026-07-04", amount: -45, categoryId: "food", sourceLabel: "Cash" });
+  const plain = monthLedger({ transactions: base, categories, style: "monthly" }, "2026-07");
+  const withCash = monthLedger({ transactions: [...base, cash], categories, style: "monthly" }, "2026-07");
+  assert.equal(withCash.totals.spent, plain.totals.spent + 45);
+  const forecast = monthEndForecast({ transactions: [...base, cash], categories, ym: "2026-07", today: "2026-07-10" });
+  assert.equal(forecast?.spentSoFar, withCash.totals.spent);
+  assert.equal(forecast?.projectedLeft, 2000 - (forecast?.projectedSpend ?? 0));
+  assert.match(forecast?.sentence ?? "", /spending/i);
+  const refund = tx({ id: "back", date: "2026-07-05", amount: 10, categoryId: "food", status: "refund" });
+  const withRefund = monthLedger({ transactions: [...base, cash, refund], categories, style: "monthly" }, "2026-07");
+  const refundForecast = monthEndForecast({
+    transactions: [...base, cash, refund],
+    categories,
+    ym: "2026-07",
+    today: "2026-07-10",
+  });
+  assert.equal(withRefund.totals.spent, withCash.totals.spent - 10);
+  assert.equal(refundForecast?.spentSoFar, withRefund.totals.spent);
 });
 
 test("a fund-linked category is counted once in unassigned", () => {

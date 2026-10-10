@@ -2,7 +2,8 @@ import { Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { recurringBills } from "@/lib/budget/analytics-depth";
 import { safeToSpend } from "@/lib/budget/buckets";
-import { monthLedger } from "@/lib/budget/ledger-month";
+import { daysLeftInMonth, weeklySafe } from "@/lib/budget/dashboard";
+import { monthLedger, safeBreakdown } from "@/lib/budget/ledger-month";
 import { formatMoney } from "@/lib/budget/money";
 import { moneyPicture } from "@/lib/budget/picture";
 import { plannerFacts } from "@/lib/budget/planner";
@@ -102,7 +103,21 @@ export function HomeDashboard() {
     (item) => item.status === "active" && item.nextDate >= today,
   );
   const over = ledger.spending.filter((line) => line.left < -0.5).slice(0, 3);
-  const weekly = safe.amount / 4;
+  const weekly = weeklySafe(safe.amount, daysLeftInMonth(today));
+  const breakdown = safeBreakdown(
+    {
+      transactions,
+      categories,
+      budgets: monthBudgets ?? [],
+      buckets: buckets ?? [],
+      moves: moves ?? [],
+      setAsides: setAsides ?? [],
+      style,
+      carryStartMonth: profile.carryStartMonth,
+      profile,
+    },
+    ym,
+  );
   const sample = isDemoLedger({ profile, debts, netWorth, imports, moneyBuckets: buckets ?? [] });
 
   if (!transactions.length && (profile.monthlyIncome ?? 0) <= 0) {
@@ -159,8 +174,12 @@ export function HomeDashboard() {
           </button>
         </div>
         <p className={`font-display text-4xl font-semibold tabular ${safe.amount < 0 ? "text-danger" : ""}`}>{formatMoney(safe.amount)}</p>
-        <p className="mt-1 text-sm">About {formatMoney(weekly)} this week, through Friday.</p>
-        {why ? <p className="mt-2 text-sm text-muted">Income so far, minus this month’s plan, minus money already spent.</p> : null}
+        {weekly != null ? <p className="mt-1 text-sm">≈ {formatMoney(weekly)} a week until month end.</p> : null}
+        {why ? (
+          <p className="mt-2 text-sm text-muted">
+            Left now {formatMoney(breakdown.left, { signed: true })} · Still planned {formatMoney(-breakdown.stillPlanned, { signed: true })} · Safe to spend {formatMoney(breakdown.safe, { signed: true })}
+          </p>
+        ) : null}
       </section>
 
       <section className="rounded-lg border border-border bg-surface p-4">

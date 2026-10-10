@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { RecurringBill } from "./analytics-depth.ts";
-import { budgetLead, comingUp, monthStrip, orderSpending, splitFixedFlexible, suggestAmounts } from "./screen-plan.ts";
+import { monthLedger } from "./ledger-month.ts";
+import { budgetLead, categoryStory, comingUp, monthStrip, orderSpending, splitFixedFlexible, stillComingThisMonth, suggestAmounts, surplusSuggestions, yearlyComingLine } from "./screen-plan.ts";
 import type { Category, Transaction } from "./types.ts";
 
 test("the budget lead names the plan and stays quiet when income is missing", () => {
@@ -104,6 +105,7 @@ test("the month strip stays hidden until a forecast exists", () => {
       low: 800,
       high: 1000,
       planned: 1000,
+      projectedLeft: 1100,
       sentence: "Spent so far.",
     },
     incomeSoFar: 2000,
@@ -112,4 +114,114 @@ test("the month strip stays hidden until a forecast exists", () => {
   assert.equal(shown.ready, true);
   assert.equal(shown.daysLeft, 27);
   assert.equal(shown.projectedLeft, 1600);
+});
+
+test("carried overspending is labelled apart from this month", () => {
+  const story = categoryStory({
+    id: "rent",
+    name: "Rent",
+    planned: 1350,
+    spent: 1350,
+    carryIn: -3050,
+    carryOut: -3050,
+    left: -3050,
+    carries: true,
+    charges: 1,
+    provisional: 0,
+  });
+  assert.equal(story.thisMonth, "on plan");
+  assert.equal(story.fromEarlier, -3050);
+  assert.doesNotMatch(story.headline, /\$3,050 over/);
+  assert.match(story.detail, /From earlier/);
+});
+
+test("leftovers stay quiet when the month is short and skip savings and debt", () => {
+  const pay: Category = { id: "pay", slug: "paycheck", name: "Paycheck", kind: "income", plannedMonthly: 2000 };
+  const food: Category = { id: "food", slug: "food", name: "Food", kind: "expense", plannedMonthly: 100, carry: true };
+  const save: Category = { id: "save", slug: "savings", name: "Savings transfers", kind: "expense", plannedMonthly: 50, carry: true };
+  const loan: Category = { id: "loan", slug: "debt", name: "Student loan", kind: "expense", plannedMonthly: 40, carry: true };
+  const rent: Category = { id: "rent", slug: "housing", name: "Rent", kind: "expense", plannedMonthly: 800, carry: false };
+  const tx = (id: string, date: string, amount: number, categoryId: string): Transaction => ({
+    id,
+    date,
+    amount,
+    description: id,
+    merchantKey: id,
+    sourceLabel: "Bank",
+    fingerprint: id,
+    categoryId,
+    userSet: false,
+    notes: "",
+    excluded: false,
+    status: "posted",
+  });
+  const short = surplusSuggestions(
+    {
+      transactions: [tx("in", "2026-03-01", 100, "pay"), tx("rent", "2026-03-02", -800, "rent")],
+      categories: [pay, food, save, loan, rent],
+      style: "buckets",
+      carryStartMonth: "2026-01",
+    },
+    "2026-03",
+  );
+  assert.deepEqual(short, []);
+  const open = surplusSuggestions(
+    {
+      transactions: [tx("in", "2026-03-01", 3000, "pay")],
+      categories: [pay, food, save, loan],
+      style: "buckets",
+      carryStartMonth: "2026-03",
+    },
+    "2026-03",
+  );
+  assert.deepEqual(
+    open.map((row) => row.categoryId),
+    ["food"],
+  );
+  const foodLine = monthLedger(
+    { transactions: [tx("in", "2026-03-01", 3000, "pay")], categories: [pay, food], style: "buckets", carryStartMonth: "2026-03" },
+    "2026-03",
+  ).spending.find((row) => row.id === "food");
+  assert.equal(open[0]?.amount, foodLine?.left);
+});
+
+test("still coming lists only the rest of this month", () => {
+  const bill = (partial: Partial<RecurringBill> & Pick<RecurringBill, "merchantKey" | "nextDate" | "status">): RecurringBill => ({
+    description: partial.merchantKey,
+    categoryId: null,
+    categoryName: null,
+    usual: 20,
+    interval: "monthly",
+    lastDate: "2026-09-01",
+    yearly: 9999,
+    kind: "fixed",
+    priceChange: null,
+    ...partial,
+  });
+  const bills = [
+    bill({ merchantKey: "PAST", nextDate: "2026-10-01", status: "late" }),
+    bill({ merchantKey: "STOP", nextDate: "2026-10-20", status: "stopped" }),
+    bill({ merchantKey: "SOON", nextDate: "2026-10-20", status: "active" }),
+    bill({ merchantKey: "NEXT", nextDate: "2026-11-02", status: "active" }),
+    bill({ merchantKey: "PAID", nextDate: "2026-10-18", status: "active" }),
+  ];
+  const paid: Transaction = {
+    id: "p",
+    date: "2026-10-04",
+    amount: -20,
+    description: "PAID",
+    merchantKey: "PAID",
+    sourceLabel: "Bank",
+    fingerprint: "p",
+    categoryId: null,
+    userSet: false,
+    notes: "",
+    excluded: false,
+    status: "posted",
+  };
+  const items = stillComingThisMonth(bills, "2026-10-15", [paid]);
+  assert.deepEqual(items?.map((item) => item.merchantKey), ["SOON"]);
+  const six = Array.from({ length: 6 }, (_, index) => bill({ merchantKey: `B${index}`, nextDate: "2026-10-20", status: "active", usual: 20 }));
+  const listed = stillComingThisMonth(six, "2026-10-15");
+  assert.equal(yearlyComingLine(listed ?? []), "About $1,440.00 a year");
 });

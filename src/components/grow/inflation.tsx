@@ -28,9 +28,9 @@ export function InflationPage() {
     ],
     "what it buys later",
   );
-  const pile = Number(amount) || 0;
-  const yearCount = Math.max(0, Math.round(Number(years) || 0));
-  const inflation = Number(rate) || 0;
+  const pile = readNumber(amount) ?? 0;
+  const yearCount = Math.max(0, Math.round(readNumber(years) ?? 0));
+  const inflation = readNumber(rate) ?? 0;
   const result = inflated(pile, yearCount, inflation);
   const source = g.facts.typicalSpendMonthly.value != null ? "from your spending" : tagOf(g.facts.cashSavings.source);
   return (

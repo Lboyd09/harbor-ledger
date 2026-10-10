@@ -80,7 +80,7 @@ test("safe to spend uses monthly amounts, bucket funding, and leftover spending 
   assert.equal(safe.moved, 10);
   assert.equal(safe.plans, 1100);
   assert.equal(safe.spent, 0);
-  assert.equal(safe.amount, 1000 - 1100 - 100 - 10);
+  assert.equal(safe.amount, 750 - 1160);
 });
 
 test("a rate change does not rewrite months already funded", () => {

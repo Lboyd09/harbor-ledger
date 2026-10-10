@@ -4,7 +4,7 @@ import { bucketBalance } from "@/lib/budget/buckets";
 import { monthlyPath, projectBoth, rothVsTraditional } from "@/lib/budget/grow-math";
 import { moneyPicture } from "@/lib/budget/picture";
 import { DEFAULT_IRA, iraLimit, rothRoom } from "@/lib/budget/ira";
-import { readNumber } from "@/lib/budget/calc-input";
+import { optionalAmount, readNumber } from "@/lib/budget/calc-input";
 import { buildYearWorkbook } from "@/lib/budget/year";
 import { useBudgetStore } from "@/store/budget-store";
 import { useLivelyMotion } from "../use-lively-motion";
@@ -124,19 +124,19 @@ export function useGrowState() {
   const taxNowIn = readNumber(taxNow);
   const taxLaterIn = readNumber(taxLater);
   const annualIn = readNumber(annual);
-  const inflationRate = Math.max(0, (Number(inflation) || 0) / 100);
-  const yearCount = Math.max(0, Number(years) || 0);
-  const principalN = Math.max(0, Number(principal) || 0);
-  const monthlyN = Math.max(0, Number(monthly) || 0);
-  const taxNowN = (Number(taxNow) || 0) / 100;
-  const taxLaterN = (Number(taxLater) || 0) / 100;
-  const market = (Number(rate) || 0) / 100;
+  const inflationRate = Math.max(0, (inflationIn ?? 0) / 100);
+  const yearCount = Math.max(0, yearsIn ?? 0);
+  const principalN = Math.max(0, optionalAmount(principal).amount);
+  const monthlyN = Math.max(0, optionalAmount(monthly).amount);
+  const taxNowN = (taxNowIn ?? 0) / 100;
+  const taxLaterN = (taxLaterIn ?? 0) / 100;
+  const market = (rateIn ?? 0) / 100;
   const path = monthlyPath({ monthly: monthlyN, years: yearCount, rate: market, inflation: inflationRate, today });
   const both = projectBoth({ principal: principalN, monthly: monthlyN, years: yearCount, rate: market, inflation: inflationRate, today });
-  const annualN = Math.max(0, Number(annual) || 0);
+  const annualN = Math.max(0, optionalAmount(annual).amount);
   const compare = rothVsTraditional({ annual: annualN, years: yearCount, rate: market, taxNow: taxNowN, taxLater: taxLaterN, inflation: inflationRate, today });
   const limit = iraLimit(ira, age50);
-  const room = rothRoom(ira, Math.max(0, Number(magi) || 0), joint);
+  const room = rothRoom(ira, Math.max(0, readNumber(magi) ?? 0), joint);
 
   const picture = useMemo(
     () =>

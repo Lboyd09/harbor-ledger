@@ -3,6 +3,18 @@
  * An explicit 0 that someone typed stays 0.
  */
 
+/**
+ * Optional money box, such as an extra payment or "already saved".
+ * A blank box is 0 on purpose and marked assumed. An unreadable box is invalid.
+ * A typed 0 stays 0 and is not assumed.
+ */
+export function optionalAmount(raw: string | number | null | undefined): { amount: number; assumed: boolean; invalid: boolean } {
+  if (raw == null || (typeof raw === "string" && raw.trim() === "")) return { amount: 0, assumed: true, invalid: false };
+  const amount = readNumber(raw);
+  if (amount == null) return { amount: 0, assumed: false, invalid: true };
+  return { amount, assumed: false, invalid: false };
+}
+
 /** Read a typed number. Blank or unreadable gives null. Accepts "$1,200", "6.5%", "-2". */
 export function readNumber(raw: string | number | null | undefined): number | null {
   if (raw == null) return null;

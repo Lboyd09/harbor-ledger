@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { factNote, needsPrompt, readLoan, readNumber } from "./calc-input.ts";
+import { factNote, needsPrompt, optionalAmount, readLoan, readNumber } from "./calc-input.ts";
 import { loanCompare } from "./grow-math.ts";
 import { projectRetirement, retirementInputFrom, type RetirementFields } from "./retirement.ts";
 
@@ -23,6 +23,12 @@ const scenarioD: RetirementFields = {
 function rough(n: number) {
   return `$${n.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
 }
+
+test("optionalAmount treats a blank as an assumed 0 and rejects junk", () => {
+  assert.deepEqual(optionalAmount(""), { amount: 0, assumed: true, invalid: false });
+  assert.deepEqual(optionalAmount("0"), { amount: 0, assumed: false, invalid: false });
+  assert.deepEqual(optionalAmount("abc"), { amount: 0, assumed: false, invalid: true });
+});
 
 test("readNumber keeps blank apart from an explicit 0", () => {
   assert.equal(readNumber(""), null);

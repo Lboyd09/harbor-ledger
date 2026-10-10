@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { accountGrowth, groupAccounts, quickCash, quickInvestment, shownBalance } from "./accounts.ts";
+import { accountGrowth, defaultImportAccount, groupAccounts, quickCash, quickInvestment, shownBalance } from "./accounts.ts";
 import { monthLedger } from "./ledger-month.ts";
 import { categoryStory, surplusSuggestions } from "./screen-plan.ts";
 import type { Account, BalancePoint, Category, MoneyBucket, SetAside, Transaction } from "./types.ts";
@@ -46,15 +46,15 @@ function line(partial: Partial<Line>): Line {
 }
 
 test("category stories stay short for over, under, even, fresh, and carry", () => {
-  const over = categoryStory(line({ left: -40, carryOut: -40, spent: 440 }));
+  const over = categoryStory(line({ left: -40, carryOut: -40, spent: 440, planned: 400 }));
   assert.equal(over.tone, "over");
   assert.match(over.headline, /over/);
   assert.match(over.nextMonth, /lower/);
-  const under = categoryStory(line({ left: 60, carryOut: 60 }));
+  const under = categoryStory(line({ left: 60, carryOut: 60, spent: 340, planned: 400 }));
   assert.equal(under.tone, "under");
-  assert.match(under.headline, /under/);
+  assert.match(under.headline, /left/);
   assert.match(under.detail, /carries into next month/);
-  const even = categoryStory(line({ left: 0, carryOut: 0 }));
+  const even = categoryStory(line({ left: 0, carryOut: 0, spent: 400, planned: 400 }));
   assert.equal(even.tone, "even");
   assert.match(even.headline, /Even/);
   const fresh = categoryStory(line({ carries: false, planned: 400, left: 400 }));
@@ -150,6 +150,20 @@ function invest(partial: Partial<Account> = {}): Account {
     ...partial,
   };
 }
+
+test("the import picker never starts on a demo account", () => {
+  assert.equal(defaultImportAccount([{ id: "acct_demo_bank", name: "Demo bank file" }], "acct_demo_bank"), "");
+  assert.equal(
+    defaultImportAccount(
+      [
+        { id: "acct_demo_bank", name: "Demo bank file" },
+        { id: "chk", name: "Checking" },
+      ],
+      "acct_demo_bank",
+    ),
+    "chk",
+  );
+});
 
 test("account growth stays finite, ordered, and behind a typed balance", () => {
   const today = "2026-03-03";

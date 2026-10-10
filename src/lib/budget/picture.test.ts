@@ -54,6 +54,10 @@ test("a calculator card does not change net worth", () => {
   assert.equal(moneyPicture({ accounts: few, balances: points, debts: legacy }).net, 3760);
   const money: DebtItem[] = [{ id: "loan", name: "Student", balance: 5000, apr: 5.5, minimum: 100, origin: "money" }];
   assert.equal(moneyPicture({ accounts: few, balances: points, debts: money }).net, -1240);
+  const sameBalance: DebtItem[] = [{ id: "loan2", name: "Student", balance: 1240, apr: 5.5, minimum: 40, origin: "money" }];
+  assert.equal(moneyPicture({ accounts: few, balances: points, debts: sameBalance }).net, 2520);
+  const unnamedCopy: DebtItem[] = [{ id: "old2", name: "Student", balance: 1240, apr: 5.5, minimum: 40 }];
+  assert.equal(moneyPicture({ accounts: few, balances: points, debts: unnamedCopy }).net, 3760);
 });
 
 test("loan accounts and money loans share one debt total", () => {
@@ -78,6 +82,14 @@ test("loan accounts and money loans share one debt total", () => {
   assert.equal(picture.cash, 11130);
   assert.equal(picture.debts, 29540);
   assert.equal(picture.net, 25440);
+});
+
+test("an overdraft lowers cash and net worth", () => {
+  const few: Account[] = [{ id: "chk", name: "Checking", kind: "checking", createdAt: "2026-01-01" }];
+  const points: BalancePoint[] = [{ id: "b1", accountId: "chk", amount: -200, date: "2026-10-01", source: "entered" }];
+  const picture = moneyPicture({ accounts: few, balances: points, debts: [] });
+  assert.equal(picture.cash, -200);
+  assert.equal(picture.net, -200);
 });
 
 test("a blank bill amount does not invent months of cushion", () => {

@@ -98,7 +98,7 @@ export function accountHasActivity(
 /** What the person typed. A card stores what is owed, as a negative number. */
 export function enteredBalanceAmount(kind: AccountKind, amount: number): number {
   if (!Number.isFinite(amount)) return 0;
-  if (kind === "credit") return amount === 0 ? 0 : roundMoney(-Math.abs(amount));
+  if (kind === "credit" || isLoanKind(kind)) return amount === 0 ? 0 : roundMoney(-Math.abs(amount));
   return roundMoney(amount);
 }
 
@@ -189,6 +189,19 @@ function balanceId(accountId: string, date: string, balances: BalancePoint[]): s
     n += 1;
   }
   return id;
+}
+
+/** Demo bank rows are not a real account to import into. */
+export function isDemoAccount(account: { id: string; name: string }): boolean {
+  return account.id.startsWith("acct_demo") || /demo bank file/i.test(account.name);
+}
+
+/** The import picker pre-selects the only real account. It never pre-selects a demo account. */
+export function defaultImportAccount(accounts: { id: string; name: string }[], recentId: string | null): string {
+  const real = accounts.filter((account) => !isDemoAccount(account));
+  if (real.length === 1) return real[0].id;
+  if (recentId && real.some((account) => account.id === recentId)) return recentId;
+  return "";
 }
 
 /** One tap. Adds to the cash account when one already exists. */

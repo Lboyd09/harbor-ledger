@@ -1,10 +1,10 @@
 import type { MonthEndForecast } from "./analytics.ts";
 import type { RecurringBill } from "./analytics-depth.ts";
 import { categorySpent, SURPLUS_PLAN_MONTHS } from "./carry.ts";
+import { monthLedger, type LedgerSource, type SpendingLine } from "./ledger-month.ts";
 import { formatMoney, roundMoney } from "./money.ts";
 import { shiftMonth } from "./parse-date.ts";
-import { monthLedger, type LedgerSource, type SpendingLine } from "./ledger-month.ts";
-import type { Category, Transaction } from "./types.ts";
+import type { Category, RecurringInterval, Transaction } from "./types.ts";
 
 export type ForecastChip = "Likely over by month end" | "Close" | "Fine";
 
@@ -160,6 +160,52 @@ export function comingUp(bills: RecurringBill[] | null, today: string, days = 30
   return all.length ? all : null;
 }
 
+function monthEnd(today: string): string | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(today);
+  if (!match) return null;
+  const last = new Date(Date.UTC(Number(match[1]), Number(match[2]), 0)).getUTCDate();
+  return `${match[1]}-${match[2]}-${String(last).padStart(2, "0")}`;
+}
+
+function timesAYear(interval: RecurringInterval): number {
+  if (interval === "weekly") return 52;
+  if (interval === "biweekly") return 26;
+  if (interval === "monthly") return 12;
+  return 4;
+}
+
+/** Bills from today through the end of this month. Stopped bills and ones already paid this month stay off the list. */
+export function stillComingThisMonth(
+  bills: RecurringBill[] | null,
+  today: string,
+  transactions: Transaction[] = [],
+): ComingItem[] | null {
+  const end = monthEnd(today);
+  if (!bills?.length || !end) return null;
+  const ym = today.slice(0, 7);
+  const paid = new Set(
+    transactions.filter((row) => row.date.startsWith(ym) && row.amount < 0 && !row.excluded).map((row) => row.merchantKey),
+  );
+  const items = bills
+    .filter((bill) => bill.status !== "stopped" && bill.nextDate && bill.nextDate >= today && bill.nextDate <= end && !paid.has(bill.merchantKey))
+    .map((bill) => ({
+      merchantKey: bill.merchantKey,
+      description: bill.description,
+      usual: bill.usual,
+      nextDate: bill.nextDate as string,
+      status: bill.status,
+      yearly: roundMoney(bill.usual * timesAYear(bill.interval)),
+    }))
+    .sort((a, b) => a.nextDate.localeCompare(b.nextDate) || a.description.localeCompare(b.description));
+  return items.length ? items : null;
+}
+
+/** "About $1,440 a year" from the bills still coming, using each cadence's yearly cap. */
+export function yearlyComingLine(items: { usual: number; yearly: number }[]): string {
+  const total = roundMoney(items.reduce((sum, item) => sum + item.yearly, 0));
+  return `About ${formatMoney(total)} a year`;
+}
+
 function addDays(iso: string, days: number): string | null {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
   if (!match) return null;
@@ -274,32 +320,39 @@ export type CategoryStory = {
   nextMonth: string;
   tone: "over" | "under" | "even" | "fresh";
   icon: "over" | "under" | "even" | "fresh";
+  /** This month only: "on plan", "$X over", or "$X left". Carry-in is not in this. */
+  thisMonth: string;
+  /** Carry-in from earlier months. Zero when the month started even. */
+  fromEarlier: number;
 };
 
-/** One sentence about this month, and one about next. Short enough to read on a row. */
+function thisMonthStatus(planned: number, spent: number): { text: string; tone: "over" | "under" | "even" } {
+  const delta = roundMoney(planned - spent);
+  if (Math.abs(delta) < 0.005) return { text: "on plan", tone: "even" };
+  if (delta < 0) return { text: `${formatMoney(Math.abs(delta))} over`, tone: "over" };
+  return { text: `${formatMoney(delta)} left`, tone: "under" };
+}
+
+/** One sentence about this month, and one about next. Carry-in is labelled on its own. */
 export function categoryStory(row: SpendingLine): CategoryStory {
-  const money = (value: number) => formatMoney(Math.abs(value));
+  const month = thisMonthStatus(row.planned, row.spent);
+  const fromEarlier = row.carryIn;
   if (!row.carries) {
     const again = `Starts again at ${formatMoney(row.planned)}.`;
-    return { headline: "Fresh month.", detail: again, nextMonth: again, tone: "fresh", icon: "fresh" };
+    return { headline: "Fresh month.", detail: again, nextMonth: again, tone: "fresh", icon: "fresh", thisMonth: month.text, fromEarlier };
   }
+  const headline = month.tone === "even" ? "Even." : month.tone === "over" ? `${formatMoney(Math.abs(row.planned - row.spent))} over.` : `${formatMoney(row.planned - row.spent)} left.`;
+  let nextMonth = "Next month starts at the amount.";
+  let detail = "Nothing extra to carry.";
   if (row.left < -0.004) {
-    const over = money(row.left);
-    const next = `Next month starts ${over} lower.`;
-    return { headline: `${over} over.`, detail: next, nextMonth: next, tone: "over", icon: "over" };
+    nextMonth = `Next month starts ${formatMoney(Math.abs(row.left))} lower.`;
+    detail = nextMonth;
+  } else if (row.left > 0.004) {
+    nextMonth = `${formatMoney(row.left)} carries into next month.`;
+    detail = nextMonth;
   }
-  if (row.left > 0.004) {
-    const under = money(row.left);
-    const next = `${under} carries into next month.`;
-    return { headline: `${under} under.`, detail: next, nextMonth: next, tone: "under", icon: "under" };
-  }
-  return {
-    headline: "Even.",
-    detail: "Nothing extra to carry.",
-    nextMonth: "Next month starts at the amount.",
-    tone: "even",
-    icon: "even",
-  };
+  if (Math.abs(fromEarlier) > 0.004) detail = `From earlier: ${formatMoney(fromEarlier)}.`;
+  return { headline, detail, nextMonth, tone: month.tone, icon: month.tone, thisMonth: month.text, fromEarlier };
 }
 
 export type SurplusSuggestion = {
@@ -308,24 +361,40 @@ export type SurplusSuggestion = {
   amount: number;
   fundLabel: string;
   growLabel: string;
+  /** Set when the spare figure includes money carried in. */
+  fromEarlier: number | null;
 };
 
-/** Leftovers worth moving, largest first. Same cutoff as surplusToPutToWork, read from the month ledger. */
+const SURPLUS_SKIP = new Set(["housing", "utilities", "subscriptions", "debt", "savings", "insurance", "phone"]);
+
+function skipSurplus(category: Category | undefined, line: SpendingLine): boolean {
+  if (!line.carries) return true;
+  if (!category) return /savings transfer|debt payment|student loan/i.test(line.name);
+  if (category.carry === false) return true;
+  if (SURPLUS_SKIP.has(category.slug)) return true;
+  return /savings transfer|debt payment|student loan/i.test(category.name);
+}
+
+/** Leftovers worth moving, largest first. Nothing while the month is short, and nothing from savings, debt, or fixed bills. */
 export function surplusSuggestions(source: LedgerSource, ym: string): SurplusSuggestion[] {
   if (!/^\d{4}-\d{2}$/.test(ym)) return [];
   const ledger = monthLedger(source, ym);
+  if (ledger.totals.leftOver < -0.004) return [];
+  const byId = new Map(source.categories.map((category) => [category.id, category]));
   const out: SurplusSuggestion[] = [];
   for (const line of ledger.spending) {
-    if (!line.carries) continue;
-    const amount = roundMoney(Math.max(0, line.carryOut - SURPLUS_PLAN_MONTHS * line.planned));
+    if (skipSurplus(byId.get(line.id), line)) continue;
+    const amount = roundMoney(Math.max(0, line.left));
     if (amount <= 0.5) continue;
     const shown = formatMoney(amount);
+    const fromEarlier = Math.abs(line.carryIn) > 0.004 ? line.carryIn : null;
     out.push({
       categoryId: line.id,
       name: line.name,
       amount,
       fundLabel: `Add ${shown} to a fund`,
       growLabel: "See what it could grow to",
+      fromEarlier,
     });
   }
   return out.sort((a, b) => b.amount - a.amount || a.name.localeCompare(b.name));

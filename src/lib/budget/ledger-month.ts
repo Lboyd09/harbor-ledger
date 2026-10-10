@@ -367,6 +367,33 @@ function sumFunds(months: MonthLedger[]): FundMonth[] {
   }));
 }
 
+export type SafeBreakdown = {
+  /** Budget's Left: income so far, minus what was spent, minus what was saved. */
+  left: number;
+  /** Unspent part of this month's plan. */
+  stillPlanned: number;
+  /** Fund funding that is not already inside Left. */
+  fundsStillToAdd: number;
+  /** left − stillPlanned − fundsStillToAdd. Today's Safe to spend. */
+  safe: number;
+};
+
+/**
+ * Safe to spend and Budget's Left, from the same month.
+ * Fund funding is already taken out of Left, so fundsStillToAdd is only the part not saved yet.
+ */
+export function safeBreakdown(source: LedgerSource, ym: string): SafeBreakdown {
+  const ledger = monthLedger(source, ym);
+  let stillPlanned = 0;
+  for (const line of ledger.spending) {
+    if (line.planned > 0) stillPlanned += Math.max(0, line.planned - line.spent);
+  }
+  stillPlanned = roundMoney(stillPlanned);
+  const fundsStillToAdd = roundMoney(Math.max(0, ledger.fundFunding - ledger.totals.savedToFunds));
+  const left = ledger.totals.leftOver;
+  return { left, stillPlanned, fundsStillToAdd, safe: roundMoney(left - stillPlanned - fundsStillToAdd) };
+}
+
 /** What is left to assign after plans and fund funding. Built only from monthLedger. */
 export function safeFromLedger(source: LedgerSource, ym: string): {
   amount: number;
@@ -394,12 +421,13 @@ export function safeFromLedger(source: LedgerSource, ym: string): {
   );
   plans = roundMoney(plans);
   spent = roundMoney(Math.max(0, spent));
+  const breakdown = safeBreakdown(source, ym);
   return {
     income: ledger.totals.received,
     funding: ledger.fundFunding,
     moved,
     plans,
     spent,
-    amount: roundMoney(ledger.totals.received - plans - spent - ledger.totals.savedToFunds),
+    amount: breakdown.safe,
   };
 }

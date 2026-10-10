@@ -156,6 +156,10 @@ test("a zero minimum asks for at least the first month of interest, rounded up",
   const add = extraNeeded(card, 0);
   assert.ok(add >= 100.01);
   assert.equal(add, 101);
+  assert.equal(extraNeeded(card, 50), 51);
+  assert.equal(extraNeeded(card, 100), 1);
+  assert.equal(extraNeeded(card, 101), 0);
+  assert.equal(simulatePayoff(card, 50 + extraNeeded(card, 50), "avalanche").unfinished, false);
 });
 
 test("at 0% interest the months are the balance over the payment", () => {

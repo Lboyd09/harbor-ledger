@@ -113,7 +113,7 @@ export function AccountBoard() {
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
           <h2 className="font-display text-xl font-semibold">Your accounts</h2>
-          <p className="text-sm text-muted">Net {formatMoney(net, { signed: true })}. Loans of {formatMoney(picture.loans)} are subtracted. Cards are already part of the account balances.</p>
+          <p className="text-sm text-muted">Net {formatMoney(net, { signed: true })}. Debts of {formatMoney(picture.debts)} are subtracted. That is cards, loan accounts, and loans added on Money.</p>
         </div>
         <div className="flex gap-2">
           <Button size="sm" variant="outline" onClick={() => openQuickAdd("cash")}>

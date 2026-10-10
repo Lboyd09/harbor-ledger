@@ -6,9 +6,10 @@ import { monthLedger } from "@/lib/budget/ledger-month";
 import { TERMS } from "@/lib/copy/terms";
 import { formatMoney } from "@/lib/budget/money";
 import { newId } from "@/lib/budget/ids";
-import { countsTowardPlan, orderedCategories, planAmount } from "@/lib/budget/plans";
+import { bucketBalance } from "@/lib/budget/buckets";
+import { orderedCategories, planTotal } from "@/lib/budget/plans";
 import { incomeRows, spendingRows, type SideRow } from "@/lib/budget/readout";
-import { budgetLead, categoryStory, dueLabel, forecastChip, orderSpending, splitFixedFlexible, suggestAmounts } from "@/lib/budget/screen-plan";
+import { budgetLead, categoryStory, dueLabel, orderSpending, splitFixedFlexible, suggestAmounts } from "@/lib/budget/screen-plan";
 import { categoryCarries } from "@/lib/budget/style";
 import type { BudgetStyle } from "@/lib/budget/types";
 import { useBudgetStore } from "@/store/budget-store";
@@ -95,9 +96,7 @@ function BudgetSides({ style }: { style: BudgetStyle }) {
   const forecast = monthEndForecast({ transactions, categories, ym, today, budgets: monthBudgets });
   const typical = typicalMonth(transactions, categories);
   const steady = incomeStability(transactions, categories);
-  const plannedSpend = expenses
-    .filter((category) => countsTowardPlan(category, categories))
-    .reduce((sum, category) => sum + planAmount(category, ym, monthBudgets), 0);
+  const plannedSpend = planTotal(categories, ym, monthBudgets);
   const usualIncome = income.reduce((sum, row) => sum + row.mark, 0);
   const lead = budgetLead({
     plannedSpend,
@@ -106,7 +105,6 @@ function BudgetSides({ style }: { style: BudgetStyle }) {
     typicalMonths: typical?.months ?? 0,
   });
   const ideas = suggestAmounts(categories, transactions, ym).slice(0, 3);
-  const chip = forecast ? forecastChip(forecast.projectedSpend, forecast.planned) : null;
   const ranked = orderSpending(
     expenses
       .map((category) => {
@@ -144,6 +142,7 @@ function BudgetSides({ style }: { style: BudgetStyle }) {
     const story = line ? categoryStory(line) : null;
     const carries = line?.carries ?? categoryCarries(category, style);
     const linked = moneyBuckets.find((fund) => fund.categoryIds.includes(category.id));
+    const fundBalance = linked ? bucketBalance(linked, ym, transactions, categories, moves) : null;
     const spent = line?.spent ?? row.amount;
     const planned = line?.planned ?? row.mark;
     const ratio = planned > 0 ? spent / planned : 0;
@@ -164,12 +163,20 @@ function BudgetSides({ style }: { style: BudgetStyle }) {
             <span className={`block text-sm tabular ${tone}`}>
               {formatMoney(spent)} of {formatMoney(planned)}
             </span>
+            {story && story.fromEarlier !== 0 ? (
+              <span className="block text-xs text-muted">From earlier: {formatMoney(story.fromEarlier)}</span>
+            ) : null}
           </span>
-          {story ? <span className="shrink-0 rounded-full bg-chip px-2 py-1 text-xs">{story.headline}</span> : null}
+          {story ? (
+            <span className="shrink-0 rounded-full bg-chip px-2 py-1 text-xs">
+              {story.thisMonth === "on plan" ? "This month: on plan" : story.thisMonth}
+            </span>
+          ) : null}
         </button>
         {linked ? (
           <a href={`/funds#fund-${linked.id}`} className="mt-1 inline-flex min-h-11 items-center text-xs font-medium text-primary">
-            In {linked.name}
+            Fund balance: {formatMoney(fundBalance ?? 0)}
+            {fundBalance != null && fundBalance < -0.004 ? " · Spent more than saved in this fund." : ""}
           </a>
         ) : null}
       </li>
@@ -211,8 +218,7 @@ function BudgetSides({ style }: { style: BudgetStyle }) {
       <section className="rounded-lg border border-border bg-surface p-4">
         <p className="font-display text-xl font-semibold">{lead.sentence}</p>
         {lead.cover ? <p className={`mt-1 text-sm ${lead.warn ? "text-danger" : "text-muted"}`}>{lead.cover}</p> : null}
-        {chip && !lead.warn ? <p className="mt-2 text-sm">{chip}. {forecast?.sentence}</p> : null}
-        {chip && lead.warn ? <p className="mt-2 text-sm">{forecast?.sentence}</p> : null}
+        {forecast?.sentence ? <p className="mt-2 text-sm">{forecast.sentence}</p> : null}
         {ideas.map((idea) => (
           <div key={idea.id} className="mt-2 flex flex-wrap items-center gap-2 text-sm">
             <span>{idea.sentence}</span>
