@@ -522,7 +522,7 @@ function CsvHelp() {
   const [open, setOpen] = useState(false);
   return (
     <section className="rounded-lg border border-border bg-surface p-4">
-      <button type="button" className="flex w-full items-center justify-between text-left" onClick={() => setOpen((v) => !v)}>
+      <button type="button" className="flex min-h-11 w-full items-center justify-between text-left" onClick={() => setOpen((v) => !v)}>
         <h2 className="font-display text-lg font-semibold">How to get a CSV from your bank</h2>
         <span className="text-sm text-muted">{open ? "Hide" : "Show"}</span>
       </button>

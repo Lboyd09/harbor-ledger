@@ -11,14 +11,14 @@ export function PeriodToggle() {
     <div className="inline-flex rounded-md border border-border bg-surface p-0.5">
       <button
         type="button"
-        className={`min-h-9 rounded-sm px-3 text-sm ${period === "week" ? "bg-chip font-medium" : "text-muted"}`}
+        className={`min-h-11 rounded-sm px-3 text-sm ${period === "week" ? "bg-chip font-medium" : "text-muted"}`}
         onClick={() => setBudgetPeriod("week")}
       >
         Week
       </button>
       <button
         type="button"
-        className={`min-h-9 rounded-sm px-3 text-sm ${period === "month" ? "bg-chip font-medium" : "text-muted"}`}
+        className={`min-h-11 rounded-sm px-3 text-sm ${period === "month" ? "bg-chip font-medium" : "text-muted"}`}
         onClick={() => setBudgetPeriod("month")}
       >
         Month

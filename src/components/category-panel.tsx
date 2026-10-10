@@ -616,8 +616,9 @@ function PanelShell({ children, onClose, label }: { children: ReactNode; onClose
         aria-modal="true"
         tabIndex={-1}
         aria-label={label ?? "Category"}
-        className="absolute inset-0 overflow-y-auto bg-bg p-4 outline-none md:inset-y-0 md:left-auto md:right-0 md:w-[28rem] md:border-l md:border-border md:bg-surface md:shadow-xl"
+        className="absolute inset-x-0 bottom-0 max-h-[85%] overflow-y-auto rounded-t-2xl bg-bg p-4 pb-[max(1rem,env(safe-area-inset-bottom))] outline-none md:inset-y-0 md:left-auto md:right-0 md:max-h-none md:w-[28rem] md:rounded-none md:border-l md:border-border md:bg-surface md:pb-4 md:shadow-xl"
       >
+        <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-line md:hidden" aria-hidden="true" />
         {children}
       </aside>
     </div>

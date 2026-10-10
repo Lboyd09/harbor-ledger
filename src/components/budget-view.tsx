@@ -78,7 +78,7 @@ export function BudgetView({ page }: { page: "month" | "amounts" | "transactions
         <Strip label="Spent" value={formatMoney(ledger.totals.spent)} />
         <button type="button" className="rounded-lg border border-border bg-surface px-3 py-3 text-left" onClick={() => setFundsOpen((open) => !open)} aria-expanded={fundsOpen}>
           <div className="text-xs font-medium uppercase tracking-wide text-muted">Saved to funds</div>
-          <div className="mt-1 font-display text-xl tabular">{formatMoney(ledger.totals.savedToFunds)}</div>
+          <div className="money mt-1 font-display tabular" data-money>{formatMoney(ledger.totals.savedToFunds)}</div>
         </button>
         <div className="rounded-lg border border-border bg-surface px-3 py-3 text-left">
           <div className="flex items-start justify-between gap-2">
@@ -92,7 +92,7 @@ export function BudgetView({ page }: { page: "month" | "amounts" | "transactions
               ?
             </button>
           </div>
-          <div className="mt-1 font-display text-xl tabular">{formatMoney(ledger.totals.leftOver, { signed: true })}</div>
+          <div className="money mt-1 break-words font-display tabular" data-money>{formatMoney(ledger.totals.leftOver, { signed: true })}</div>
           {leftWhy ? <p className="mt-1 text-xs text-muted">Safe to spend also holds back what&apos;s still planned.</p> : null}
         </div>
       </section>
@@ -191,7 +191,7 @@ function Strip({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg border border-border bg-surface px-3 py-3">
       <div className="text-xs font-medium uppercase tracking-wide text-muted">{label}</div>
-      <div className="mt-1 font-display text-xl tabular">{value}</div>
+      <div className="money mt-1 break-words font-display tabular" data-money>{value}</div>
     </div>
   );
 }

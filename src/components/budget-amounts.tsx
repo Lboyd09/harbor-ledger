@@ -159,19 +159,19 @@ function BudgetSides({ style }: { style: BudgetStyle }) {
             )}
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block truncate font-medium">{category.name}</span>
+            <span className="line-clamp-2 break-words font-medium">{category.name}</span>
             <span className={`block text-sm tabular ${tone}`}>
               {formatMoney(spent)} of {formatMoney(planned)}
             </span>
             {story && story.fromEarlier !== 0 ? (
               <span className="block text-xs text-muted">From earlier: {formatMoney(story.fromEarlier)}</span>
             ) : null}
+            {story ? (
+              <span className="mt-1 inline-flex max-w-full rounded-full bg-chip px-2 py-1 text-xs">
+                {story.thisMonth === "on plan" ? "This month: on plan" : story.thisMonth}
+              </span>
+            ) : null}
           </span>
-          {story ? (
-            <span className="shrink-0 rounded-full bg-chip px-2 py-1 text-xs">
-              {story.thisMonth === "on plan" ? "This month: on plan" : story.thisMonth}
-            </span>
-          ) : null}
         </button>
         {linked ? (
           <a href={`/funds#fund-${linked.id}`} className="mt-1 inline-flex min-h-11 items-center text-xs font-medium text-primary">
