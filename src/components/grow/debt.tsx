@@ -39,9 +39,12 @@ export function DebtPage() {
     { label: "the minimum", value: minimumIn, min: 0 },
   ]);
   const typing = Boolean(name.trim() || balance.trim() || apr.trim() || minimum.trim());
-  const snow = simulatePayoff(working, extraN, "snowball");
-  const ava = simulatePayoff(working, extraN, "avalanche");
-  const line = working.length ? debtTimeline(working, extraN) : null;
+  const rateMissing = working.some((debt) => debt.apr < 0);
+  const canCalc = !extraMissing && !rateMissing && working.length > 0;
+  const emptySim = { months: 0, interest: 0, paid: 0, unfinished: true, payoffs: [], remaining: [0] };
+  const snow = canCalc ? simulatePayoff(working, extraN, "snowball") : emptySim;
+  const ava = canCalc ? simulatePayoff(working, extraN, "avalanche") : emptySim;
+  const line = canCalc ? debtTimeline(working, extraN) : null;
   const single = working.length === 1;
   const now = currentMonthKey();
   const when = (months: number) => {
@@ -97,10 +100,10 @@ export function DebtPage() {
                   inputMode="decimal"
                   className="w-20"
                   placeholder="Rate %"
-                  value={debt.apr === 0 ? "" : String(debt.apr)}
+                  value={debt.apr < 0 ? "" : String(debt.apr)}
                   onChange={(e) => {
                     const next = readNumber(e.target.value);
-                    setRows(working.map((row) => row.id === debt.id ? { ...row, apr: next ?? 0 } : row));
+                    setRows(working.map((row) => row.id === debt.id ? { ...row, apr: next == null ? -1 : next } : row));
                   }}
                 />
                 <Input
@@ -130,6 +133,7 @@ export function DebtPage() {
             <Input aria-label="Minimum" inputMode="decimal" placeholder="Minimum" value={minimum} onChange={(e) => setMinimum(e.target.value)} />
           </div>
           {fromAccounts.some((row) => working.some((debt) => debt.id === row.id)) ? <p className="text-xs text-muted">↺ from your accounts</p> : null}
+          {rateMissing ? <p className="text-xs text-muted" role="status">Enter the rate for each debt. A blank rate leaves the result empty. Typing 0 is fine.</p> : null}
           {typing && (debtNeeds || !name.trim()) ? (
             <p className="text-xs text-muted" role="status">
               {debtNeeds ? `Enter ${debtNeeds} to add this debt.` : "Enter a name to add this debt."}
@@ -179,7 +183,7 @@ export function DebtPage() {
           ? [
               { label: "Paid off in", value: ava.unfinished ? "—" : `${ava.months} months` },
               { label: "Interest", value: ava.unfinished ? "—" : formatMoney(ava.interest) },
-              { label: "Paying each month", value: formatMoney(monthlyTotal) },
+              { label: "Paying each month", value: extraMissing ? "—" : formatMoney(monthlyTotal) },
               { label: "Extra", value: formatMoney(extraN) },
             ]
           : [
@@ -187,7 +191,7 @@ export function DebtPage() {
               { label: "Interest, highest rate first", value: ava.unfinished ? "—" : formatMoney(ava.interest) },
               { label: "Smallest balance first", value: snow.unfinished ? "—" : `${snow.months} months` },
               { label: "Interest, smallest balance first", value: snow.unfinished ? "—" : formatMoney(snow.interest) },
-              { label: "Paying each month", value: formatMoney(monthlyTotal) },
+              { label: "Paying each month", value: extraMissing ? "—" : formatMoney(monthlyTotal) },
               { label: "Debts", value: String(working.length) },
             ]
       }

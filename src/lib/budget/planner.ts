@@ -2,6 +2,8 @@ import { latestBalance } from "./accounts.ts";
 import { dataDepth, savingsRateSeries, typicalMonth } from "./analytics-depth.ts";
 import { actualMonthlySaving } from "./my-numbers.ts";
 import { roundMoney } from "./money.ts";
+import { monthLedger } from "./ledger-month.ts";
+import { currentMonthKey } from "./parse-date.ts";
 import { planTotal } from "./plans.ts";
 import { DEFAULT_INFLATION, DEFAULT_RETIRE_AGE, DEFAULT_WITHDRAWAL, PLANNING_MARKET, figureById, figureLine } from "./reference.ts";
 import type { Account, BalancePoint, Category, Profile, Transaction } from "./types.ts";
@@ -123,12 +125,16 @@ export function plannerFacts(input: {
     creditOwed: foundCard
       ? { value: roundMoney(owed), source: "from your accounts", note: "Credit card balances." }
       : { value: null, source: "typed", note: "No card balance yet." },
-    monthlySaving:
-      moved != null
+    monthlySaving: (() => {
+      const ym = currentMonthKey();
+      const ledger = monthLedger({ transactions: input.transactions, categories: input.categories, style: "monthly" }, ym);
+      if (ledger.totals.leftOver < 0) return { value: null, source: "typed", note: "This month is over. Enter what you can save." };
+      return moved != null
         ? { value: moved, source: "from your accounts", note: "Average moved into savings over the last three complete months." }
         : monthly != null
           ? { value: monthly, source: "from your income", note: "A typical month of income, minus a typical month of spending." }
-          : { value: null, source: "typed", note: "Not enough history to guess monthly saving." },
+          : { value: null, source: "typed", note: "Not enough history to guess monthly saving." };
+    })(),
     incomeWantedYearly:
       wanted != null
         ? {

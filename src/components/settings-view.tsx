@@ -79,7 +79,7 @@ export function SettingsView() {
           {HOUSEHOLD_LABELS[profile.household]} · {STAGE_LABELS[profile.lifeStage]} · {HOUSING_LABELS[profile.housing]}
           {profile.dependents ? ` · ${profile.dependents} dependent${profile.dependents === 1 ? "" : "s"}` : ""}
         </p>
-        <p className="text-sm text-muted">Typical take-home {formatMoney(profile.monthlyIncome)} / month</p>
+        <p className="text-sm text-muted">Expected {formatMoney(profile.monthlyIncome)} / month</p>
         <Field label="Review period">
           <Select value={profile.budgetPeriod} onChange={(e) => setBudgetPeriod(e.target.value as "month" | "week")}>
             <option value="month">Month to month</option>

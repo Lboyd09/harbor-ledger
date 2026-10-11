@@ -1,14 +1,6 @@
-import { existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 
-const ogSkill = ".grok/skills/og/SKILL.md";
-const ogRefs = ".grok/skills/og/references";
-
-if (!existsSync(ogSkill) || !existsSync(ogRefs)) {
-  console.log("skipped: missing .grok/skills/og");
-  process.exit(0);
-}
-
+// Always run the script test suite. The og skill fixtures are optional for some tests.
 const result = spawnSync(process.execPath, ["--test", "scripts/**/*.test.mjs"], {
   stdio: "inherit",
 });

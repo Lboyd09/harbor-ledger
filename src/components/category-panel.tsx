@@ -265,7 +265,7 @@ function CategoryPanel({ categoryId, initialYm, onClose }: { categoryId: string;
       {story ? (
         <p className="mt-3 text-sm">
           <span className="font-medium">This month: {story.thisMonth}.</span>
-          {story.fromEarlier !== 0 ? ` From earlier: ${formatMoney(story.fromEarlier)}.` : ` ${story.detail}`}
+          {story.fromEarlier !== 0 ? ` Last month's leftover: ${formatMoney(story.fromEarlier)}.` : ` ${story.detail}`}
         </p>
       ) : null}
       {linked ? (
@@ -390,7 +390,7 @@ function Amounts({ category, ym, line, onClose }: { category: Category; ym: stri
       <h3 className="text-sm font-medium">Amounts</h3>
       <div className="grid grid-cols-2 gap-2">
         <label className="text-xs text-muted">
-          Usual amount
+          Normal amount
           <AmountField
             className="mt-1"
             aria-label={`Monthly amount for ${category.name}`}
@@ -424,7 +424,7 @@ function Amounts({ category, ym, line, onClose }: { category: Category; ym: stri
       {undo ? (
         <p className="flex flex-wrap items-center gap-2 text-sm" role="status">
           <span>
-            Usual amount changed from {formatMoney(undo.before)} to {formatMoney(undo.after)}.
+            Normal amount changed from {formatMoney(undo.before)} to {formatMoney(undo.after)}.
           </span>
           <Button
             size="sm"

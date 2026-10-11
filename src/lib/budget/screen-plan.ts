@@ -32,11 +32,9 @@ export function budgetLead(input: { plannedSpend: number; usualIncome: number; t
     : `${formatMoney(input.plannedSpend)} planned of ${formatMoney(input.usualIncome)} income`;
   let cover: string | null = null;
   let warn = false;
-  if (input.typicalSpend != null && input.typicalSpend > 0 && input.typicalMonths >= 3) {
-    const pct = Math.round((input.plannedSpend / input.typicalSpend) * 100);
-    warn = pct > 150;
-    cover = warn ? `Plan is ${pct}% of a usual month` : null;
-  }
+  // Removed "Plan is X% of a usual month" — it confused people.
+  cover = null;
+  warn = false;
   return { sentence, cover, incomeMissing, warn };
 }
 

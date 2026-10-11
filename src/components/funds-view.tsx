@@ -127,7 +127,7 @@ export function FundsView() {
       <>
       {funds.length ? (
         <div>
-          <p className="font-display text-xl">Across all funds: {formatMoney(total)}</p>
+          <p className="font-display text-xl">Across all savings goals: {formatMoney(total)}</p>
           <p className="mt-1 text-sm text-muted">
             +{formatMoney(ledger.totals.savedToFunds)} in · {formatMoney(used)} used
           </p>

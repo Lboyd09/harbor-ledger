@@ -11,7 +11,7 @@ test("the budget lead names the plan and stays quiet when income is missing", ()
   assert.match(ready.sentence, /3,000/);
   assert.equal(ready.cover, null);
   const hot = budgetLead({ plannedSpend: 4000, usualIncome: 3000, typicalSpend: 2000, typicalMonths: 4 });
-  assert.match(hot.cover ?? "", /%/);
+  assert.equal(hot.cover, null); // "Plan is X% of a usual month" was removed
   const thin = budgetLead({ plannedSpend: 400, usualIncome: 0, typicalSpend: null, typicalMonths: 1 });
   assert.equal(thin.incomeMissing, true);
   assert.match(thin.sentence, /add income/i);

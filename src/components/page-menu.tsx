@@ -159,21 +159,12 @@ export function BudgetMenu({
         items={[
           { to: "/budget", label: "This month", current: page === "month" || page === "amounts" },
           { to: "/budget", search: { page: "transactions" }, label: "Transactions", current: page === "transactions" },
+          { to: "/year", label: "Year", current: page === "year" },
+          { to: "/rules", label: "Categories", current: page === "rules" },
           { to: "/import", label: "Import", current: page === "import" },
           ...(onAccounts ? [{ label: "Accounts", current: false, onSelect: onAccounts }] : []),
         ]}
       />
-      <details>
-        <summary className="min-h-11 cursor-pointer text-sm text-muted">More</summary>
-        <SectionTabs
-          label="More budget pages"
-          items={[
-            { to: "/year", label: "Year", current: page === "year" },
-            { to: "/rules", label: "Sorting", current: page === "rules" },
-            { to: "/imports", label: "Past imports", current: page === "imports" },
-          ]}
-        />
-      </details>
     </div>
   );
 }

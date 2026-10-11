@@ -41,8 +41,8 @@ export function calculatorDebts(accounts: Account[], balances: BalancePoint[], d
     if (!isCard && !isLoan) continue;
     // Prefer a matching saved debt for the real rate and minimum. Never default to 0%.
     const match = moneyDebts.find((debt) => debt.name.trim().toLowerCase() === account.name.trim().toLowerCase());
-    // Use the saved rate and minimum when we have them. A missing rate stays editable and is never treated as a real 0%.
-    const apr = match?.apr ?? 0;
+    // Missing rate is -1 (sentinel). A typed 0 stays 0 and is calculated. Never treat missing as 0%.
+    const apr = match?.apr ?? -1;
     const minimum = match?.minimum ?? 0;
     rows.push({ id: `plan_${account.id}`, name: account.name, balance, apr, minimum, origin: "plan" });
   }

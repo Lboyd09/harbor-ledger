@@ -137,7 +137,7 @@ function BudgetSides({ style }: { style: BudgetStyle }) {
               {formatMoney(spent)} of {formatMoney(planned)}
             </span>
             {story && story.fromEarlier !== 0 ? (
-              <span className="block text-xs text-muted">From earlier: {formatMoney(story.fromEarlier)}</span>
+              <span className="block text-xs text-muted">Last month's leftover: {formatMoney(story.fromEarlier)}</span>
             ) : null}
             {story ? (
               <span className="mt-1 inline-flex max-w-full rounded-full bg-chip px-2 py-1 text-xs">
@@ -191,7 +191,7 @@ function BudgetSides({ style }: { style: BudgetStyle }) {
       <section className="rounded-lg border border-border bg-surface p-4">
         <p className="font-display text-xl font-semibold">{lead.sentence}</p>
         {lead.cover ? <p className={`mt-1 text-sm ${lead.warn ? "text-danger" : "text-muted"}`}>{lead.cover}</p> : null}
-        {forecast ? <p className="mt-2 text-sm">On pace: {formatMoney(forecast.projectedLeft, { signed: true })} by month end</p> : null}
+        {forecast ? <p className="mt-2 text-sm">If you keep spending like this: {formatMoney(forecast.projectedLeft, { signed: true })} by month end</p> : null}
         {ideas.map((idea) => (
           <div key={idea.id} className="mt-2 flex flex-wrap items-center gap-2 text-sm">
             <span>{idea.sentence}</span>
@@ -220,10 +220,10 @@ function BudgetSides({ style }: { style: BudgetStyle }) {
                 <SideHead row={row} />
                 {due ? <p className="mt-2 text-sm font-medium">{due}</p> : null}
                 <label className="mt-3 block text-xs text-muted">
-                  Usual amount
+                  Normal amount
                   <AmountField
                     className="mt-1 max-w-xs"
-                    aria-label={`Usual amount for ${category.name}`}
+                    aria-label={`Normal amount for ${category.name}`}
                     value={amountDraft(category.plannedMonthly)}
                     placeholder="0"
                     onCommit={(draft) => {

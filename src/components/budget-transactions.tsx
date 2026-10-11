@@ -94,7 +94,7 @@ export function TransactionsPage() {
         </p>
         <div className="flex flex-wrap gap-2">
           <Link to="/import"><Button>Import a CSV</Button></Link>
-          <Link to="/rules"><Button variant="outline">Sorting</Button></Link>
+          <Link to="/rules"><Button variant="outline">Categories</Button></Link>
           <Button variant="ghost" onClick={() => loadSample()}>Try the demo</Button>
         </div>
       </div>
@@ -104,7 +104,7 @@ export function TransactionsPage() {
   return (
     <div className="space-y-6">
       <p className="text-sm text-muted">
-        {formatMoney(ledger.totals.received)} received · {formatMoney(ledger.totals.spent)} spent · {formatMoney(ledger.totals.savedToFunds)} saved to funds · {formatMoney(ledger.totals.leftOver, { signed: true })} left
+        {formatMoney(ledger.totals.received)} received · {formatMoney(ledger.totals.spent)} spent · {formatMoney(ledger.totals.savedToFunds)} moved to savings · {formatMoney(ledger.totals.leftOver, { signed: true })} left
       </p>
       {accounts.length > 1 ? (
         <label className="block text-sm text-muted">

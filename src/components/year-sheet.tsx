@@ -94,6 +94,7 @@ function SheetSection({
 export function YearSheet({ embedded = false }: { embedded?: boolean }) {
   const transactions = useBudgetStore((s) => s.transactions);
   const categories = useBudgetStore((s) => s.categories);
+  const profile = useBudgetStore((s) => s.profile);
   const activeMonth = useBudgetStore((s) => s.activeMonth);
   const applyRecommendedPlans = useBudgetStore((s) => s.applyRecommendedPlans);
   const setActiveMonth = useBudgetStore((s) => s.setActiveMonth);
@@ -136,13 +137,11 @@ export function YearSheet({ embedded = false }: { embedded?: boolean }) {
         ) : (
           <div>
             <h1 className="font-display text-2xl font-semibold md:text-3xl">{year} sheet</h1>
-            <p className="mt-2 text-sm text-muted" title="Typical is the median of months with activity. A blank plan uses that typical amount.">
-              {formatMoney(book.income)} in · {formatMoney(book.expenses)} out ·{" "}
+            <p className="mt-2 text-sm text-muted">
+              Expected {formatMoney(profile.monthlyIncome || 0)} / month · Received so far {formatMoney(book.income)} ·{" "}
               <span className={book.net < 0 ? "text-danger" : "text-good"}>
                 {formatMoney(book.net, { signed: true })} saved
               </span>
-              {book.income > 0 ? ` · ${Math.round(book.savingsRate * 100)}%` : ""} · {book.monthsOnTrack}/{book.activeMonths}{" "}
-              months on track
             </p>
           </div>
         )}

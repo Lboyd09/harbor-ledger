@@ -1,5 +1,6 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { monthLabel, shiftMonth, shiftWeek, weekLabel } from "@/lib/budget/parse-date";
+import { monthLabel, shiftMonth, shiftWeek, weekLabel, weekKeyFromDate } from "@/lib/budget/parse-date";
+import { formatMoney } from "@/lib/budget/money";
 import { monthsInData, weeksInData } from "@/lib/budget/totals";
 import { useBudgetStore } from "@/store/budget-store";
 import { Button } from "./ui/button";
@@ -44,8 +45,16 @@ export function MonthSwitcher({ compact = false }: { compact?: boolean }) {
         <Button variant="ghost" size="sm" aria-label="Previous week" onClick={() => setActiveWeek(prev)}>
           <ChevronLeft className="size-4" />
         </Button>
-        <div className={compact ? "min-w-36 text-center font-display text-base font-semibold" : "min-w-44 text-center font-display text-lg font-semibold"}>
-          {weekLabel(activeWeek)}
+        <div className={compact ? "min-w-36 text-center" : "min-w-44 text-center"}>
+          <div className="font-display text-base font-semibold md:text-lg">{weekLabel(activeWeek)}</div>
+          <div className="text-xs text-muted">
+            {(() => {
+              const weekTx = transactions.filter((t) => weekKeyFromDate(t.date) === activeWeek && !t.excluded);
+              const income = weekTx.filter((t) => t.amount > 0).reduce((s, t) => s + t.amount, 0);
+              const spent = weekTx.filter((t) => t.amount < 0).reduce((s, t) => s + Math.abs(t.amount), 0);
+              return `In ${formatMoney(income)} · Out ${formatMoney(spent)}`;
+            })()}
+          </div>
         </div>
         <Button variant="ghost" size="sm" aria-label="Next week" onClick={() => setActiveWeek(next)}>
           <ChevronRight className="size-4" />

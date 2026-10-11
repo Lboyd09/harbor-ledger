@@ -59,8 +59,6 @@ export function BudgetView({ page }: { page: "month" | "amounts" | "transactions
     page === "month" ? stillComingThisMonth(recurringBills(transactions, categories, today), today, transactions) ?? [] : [];
   const [leftWhy, setLeftWhy] = useState(false);
   const expectedIncome = ledger.income.reduce((sum, line) => sum + line.expected, 0);
-  const incomeLabel = ledger.totals.received > 0.5 ? "Received" : "Income";
-  const incomeValue = ledger.totals.received > 0.5 ? ledger.totals.received : expectedIncome;
   const [coach, setCoach] = useState(false);
   const [fundsOpen, setFundsOpen] = useState(false);
 
@@ -71,11 +69,12 @@ export function BudgetView({ page }: { page: "month" | "amounts" | "transactions
         <MonthSwitcher compact={page !== "month"} />
       </div>
       <p className="text-sm text-muted">{monthLabel(ym)}</p>
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-4" aria-label="This month">
-        <Strip label={incomeLabel} value={formatMoney(incomeValue)} />
+      <section className="grid grid-cols-2 gap-3 sm:grid-cols-5" aria-label="This month">
+        <Strip label="Expected" value={formatMoney(expectedIncome)} />
+        <Strip label="Received so far" value={formatMoney(ledger.totals.received)} />
         <Strip label="Spent" value={formatMoney(ledger.totals.spent)} />
         <button type="button" className="rounded-lg border border-border bg-surface px-3 py-3 text-left" onClick={() => setFundsOpen((open) => !open)} aria-expanded={fundsOpen}>
-          <div className="text-xs font-medium uppercase tracking-wide text-muted">Saved to funds</div>
+          <div className="text-xs font-medium uppercase tracking-wide text-muted">Moved to savings</div>
           <div className="money mt-1 font-display tabular" data-money>{formatMoney(ledger.totals.savedToFunds)}</div>
         </button>
         <div className="rounded-lg border border-border bg-surface px-3 py-3 text-left">

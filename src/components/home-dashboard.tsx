@@ -14,7 +14,6 @@ import { isDemoLedger } from "@/lib/budget/onboarding-plan";
 import { coverSentence, queueStats, reviewQueue } from "@/lib/budget/review-queue";
 import { comingUp } from "@/lib/budget/screen-plan";
 import { checklistOpen, startedChecklist } from "@/lib/budget/checklist";
-import { shouldRemindBackup } from "@/lib/budget/backup-reminder";
 import { importIsStale, importStreak, monthRecap } from "@/lib/budget/recap";
 import { useBudgetStore } from "@/store/budget-store";
 import { CategorizeCoach } from "./categorize-coach";
@@ -207,23 +206,7 @@ export function HomeDashboard() {
           </section>
         );
       })()}
-      {shouldRemindBackup({
-        signedIn: false,
-        hasImport: (imports ?? []).length > 0,
-        lastDismiss: typeof localStorage === "undefined" ? null : localStorage.getItem("harbor-backup-remind"),
-        today,
-      }) ? (
-        <section className="rounded-lg border border-border bg-surface p-4">
-          <p className="text-sm">Your budget lives only in this browser.</p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            <Link to="/settings"><Button size="sm">Download backup</Button></Link>
-            <Link to="/login"><Button size="sm" variant="outline">Create free account</Button></Link>
-            <Button size="sm" variant="ghost" onClick={() => localStorage.setItem("harbor-backup-remind", today)}>
-              Not now
-            </Button>
-          </div>
-        </section>
-      ) : null}
+      
       {importIsStale(imports?.[0]?.importedAt ?? null, today) ? (
         <p className="text-sm">Time to add this month's bank file.</p>
       ) : null}
@@ -242,7 +225,7 @@ export function HomeDashboard() {
 
       <section className={`rounded-lg border p-4 ${safe.amount < 0 ? "border-danger/40 bg-danger/10" : "border-border bg-surface"}`}>
         <div className="flex items-start justify-between gap-3">
-          <p className="flex items-center text-sm text-muted">Safe to spend <InfoTip label="What is safe to spend?" text="Income so far − planned bills − overspending." href="/help#safe-to-spend" /></p>
+          <p className="flex items-center text-sm text-muted">You can spend <InfoTip label="What is safe to spend?" text="Income so far − planned bills − overspending." href="/help#safe-to-spend" /></p>
           <button
             type="button"
             className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full border border-border text-sm"

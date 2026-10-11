@@ -348,7 +348,18 @@ export function normalizeSnapshot(raw: unknown): LedgerSnapshot | null {
   });
   const debts = normalizeDebts(inner.debts).filter((debt) => {
     const isLeftoverCard = /card/i.test(debt.name) && Math.abs(debt.balance - 5000) < 1 && Math.abs(debt.apr - 24) < 0.1;
-    return !isLeftoverCard;
+    if (!isLeftoverCard) return true;
+    // Only drop the legacy calculator row. Keep it if it's tied to a real account or has origin "money".
+    if (debt.origin === "money") return true;
+    const name = debt.name.trim().toLowerCase();
+    const hasMatchingAccount = accounts.some((account) => {
+      if (account.kind !== "credit") return false;
+      if (account.name.trim().toLowerCase() === name) return true;
+      const latest = balances.filter((b) => b.accountId === account.id).sort((a, b) => b.date.localeCompare(a.date))[0];
+      const owed = latest && latest.amount < 0 ? Math.abs(latest.amount) : 0;
+      return owed > 0 && Math.abs(debt.balance - owed) <= 1;
+    });
+    return hasMatchingAccount; // keep if tied to a real account; drop only pure calculator leftovers
   });
   return {
     profile,
